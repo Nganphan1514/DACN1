@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <title>
+        Driver Monitoring Dashboard
+    </title>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+
+            background:
+                linear-gradient(135deg,
+                    #0f172a,
+                    #1e293b);
+
+            font-family:
+                Arial;
+
+            color: white;
+
+            min-height: 100vh;
+
+            padding: 30px;
+        }
+
+        h1 {
+
+            text-align: center;
+
+            margin-bottom: 30px;
+
+            font-size: 40px;
+        }
+
+        .grid {
+
+            display: grid;
+
+            grid-template-columns:
+                repeat(2, 1fr);
+
+            gap: 20px;
+        }
+
+        .card {
+
+            background:
+                rgba(255,
+                    255,
+                    255,
+                    0.08);
+
+            backdrop-filter:
+                blur(20px);
+
+            border:
+                1px solid rgba(255,
+                    255,
+                    255,
+                    0.1);
+
+            border-radius: 30px;
+
+            padding: 25px;
+
+            box-shadow:
+                0 8px 32px rgba(0,
+                    0,
+                    0,
+                    0.4);
+        }
+
+        .status {
+
+            font-size: 48px;
+
+            font-weight: bold;
+
+            margin-top: 20px;
+        }
+
+        .status-green {
+            color: #00ff88;
+        }
+
+        .status-orange {
+            color: #ffb020;
+        }
+
+        .status-red {
+            color: #ff4d4d;
+        }
+
+        .stat-grid {
+
+            display: grid;
+
+            grid-template-columns:
+                repeat(2, 1fr);
+
+            gap: 15px;
+        }
+
+        .stat-box {
+
+            background:
+                rgba(255,
+                    255,
+                    255,
+                    0.05);
+
+            padding: 20px;
+
+            border-radius: 20px;
+
+            text-align: center;
+        }
+
+        .stat-box h2 {
+            font-size: 35px;
+        }
+
+        table {
+
+            width: 100%;
+
+            border-collapse:
+                collapse;
+        }
+
+        th,
+        td {
+
+            padding: 12px;
+
+            text-align: center;
+
+            border-bottom:
+                1px solid rgba(255,
+                    255,
+                    255,
+                    0.1);
+        }
+
+        .snapshot-grid {
+
+            display: flex;
+
+            gap: 10px;
+
+            overflow-x: auto;
+        }
+
+        .snapshot-grid img {
+
+            width: 200px;
+
+            border-radius: 20px;
+
+            border:
+                2px solid rgba(255,
+                    255,
+                    255,
+                    0.2);
+        }
+
+        canvas {
+            height: 300px !important;
+        }
+    </style>
+
+</head>
+
+<body>
+
+    <h1>
+        🚗 Driver Monitoring Dashboard
+    </h1>
+
+<div class="grid">
+
+    <!-- REALTIME STATUS -->
+    <div class="card">
+
+        <h2>
+            Realtime Status
+        </h2>
+
+        <div id="status" class="status">
+            Loading...
+        </div>
+
+        <p id="risk">
+            Risk Score:
+        </p>
+
+        <p id="ear">
+            EAR:
+        </p>
+
+        <p id="mar">
+            MAR:
+        </p>
+
+        <p id="pitch">
+            Pitch:
+        </p>
+
+    </div>
+
+    <!-- TODAY STATISTICS -->
+    <div class="card">
+
+        <h2>
+            Today Statistics
+        </h2>
+
+        <div class="stat-grid">
+
+            <div class="stat-box">
+
+                <h3>
+                    Total Logs
+                </h3>
+
+                <h2 id="totalLogs">
+                    0
+                </h2>
+
+            </div>
+
+            <div class="stat-box">
+
+                <h3>
+                    Sleepy Events
+                </h3>
+
+                <h2 id="sleepyCount">
+                    0
+                </h2>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- RISK CHART -->
+    <div class="card">
+
+        <h2>
+            Risk Score Chart
+        </h2>
+
+        <canvas id="riskChart"></canvas>
+
+    </div>
+
+    <!-- DRIVER MANAGEMENT -->
+    <div class="card">
+
+        <h2>
+            Driver Management
+        </h2>
+
+        <table>
+
+            <thead>
+
+                <tr>
+                    <th>Name</th>
+                    <th>Phone</th>
+                    <th>License</th>
+                    <th>Status</th>
+                </tr>
+
+            </thead>
+
+            <tbody id="driversTable">
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+    <!-- VEHICLE MANAGEMENT -->
+    <div class="card">
+
+        <h2>
+            Vehicle Management
+        </h2>
+
+        <table>
+
+            <thead>
+
+                <tr>
+                    <th>Plate</th>
+                    <th>Model</th>
+                    <th>Status</th>
+                </tr>
+
+            </thead>
+
+            <tbody id="vehiclesTable">
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+    <!-- DRIVING HISTORY -->
+    <div class="card">
+
+        <h2>
+            Driving History
+        </h2>
+
+        <table>
+
+            <thead>
+
+                <tr>
+                    <th>Time</th>
+                    <th>Status</th>
+                    <th>Risk</th>
+                </tr>
+
+            </thead>
+
+            <tbody id="history">
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+    <!-- SNAPSHOTS -->
+    <div class="card">
+
+        <h2>
+            Snapshots
+        </h2>
+
+        <div class="snapshot-grid" id="snapshots">
+
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+
+    let chart
+
+    // =====================
+    // LOAD MAIN DATA
+    // =====================
+    async function loadData() {
+
+        // STATUS
+        const statusRes =
+            await fetch(
+                "/api/status"
+            )
+
+        const statusData =
+            await statusRes.json()
+
+        const statusElement =
+            document.getElementById(
+                "status"
+            )
+
+        statusElement.innerText =
+            statusData.status
+
+        statusElement.className =
+            "status"
+
+        if (
+            statusData.status
+            ==
+            "TINH TAO"
+        ) {
+
+            statusElement.classList.add(
+                "status-green"
+            )
+
+        }
+        else if (
+            statusData.status
+            ==
+            "MET MOI"
+        ) {
+
+            statusElement.classList.add(
+                "status-orange"
+            )
+
+        }
+        else {
+
+            statusElement.classList.add(
+                "status-red"
+            )
+
+        }
+
+        document
+            .getElementById(
+                "risk"
+            )
+            .innerText =
+            "Risk Score: "
+            +
+            statusData.risk_score
+
+        document
+            .getElementById(
+                "ear"
+            )
+            .innerText =
+            "EAR: "
+            +
+            statusData.ear
+
+        document
+            .getElementById(
+                "mar"
+            )
+            .innerText =
+            "MAR: "
+            +
+            statusData.mar
+
+        document
+            .getElementById(
+                "pitch"
+            )
+            .innerText =
+            "Pitch: "
+            +
+            statusData.pitch
+
+        // =====================
+        // LOGS
+        // =====================
+        const logsRes =
+            await fetch(
+                "/api/logs"
+            )
+
+        const logs =
+            await logsRes.json()
+
+        const tbody =
+            document.getElementById(
+                "history"
+            )
+
+        tbody.innerHTML =
+            ""
+
+        logs
+            .slice(0, 10)
+            .forEach(log => {
+
+                tbody.innerHTML += `
+        <tr>
+            <td>${log.timestamp}</td>
+            <td>${log.status}</td>
+            <td>${log.risk_score}</td>
+        </tr>
+        `
+
+            })
+
+        // =====================
+        // CHART
+        // =====================
+        const riskData =
+            logs
+                .slice(0, 20)
+                .reverse()
+
+        const labels =
+            riskData.map(
+                x => x.id
+            )
+
+        const values =
+            riskData.map(
+                x => x.risk_score
+            )
+
+        if (chart) {
+
+            chart.destroy()
+
+        }
+
+        chart =
+            new Chart(
+                document
+                    .getElementById(
+                        "riskChart"
+                    ),
+                {
+
+                    type: "line",
+
+                    data: {
+
+                        labels,
+
+                        datasets: [
+                            {
+
+                                label:
+                                    "Risk Score",
+
+                                data: values,
+
+                                borderWidth: 3
+
+                            }]
+                    }
+
+                })
+
+        // =====================
+        // STATS
+        // =====================
+        const statsRes =
+            await fetch(
+                "/api/stats"
+            )
+
+        const stats =
+            await statsRes.json()
+
+        document
+            .getElementById(
+                "totalLogs"
+            )
+            .innerText =
+            stats.total
+
+        document
+            .getElementById(
+                "sleepyCount"
+            )
+            .innerText =
+            stats.sleepy_count
+
+        // =====================
+        // SNAPSHOTS
+        // =====================
+        const snapRes =
+            await fetch(
+                "/api/snapshots"
+            )
+
+        const snaps =
+            await snapRes.json()
+
+        const snapDiv =
+            document
+                .getElementById(
+                    "snapshots"
+                )
+
+        snapDiv.innerHTML =
+            ""
+
+        snaps
+            .slice(0, 5)
+            .forEach(file => {
+
+                snapDiv.innerHTML += `
+        <img
+        src="/snapshots/${file}"
+        >
+        `
+
+            })
+
+    }
+
+    // =====================
+    // LOAD DRIVERS
+    // =====================
+    async function loadDrivers() {
+
+        const res =
+            await fetch(
+                "/api/drivers"
+            )
+
+        const data =
+            await res.json()
+
+        const tbody =
+            document.getElementById(
+                "driversTable"
+            )
+
+        tbody.innerHTML =
+            ""
+
+        data.forEach(driver => {
+
+            tbody.innerHTML += `
+        <tr>
+            <td>${driver.full_name}</td>
+            <td>${driver.phone}</td>
+            <td>${driver.license_number}</td>
+            <td>${driver.status}</td>
+        </tr>
+        `
+
+        })
+
+    }
+
+    // =====================
+    // LOAD VEHICLES
+    // =====================
+    async function loadVehicles() {
+
+        const res =
+            await fetch(
+                "/api/vehicles"
+            )
+
+        const data =
+            await res.json()
+
+        const tbody =
+            document.getElementById(
+                "vehiclesTable"
+            )
+
+        tbody.innerHTML =
+            ""
+
+        data.forEach(vehicle => {
+
+            tbody.innerHTML += `
+        <tr>
+            <td>${vehicle.plate_number}</td>
+            <td>${vehicle.model}</td>
+            <td>${vehicle.status}</td>
+        </tr>
+        `
+
+        })
+
+    }
+
+    // =====================
+    // AUTO REFRESH
+    // =====================
+    setInterval(() => {
+
+        loadData()
+        loadDrivers()
+        loadVehicles()
+
+    }, 2000)
+
+    // FIRST LOAD
+    loadData()
+    loadDrivers()
+    loadVehicles()
+
+</script>
+</body>
+
+</html>

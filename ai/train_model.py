@@ -13,13 +13,11 @@ file_path = "dataset/drowsiness_dataset.csv"
 
 df = pd.read_csv(file_path)
 
-print("===== 5 dong dau =====")
+print("===== 5 DÒNG ĐẦU =====")
 print(df.head())
 
 # ======================
-# Chia dữ liệu
-# X = feature
-# y = label
+# Feature và Label
 # ======================
 X = df[["EAR", "MAR"]]
 
@@ -27,28 +25,28 @@ y = df["Label"]
 
 # ======================
 # Chia train/test
-# 80% train
-# 20% test
 # ======================
 X_train, X_test, y_train, y_test = train_test_split(
     X,
     y,
     test_size=0.2,
-    random_state=42
+    random_state=42,
+    stratify=y
 )
 
 # ======================
-# Khởi tạo model SVM
+# Khởi tạo model
 # ======================
 model = SVC(
-    kernel="rbf"
+    kernel="rbf",
+    probability=True
 )
 
-# ======================
-# Train model
-# ======================
-print("\nDang train model...")
+print("\nĐang train model...")
 
+# ======================
+# Train
+# ======================
 model.fit(
     X_train,
     y_train
@@ -57,7 +55,7 @@ model.fit(
 print("Train xong!")
 
 # ======================
-# Dự đoán
+# Predict
 # ======================
 y_pred = model.predict(X_test)
 
@@ -69,10 +67,13 @@ accuracy = accuracy_score(
     y_pred
 )
 
-print("\n===== KET QUA =====")
-print(f"Do chinh xac: {accuracy:.2f}")
+print("\n===== KẾT QUẢ =====")
+print(
+    f"Độ chính xác: {accuracy:.2f}"
+)
 
 print("\n===== REPORT =====")
+
 print(
     classification_report(
         y_test,
@@ -93,5 +94,5 @@ joblib.dump(
     "model/drowsy_model.pkl"
 )
 
-print("\nDa luu model!")
+print("\nĐã lưu model:")
 print("model/drowsy_model.pkl")
