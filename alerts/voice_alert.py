@@ -1,8 +1,9 @@
 from gtts import gTTS
 from playsound import playsound
-import os
-import time
+
 import threading
+import time
+import os
 
 # ==========================
 # COOLDOWN
@@ -10,29 +11,47 @@ import threading
 last_warning_time = 0
 warning_delay = 8
 
+# ==========================
+# TEMP FILE
+# ==========================
+TEMP_AUDIO = "temp_warning.mp3"
 
-def play_audio(file_name):
+
+# ==========================
+# PLAY VOICE
+# ==========================
+def play_voice(text):
 
     try:
 
-        playsound(file_name)
-
-    except Exception as e:
-
-        print("Play Error:", e)
-
-    finally:
-
-        if os.path.exists(file_name):
+        # xóa file cũ
+        if os.path.exists(TEMP_AUDIO):
 
             try:
-
-                os.remove(file_name)
-
+                os.remove(TEMP_AUDIO)
             except:
                 pass
 
+        # tạo voice tiếng Việt
+        tts = gTTS(text=text, lang="vi", slow=False)
 
+        tts.save(TEMP_AUDIO)
+
+        playsound(TEMP_AUDIO)
+
+        try:
+            os.remove(TEMP_AUDIO)
+        except:
+            pass
+
+    except Exception as e:
+
+        print("Voice Error:", e)
+
+
+# ==========================
+# SPEAK WARNING
+# ==========================
 def speak_warning(text):
 
     global last_warning_time
@@ -45,19 +64,15 @@ def speak_warning(text):
 
     try:
 
-        tts = gTTS(text=text, lang="vi", slow=False)
-
-        file_name = f"temp_" f"{int(time.time())}.mp3"
-
-        tts.save(file_name)
-
-        thread = threading.Thread(target=play_audio, args=(file_name,))
+        thread = threading.Thread(target=play_voice, args=(text,))
 
         thread.daemon = True
+
         thread.start()
+
+        last_warning_time = current_time
 
     except Exception as e:
 
-        print("Voice Error:", e)
+        print("Speak Error:", e)
 
-    last_warning_time = current_time

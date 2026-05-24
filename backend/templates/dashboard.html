@@ -1,12 +1,14 @@
 <!DOCTYPE html>
-<html>
+<html lang="vi">
 
 <head>
 
     <meta charset="UTF-8">
 
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>
-        Driver Monitoring Dashboard
+        Hệ Thống Giám Sát Tài Xế
     </title>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -25,21 +27,22 @@
                     #0f172a,
                     #1e293b);
 
-            font-family:
-                Arial;
-
             color: white;
+
+            font-family:
+                Arial,
+                sans-serif;
 
             min-height: 100vh;
 
-            padding: 30px;
+            padding: 25px;
         }
 
         h1 {
 
             text-align: center;
 
-            margin-bottom: 30px;
+            margin-bottom: 25px;
 
             font-size: 40px;
         }
@@ -49,7 +52,9 @@
             display: grid;
 
             grid-template-columns:
-                repeat(2, 1fr);
+                repeat(auto-fit,
+                    minmax(420px,
+                        1fr));
 
             gap: 20px;
         }
@@ -69,7 +74,7 @@
                 1px solid rgba(255,
                     255,
                     255,
-                    0.1);
+                    0.08);
 
             border-radius: 30px;
 
@@ -79,16 +84,21 @@
                 0 8px 32px rgba(0,
                     0,
                     0,
-                    0.4);
+                    0.3);
+        }
+
+        .card h2 {
+
+            margin-bottom: 20px;
         }
 
         .status {
 
-            font-size: 48px;
+            font-size: 42px;
 
             font-weight: bold;
 
-            margin-top: 20px;
+            margin-bottom: 15px;
         }
 
         .status-green {
@@ -103,7 +113,14 @@
             color: #ff4d4d;
         }
 
-        .stat-grid {
+        .info-box p {
+
+            margin-bottom: 10px;
+
+            font-size: 18px;
+        }
+
+        .stats {
 
             display: grid;
 
@@ -113,22 +130,30 @@
             gap: 15px;
         }
 
-        .stat-box {
+        .stat-item {
 
             background:
                 rgba(255,
                     255,
                     255,
-                    0.05);
-
-            padding: 20px;
+                    0.06);
 
             border-radius: 20px;
+
+            padding: 20px;
 
             text-align: center;
         }
 
-        .stat-box h2 {
+        .stat-item h3 {
+
+            font-size: 18px;
+
+            margin-bottom: 10px;
+        }
+
+        .stat-item h2 {
+
             font-size: 35px;
         }
 
@@ -154,30 +179,72 @@
                     0.1);
         }
 
+        th {
+            color: #93c5fd;
+        }
+
+        canvas {
+            height: 300px !important;
+        }
+
         .snapshot-grid {
 
             display: flex;
 
-            gap: 10px;
+            gap: 15px;
 
             overflow-x: auto;
         }
 
         .snapshot-grid img {
 
-            width: 200px;
+            width: 220px;
 
             border-radius: 20px;
+
+            cursor: pointer;
+
+            transition: 0.3s;
 
             border:
                 2px solid rgba(255,
                     255,
                     255,
-                    0.2);
+                    0.1);
         }
 
-        canvas {
-            height: 300px !important;
+        .snapshot-grid img:hover {
+
+            transform:
+                scale(1.05);
+        }
+
+        #preview {
+
+            position: fixed;
+
+            inset: 0;
+
+            background:
+                rgba(0,
+                    0,
+                    0,
+                    0.8);
+
+            display: none;
+
+            justify-content: center;
+
+            align-items: center;
+
+            z-index: 999;
+        }
+
+        #preview img {
+
+            width: 70%;
+
+            border-radius: 25px;
         }
     </style>
 
@@ -186,513 +253,354 @@
 <body>
 
     <h1>
-        🚗 Driver Monitoring Dashboard
+        🚗 Hệ Thống Giám Sát Tài Xế
     </h1>
 
-<div class="grid">
+    <div class="grid">
 
-    <!-- REALTIME STATUS -->
-    <div class="card">
+        <!-- STATUS -->
+        <div class="card">
 
-        <h2>
-            Realtime Status
-        </h2>
+            <h2>
+                Trạng Thái Realtime
+            </h2>
 
-        <div id="status" class="status">
-            Loading...
-        </div>
-
-        <p id="risk">
-            Risk Score:
-        </p>
-
-        <p id="ear">
-            EAR:
-        </p>
-
-        <p id="mar">
-            MAR:
-        </p>
-
-        <p id="pitch">
-            Pitch:
-        </p>
-
-    </div>
-
-    <!-- TODAY STATISTICS -->
-    <div class="card">
-
-        <h2>
-            Today Statistics
-        </h2>
-
-        <div class="stat-grid">
-
-            <div class="stat-box">
-
-                <h3>
-                    Total Logs
-                </h3>
-
-                <h2 id="totalLogs">
-                    0
-                </h2>
-
+            <div id="status" class="status">
+                Loading...
             </div>
 
-            <div class="stat-box">
+            <div class="info-box">
 
-                <h3>
-                    Sleepy Events
-                </h3>
+                <p id="risk">
+                    Risk Score:
+                </p>
 
-                <h2 id="sleepyCount">
-                    0
-                </h2>
+                <p id="ear">
+                    EAR:
+                </p>
+
+                <p id="mar">
+                    MAR:
+                </p>
 
             </div>
 
         </div>
 
-    </div>
+        <!-- STATS -->
+        <div class="card">
 
-    <!-- RISK CHART -->
-    <div class="card">
+            <h2>
+                Thống Kê Hôm Nay
+            </h2>
 
-        <h2>
-            Risk Score Chart
-        </h2>
+            <div class="stats">
 
-        <canvas id="riskChart"></canvas>
+                <div class="stat-item">
 
-    </div>
+                    <h3>
+                        Tổng Log
+                    </h3>
 
-    <!-- DRIVER MANAGEMENT -->
-    <div class="card">
+                    <h2 id="totalLogs">
+                        0
+                    </h2>
 
-        <h2>
-            Driver Management
-        </h2>
+                </div>
 
-        <table>
+                <div class="stat-item">
 
-            <thead>
+                    <h3>
+                        Buồn Ngủ
+                    </h3>
 
-                <tr>
-                    <th>Name</th>
-                    <th>Phone</th>
-                    <th>License</th>
-                    <th>Status</th>
-                </tr>
+                    <h2 id="sleepyCount">
+                        0
+                    </h2>
 
-            </thead>
+                </div>
 
-            <tbody id="driversTable">
+            </div>
 
-            </tbody>
+        </div>
 
-        </table>
+        <!-- CHART -->
+        <div class="card">
 
-    </div>
+            <h2>
+                Biểu Đồ Risk Score
+            </h2>
 
-    <!-- VEHICLE MANAGEMENT -->
-    <div class="card">
+            <canvas id="riskChart"></canvas>
 
-        <h2>
-            Vehicle Management
-        </h2>
+        </div>
 
-        <table>
+        <!-- DRIVER -->
+        <div class="card">
 
-            <thead>
+            <h2>
+                Quản Lý Tài Xế
+            </h2>
 
-                <tr>
-                    <th>Plate</th>
-                    <th>Model</th>
-                    <th>Status</th>
-                </tr>
+            <table>
 
-            </thead>
+                <thead>
 
-            <tbody id="vehiclesTable">
+                    <tr>
+                        <th>Họ tên</th>
+                        <th>SĐT</th>
+                        <th>GPLX</th>
+                        <th>Trạng thái</th>
+                    </tr>
 
-            </tbody>
+                </thead>
 
-        </table>
+                <tbody id="driversTable"></tbody>
 
-    </div>
+            </table>
 
-    <!-- DRIVING HISTORY -->
-    <div class="card">
+        </div>
 
-        <h2>
-            Driving History
-        </h2>
+        <!-- VEHICLE -->
+        <div class="card">
 
-        <table>
+            <h2>
+                Quản Lý Xe
+            </h2>
 
-            <thead>
+            <table>
 
-                <tr>
-                    <th>Time</th>
-                    <th>Status</th>
-                    <th>Risk</th>
-                </tr>
+                <thead>
 
-            </thead>
+                    <tr>
+                        <th>Biển số</th>
+                        <th>Model</th>
+                        <th>Trạng thái</th>
+                    </tr>
 
-            <tbody id="history">
+                </thead>
 
-            </tbody>
+                <tbody id="vehiclesTable"></tbody>
 
-        </table>
+            </table>
 
-    </div>
+        </div>
 
-    <!-- SNAPSHOTS -->
-    <div class="card">
+        <!-- HISTORY -->
+        <div class="card">
 
-        <h2>
-            Snapshots
-        </h2>
+            <h2>
+                Lịch Sử AI
+            </h2>
 
-        <div class="snapshot-grid" id="snapshots">
+            <table>
+
+                <thead>
+
+                    <tr>
+                        <th>Thời gian</th>
+                        <th>Trạng thái</th>
+                        <th>Risk</th>
+                    </tr>
+
+                </thead>
+
+                <tbody id="history"></tbody>
+
+            </table>
+
+        </div>
+
+        <!-- SNAPSHOT -->
+        <div class="card">
+
+            <h2>
+                Ảnh Cảnh Báo
+            </h2>
+
+            <div id="snapshots" class="snapshot-grid"></div>
 
         </div>
 
     </div>
 
-</div>
+    <div id="preview">
 
-<script>
+        <img id="previewImage">
 
-    let chart
+    </div>
 
-    // =====================
-    // LOAD MAIN DATA
-    // =====================
-    async function loadData() {
+    <script>
 
-        // STATUS
-        const statusRes =
-            await fetch(
-                "/api/status"
-            )
+        let chart
 
-        const statusData =
-            await statusRes.json()
+        async function loadData() {
 
-        const statusElement =
-            document.getElementById(
-                "status"
-            )
+            const statusRes =
+                await fetch("/api/status")
 
-        statusElement.innerText =
-            statusData.status
+            const statusData =
+                await statusRes.json()
 
-        statusElement.className =
-            "status"
-
-        if (
-            statusData.status
-            ==
-            "TINH TAO"
-        ) {
-
-            statusElement.classList.add(
-                "status-green"
-            )
-
-        }
-        else if (
-            statusData.status
-            ==
-            "MET MOI"
-        ) {
-
-            statusElement.classList.add(
-                "status-orange"
-            )
-
-        }
-        else {
-
-            statusElement.classList.add(
-                "status-red"
-            )
-
-        }
-
-        document
-            .getElementById(
-                "risk"
-            )
-            .innerText =
-            "Risk Score: "
-            +
-            statusData.risk_score
-
-        document
-            .getElementById(
-                "ear"
-            )
-            .innerText =
-            "EAR: "
-            +
-            statusData.ear
-
-        document
-            .getElementById(
-                "mar"
-            )
-            .innerText =
-            "MAR: "
-            +
-            statusData.mar
-
-        document
-            .getElementById(
-                "pitch"
-            )
-            .innerText =
-            "Pitch: "
-            +
-            statusData.pitch
-
-        // =====================
-        // LOGS
-        // =====================
-        const logsRes =
-            await fetch(
-                "/api/logs"
-            )
-
-        const logs =
-            await logsRes.json()
-
-        const tbody =
-            document.getElementById(
-                "history"
-            )
-
-        tbody.innerHTML =
-            ""
-
-        logs
-            .slice(0, 10)
-            .forEach(log => {
-
-                tbody.innerHTML += `
-        <tr>
-            <td>${log.timestamp}</td>
-            <td>${log.status}</td>
-            <td>${log.risk_score}</td>
-        </tr>
-        `
-
-            })
-
-        // =====================
-        // CHART
-        // =====================
-        const riskData =
-            logs
-                .slice(0, 20)
-                .reverse()
-
-        const labels =
-            riskData.map(
-                x => x.id
-            )
-
-        const values =
-            riskData.map(
-                x => x.risk_score
-            )
-
-        if (chart) {
-
-            chart.destroy()
-
-        }
-
-        chart =
-            new Chart(
-                document
-                    .getElementById(
-                        "riskChart"
-                    ),
-                {
-
-                    type: "line",
-
-                    data: {
-
-                        labels,
-
-                        datasets: [
-                            {
-
-                                label:
-                                    "Risk Score",
-
-                                data: values,
-
-                                borderWidth: 3
-
-                            }]
-                    }
-
-                })
-
-        // =====================
-        // STATS
-        // =====================
-        const statsRes =
-            await fetch(
-                "/api/stats"
-            )
-
-        const stats =
-            await statsRes.json()
-
-        document
-            .getElementById(
-                "totalLogs"
-            )
-            .innerText =
-            stats.total
-
-        document
-            .getElementById(
-                "sleepyCount"
-            )
-            .innerText =
-            stats.sleepy_count
-
-        // =====================
-        // SNAPSHOTS
-        // =====================
-        const snapRes =
-            await fetch(
-                "/api/snapshots"
-            )
-
-        const snaps =
-            await snapRes.json()
-
-        const snapDiv =
-            document
-                .getElementById(
-                    "snapshots"
+            const status =
+                document.getElementById(
+                    "status"
                 )
 
-        snapDiv.innerHTML =
-            ""
+            status.innerText =
+                statusData.trang_thai
 
-        snaps
-            .slice(0, 5)
-            .forEach(file => {
+            status.className =
+                "status"
 
-                snapDiv.innerHTML += `
-        <img
-        src="/snapshots/${file}"
-        >
-        `
+            if (
+                statusData.trang_thai
+                === "TINH TAO"
+            ) {
 
-            })
+                status.classList.add(
+                    "status-green"
+                )
 
-    }
+            }
+            else if (
+                statusData.trang_thai
+                === "MET MOI"
+            ) {
 
-    // =====================
-    // LOAD DRIVERS
-    // =====================
-    async function loadDrivers() {
+                status.classList.add(
+                    "status-orange"
+                )
 
-        const res =
-            await fetch(
-                "/api/drivers"
-            )
+            }
+            else {
 
-        const data =
-            await res.json()
+                status.classList.add(
+                    "status-red"
+                )
 
-        const tbody =
-            document.getElementById(
-                "driversTable"
-            )
+            }
 
-        tbody.innerHTML =
-            ""
+            document
+                .getElementById(
+                    "risk"
+                )
+                .innerText =
+                "Risk Score: " +
+                statusData.risk_score
 
-        data.forEach(driver => {
+            document
+                .getElementById(
+                    "ear"
+                )
+                .innerText =
+                "EAR: " +
+                statusData.ear
 
-            tbody.innerHTML += `
-        <tr>
-            <td>${driver.full_name}</td>
-            <td>${driver.phone}</td>
-            <td>${driver.license_number}</td>
-            <td>${driver.status}</td>
-        </tr>
-        `
+            document
+                .getElementById(
+                    "mar"
+                )
+                .innerText =
+                "MAR: " +
+                statusData.mar
 
-        })
+            const logs =
+                await (
+                    await fetch(
+                        "/api/logs"
+                    )
+                ).json()
 
-    }
+            const history =
+                document.getElementById(
+                    "history"
+                )
 
-    // =====================
-    // LOAD VEHICLES
-    // =====================
-    async function loadVehicles() {
+            history.innerHTML = ""
 
-        const res =
-            await fetch(
-                "/api/vehicles"
-            )
+            logs
+                .slice(0, 10)
+                .forEach(log => {
 
-        const data =
-            await res.json()
+                    history.innerHTML += `
+            <tr>
+                <td>${log.thoi_gian}</td>
+                <td>${log.trang_thai}</td>
+                <td>${log.risk_score}</td>
+            </tr>
+            `
+                })
 
-        const tbody =
-            document.getElementById(
-                "vehiclesTable"
-            )
+            const stats =
+                await (
+                    await fetch(
+                        "/api/stats"
+                    )
+                ).json()
 
-        tbody.innerHTML =
-            ""
+            document
+                .getElementById(
+                    "totalLogs"
+                )
+                .innerText =
+                stats.total
 
-        data.forEach(vehicle => {
+            document
+                .getElementById(
+                    "sleepyCount"
+                )
+                .innerText =
+                stats.sleepy_count
 
-            tbody.innerHTML += `
-        <tr>
-            <td>${vehicle.plate_number}</td>
-            <td>${vehicle.model}</td>
-            <td>${vehicle.status}</td>
-        </tr>
-        `
+            const labels =
+                logs
+                    .slice(0, 20)
+                    .reverse()
+                    .map(x => x.id)
 
-        })
+            const values =
+                logs
+                    .slice(0, 20)
+                    .reverse()
+                    .map(x => x.risk_score)
 
-    }
+            if (chart) {
 
-    // =====================
-    // AUTO REFRESH
-    // =====================
-    setInterval(() => {
+                chart.destroy()
+            }
+
+            chart =
+                new Chart(
+                    document
+                        .getElementById(
+                            "riskChart"
+                        ),
+                    {
+                        type: "line",
+                        data: {
+                            labels,
+                            datasets: [
+                                {
+                                    label:
+                                        "Risk Score",
+                                    data: values,
+                                    borderWidth: 3
+                                }]
+                        }
+                    }
+                )
+        }
+
+        setInterval(
+            loadData,
+            2000
+        )
 
         loadData()
-        loadDrivers()
-        loadVehicles()
 
-    }, 2000)
+    </script>
 
-    // FIRST LOAD
-    loadData()
-    loadDrivers()
-    loadVehicles()
-
-</script>
 </body>
 
 </html>

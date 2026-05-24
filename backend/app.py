@@ -1,10 +1,10 @@
-from flask import Flask
+from flask import Flask, render_template
+
 from flask_cors import CORS
-from flask import render_template
 
 from routes import register_routes
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder="templates")
 
 CORS(app)
 

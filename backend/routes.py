@@ -1,53 +1,134 @@
 from flask import jsonify
-from database import get_connection
+from flask import request
+
+from database.mysql_service import db
+
+import os
 
 
 def register_routes(app):
 
+    # ==========================
+    # REALTIME LOGS
+    # ==========================
     @app.route("/api/logs")
     def get_logs():
 
-        connection = get_connection()
-
-        cursor = connection.cursor(dictionary=True)
+        cursor = db.get_cursor()
 
         cursor.execute("""
             SELECT *
-            FROM detection_logs
+            FROM nhat_ky_phat_hien
             ORDER BY id DESC
             LIMIT 100
-            """)
+        """)
 
         logs = cursor.fetchall()
 
         cursor.close()
-        connection.close()
 
         return jsonify(logs)
 
+    # ==========================
+    # STATUS
+    # ==========================
     @app.route("/api/status")
     def get_status():
 
-        connection = get_connection()
-
-        cursor = connection.cursor(dictionary=True)
+        cursor = db.get_cursor()
 
         cursor.execute("""
             SELECT *
-            FROM detection_logs
+            FROM nhat_ky_phat_hien
             ORDER BY id DESC
             LIMIT 1
-            """)
+        """)
 
         status = cursor.fetchone()
 
         cursor.close()
-        connection.close()
+
+        if not status:
+
+            status = {
+                "trang_thai": "KHONG CO DU LIEU",
+                "risk_score": 0,
+                "ear": 0,
+                "mar": 0,
+            }
 
         return jsonify(status)
 
-    import os
+    # ==========================
+    # THỐNG KÊ
+    # ==========================
+    @app.route("/api/stats")
+    def get_stats():
 
+        cursor = db.get_cursor()
+
+        cursor.execute("""
+            SELECT
+                COUNT(*) AS total,
+
+                SUM(
+                    CASE
+                    WHEN trang_thai='BUON NGU'
+                    THEN 1
+                    ELSE 0
+                    END
+                ) AS sleepy_count
+
+            FROM nhat_ky_phat_hien
+        """)
+
+        stats = cursor.fetchone()
+
+        cursor.close()
+
+        return jsonify(stats)
+
+    # ==========================
+    # TÀI XẾ
+    # ==========================
+    @app.route("/api/drivers")
+    def get_drivers():
+
+        cursor = db.get_cursor()
+
+        cursor.execute("""
+            SELECT *
+            FROM tai_xe
+        """)
+
+        drivers = cursor.fetchall()
+
+        cursor.close()
+
+        return jsonify(drivers)
+
+    # ==========================
+    # XE
+    # ==========================
+    @app.route("/api/vehicles")
+    def get_vehicles():
+
+        cursor = db.get_cursor()
+
+        cursor.execute("""
+            SELECT *
+            FROM xe
+        """)
+
+        vehicles = cursor.fetchall()
+
+        cursor.close()
+
+        return jsonify(vehicles)
+
+    # ==========================
+    # SNAPSHOTS
+    # ==========================
     @app.route("/api/snapshots")
     def get_snapshots():
 
@@ -60,192 +141,3 @@ def register_routes(app):
             files = sorted(os.listdir(folder), reverse=True)
 
         return jsonify(files)
-    @app.route(
-    "/api/stats"
-)
-    def get_stats():
-
-        connection = (
-            get_connection()
-        )
-
-        cursor = (
-            connection.cursor(
-                dictionary=True
-            )
-        )
-
-        cursor.execute(
-            """
-            SELECT
-            COUNT(*) as total,
-            SUM(
-                CASE
-                WHEN status='BUON NGU'
-                THEN 1
-                ELSE 0
-                END
-            ) as sleepy_count
-            FROM detection_logs
-            """
-        )
-
-        stats = (
-            cursor.fetchone()
-        )
-
-        cursor.close()
-        connection.close()
-
-        return jsonify(
-            stats
-        )
-
-    @app.route(
-    "/api/drivers"
-)
-    def get_drivers():
-
-        connection = (
-            get_connection()
-        )
-
-        cursor = (
-            connection.cursor(
-                dictionary=True
-            )
-        )
-
-        cursor.execute(
-            """
-            SELECT *
-            FROM drivers
-            """
-        )
-
-        drivers = (
-            cursor.fetchall()
-        )
-
-        cursor.close()
-        connection.close()
-
-        return jsonify(
-            drivers
-        )
-
-    @app.route(
-    "/api/vehicles"
-)
-    def get_vehicles():
-
-        connection = (
-            get_connection()
-        )
-
-        cursor = (
-            connection.cursor(
-                dictionary=True
-            )
-        )
-
-        cursor.execute(
-            """
-            SELECT *
-            FROM vehicles
-            """
-        )
-
-        vehicles = (
-            cursor.fetchall()
-        )
-
-        cursor.close()
-        connection.close()
-
-        return jsonify(
-            vehicles
-        )
-
-    from flask import request
-
-
-    @app.route("/api/login", methods=["POST"])
-    def login_driver():
-
-        data = request.json
-
-        driver_id = data["driver_id"]
-
-        vehicle_id = data["vehicle_id"]
-
-        connection = get_connection()
-
-        cursor = connection.cursor()
-
-        # clear old session
-        cursor.execute("""
-            DELETE FROM
-            active_session
-            """)
-
-        cursor.execute(
-            """
-            INSERT INTO
-            active_session
-            (
-                driver_id,
-                vehicle_id,
-                login_time
-            )
-            VALUES
-            (%s,%s,NOW())
-            """,
-            (driver_id, vehicle_id),
-        )
-
-        connection.commit()
-
-        cursor.close()
-        connection.close()
-
-        return {"message": "login success"}
-    
-        @app.route(
-            "/api/current-session"
-        )
-        def current_session():
-
-            connection = (
-                get_connection()
-            )
-
-            cursor = (
-                connection.cursor(
-                    dictionary=True
-                )
-            )
-
-            cursor.execute(
-                """
-                SELECT
-                d.full_name,
-                v.plate_number,
-                a.login_time
-                FROM active_session a
-                JOIN drivers d
-                ON a.driver_id=d.id
-                JOIN vehicles v
-                ON a.vehicle_id=v.id
-                LIMIT 1
-                """
-            )
-
-            session = cursor.fetchone()
-
-            cursor.close()
-            connection.close()
-
-            return jsonify(
-                session
-            )
