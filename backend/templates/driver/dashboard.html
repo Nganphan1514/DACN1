@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>
+        Cabin Assistant
+    </title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+</head>
+
+<body class="bg-slate-950 text-white min-h-screen">
+
+    <div class="w-full max-w-md mx-auto px-4 py-6">
+
+        <!-- HEADER -->
+        <div class="mb-6">
+
+            <h1 class="text-3xl font-bold">
+
+                Cabin Assistant
+
+            </h1>
+
+            <p class="text-slate-400 mt-1">
+
+                Xin chào
+
+                <span class="font-bold text-white">
+
+                    {{ data.ho_ten if data else "Tài xế" }}
+
+                </span>
+
+            </p>
+
+        </div>
+
+
+        <!-- AI STATUS -->
+        <div id="ai-status-card" class="
+            rounded-3xl
+            p-5
+            mb-5
+            bg-green-600/20
+            border
+            border-green-500
+            shadow-lg
+            shadow-green-500/10
+        ">
+
+            <div class="flex items-center gap-4">
+
+                <div class="
+                    w-4
+                    h-4
+                    rounded-full
+                    bg-green-400
+                    animate-pulse
+                "></div>
+
+                <div>
+
+                    <h2 class="font-bold text-lg">
+
+                        Hệ thống AI đang hoạt động
+
+                    </h2>
+
+                    <p class="text-sm text-slate-300">
+
+                        Đã nhận diện:
+
+                        <span class="font-semibold text-white">
+
+                            {{ data.ho_ten if data else "Chưa xác định" }}
+
+                        </span>
+
+                    </p>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- CURRENT SHIFT -->
+        <div class="
+            rounded-[32px]
+            p-6
+            mb-5
+            bg-slate-900
+            border
+            border-slate-800
+            shadow-2xl
+        ">
+
+            <div class="flex items-center justify-between mb-5">
+
+                <h2 class="text-2xl font-bold">
+
+                    Ca làm hiện tại
+
+                </h2>
+
+                {% if data and data.trang_thai %}
+
+                {% if data.trang_thai == 'dang_chay' %}
+
+                <span class="
+                        bg-green-500/20
+                        text-green-300
+                        px-4
+                        py-2
+                        rounded-full
+                        text-sm
+                        font-bold
+                        animate-pulse
+                    ">
+
+                    ĐANG CHẠY
+
+                </span>
+
+                {% elif data.trang_thai == 'sap_chay' %}
+
+                <span class="
+                        bg-cyan-500/20
+                        text-cyan-300
+                        px-4
+                        py-2
+                        rounded-full
+                        text-sm
+                        font-bold
+                    ">
+
+                    CHỜ KHỞI HÀNH
+
+                </span>
+
+                {% else %}
+
+                <span class="
+                        bg-slate-700
+                        text-slate-300
+                        px-4
+                        py-2
+                        rounded-full
+                        text-sm
+                        font-bold
+                    ">
+
+                    ĐÃ HOÀN THÀNH
+
+                </span>
+
+                {% endif %}
+
+                {% endif %}
+
+            </div>
+
+
+            <div class="space-y-5">
+
+                <!-- BIEN SO -->
+                <div>
+
+                    <p class="text-slate-400 text-sm mb-1">
+
+                        Biển số xe
+
+                    </p>
+
+                    <h3 class="text-3xl font-extrabold tracking-wide">
+
+                        {{ data.bien_so if data and data.bien_so else 'Chưa phân xe' }}
+
+                    </h3>
+
+                </div>
+
+
+                <!-- TUYEN -->
+                <div>
+
+                    <p class="text-slate-400 text-sm mb-1">
+
+                        Tuyến đường
+
+                    </p>
+
+                    <h3 class="text-lg font-semibold">
+
+                        {{ data.tuyen_duong if data and data.tuyen_duong else 'Chưa có lịch' }}
+
+                    </h3>
+
+                </div>
+
+
+                <!-- GIO -->
+                <div>
+
+                    <p class="text-slate-400 text-sm mb-1">
+
+                        Giờ xuất phát
+
+                    </p>
+
+                    <h3 class="text-lg font-bold">
+
+                        {% if data and data.gio_bat_dau %}
+
+                        {{ data.gio_bat_dau.strftime('%d/%m/%Y %H:%M') }}
+
+                        {% else %}
+
+                        --:--
+
+                        {% endif %}
+
+                    </h3>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- ACTION BUTTON -->
+        <div class="grid grid-cols-2 gap-4">
+
+            <button class="
+                p-5
+                rounded-[28px]
+                bg-red-600
+                hover:bg-red-700
+                transition
+                font-bold
+                text-lg
+                shadow-lg
+            ">
+
+                🚨 Báo sự cố
+
+            </button>
+
+
+            <button class="
+                p-5
+                rounded-[28px]
+                bg-blue-600
+                hover:bg-blue-700
+                transition
+                font-bold
+                text-lg
+                shadow-lg
+            ">
+
+                🔄 Đổi ca
+
+            </button>
+
+        </div>
+
+
+        <!-- FOOTER -->
+        <div class="mt-8 text-center">
+
+            <p class="text-slate-500 text-sm">
+
+                Driver Monitoring System
+
+            </p>
+
+        </div>
+
+    </div>
+
+</body>
+
+</html>

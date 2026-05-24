@@ -1,20 +1,25 @@
-from flask import Flask, render_template
-
+from flask import Flask
 from flask_cors import CORS
+from backend.routes.dashboard_routes import dashboard_bp
 
-from routes import register_routes
+from backend.routes.auth_routes import auth_bp
 
-app = Flask(__name__, template_folder="templates")
+app = Flask(__name__, 
+            template_folder="templates", 
+            static_folder="static")
+
+app.register_blueprint(dashboard_bp)
 
 CORS(app)
 
-register_routes(app)
+# REGISTER ROUTES
+app.register_blueprint(auth_bp)
 
 
 @app.route("/")
-def dashboard():
+def home():
 
-    return render_template("dashboard.html")
+    return "Backend Running"
 
 
 if __name__ == "__main__":
