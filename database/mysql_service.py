@@ -949,4 +949,294 @@ def lay_dashboard_tai_xe(tai_xe_id):
 
         print("Dashboard error:", e)
 
+
         return None
+# ==========================
+# LAY LICH CHAY TAI XE
+# ==========================
+def lay_lich_chay_tai_xe(tai_xe_id):
+
+    try:
+
+        sql = """
+        SELECT
+            lc.id,
+            lc.tuyen_duong,
+            lc.gio_bat_dau,
+            lc.gio_ket_thuc,
+            lc.trang_thai,
+
+            x.bien_so
+
+        FROM lich_chay lc
+
+        LEFT JOIN xe x
+        ON lc.xe_id = x.id
+
+        WHERE lc.tai_xe_id=%s
+
+        ORDER BY lc.gio_bat_dau DESC
+        """
+
+        return db.fetch_all(sql, (tai_xe_id,))
+
+    except Exception as e:
+
+        print("Loi lay lich:", e)
+
+
+        return []
+# ==========================
+# LAY THONG BAO TAI XE
+# ==========================
+def lay_thong_bao_tai_xe(tai_xe_id):
+
+    try:
+
+        sql = """
+        SELECT
+            gc.id,
+            gc.noi_dung,
+            gc.da_doc,
+            gc.created_at,
+
+            tk.ten_dang_nhap
+            AS quan_ly
+
+        FROM ghi_chu gc
+
+        LEFT JOIN tai_khoan tk
+        ON gc.quan_ly_id = tk.id
+
+        WHERE gc.tai_xe_id=%s
+
+        ORDER BY gc.id DESC
+        """
+
+        return db.fetch_all(sql, (tai_xe_id,))
+
+    except Exception as e:
+
+        print("Loi thong bao:", e)
+
+        return []
+
+
+# ==========================
+# DANH DAU DA DOC
+# ==========================
+def danh_dau_da_doc(ghi_chu_id):
+
+    try:
+
+        sql = """
+        UPDATE ghi_chu
+        SET da_doc=1
+        WHERE id=%s
+        """
+
+        db.execute(sql, (ghi_chu_id,))
+
+        return True
+
+    except Exception as e:
+
+        print("Loi update thong bao:", e)
+
+        return False
+# ==========================
+# LAY PROFILE TAI XE
+# ==========================
+def lay_profile_tai_xe(
+    tai_xe_id
+):
+
+    try:
+
+        sql = """
+        SELECT
+            tx.id,
+            tx.ho_ten,
+            tx.so_dien_thoai,
+            tx.so_gplx,
+            tx.dia_chi,
+            tx.avatar,
+            tx.trang_thai,
+
+            x.bien_so,
+            x.model
+
+        FROM tai_xe tx
+
+        LEFT JOIN xe x
+        ON x.tai_xe_mac_dinh_id =
+        tx.id
+
+        WHERE tx.id=%s
+
+        LIMIT 1
+        """
+
+        return db.fetch_one(
+            sql,
+            (
+                tai_xe_id,
+            )
+        )
+
+    except Exception as e:
+
+        print(
+            "Profile error:",
+            e
+        )
+
+        return None
+
+
+# ==========================
+# CAP NHAT PROFILE
+# ==========================
+def cap_nhat_profile_tai_xe(tai_xe_id, so_dien_thoai, dia_chi):
+
+    try:
+
+        sql = """
+        UPDATE tai_xe
+        SET
+            so_dien_thoai=%s,
+            dia_chi=%s
+        WHERE id=%s
+        """
+
+        db.execute(sql, (so_dien_thoai, dia_chi, tai_xe_id))
+
+        return True
+
+    except Exception as e:
+
+        print("Update profile error:", e)
+
+        return False
+import json
+
+
+# ==========================
+# LUU VECTOR KHUON MAT
+# ==========================
+def luu_vector_khuon_mat(tai_xe_id, embedding, do_tin_cay=1.0):
+
+    try:
+
+        # xoa vector cu
+        sql_delete = """
+        DELETE FROM
+        du_lieu_khuon_mat
+        WHERE tai_xe_id=%s
+        """
+
+        db.execute(sql_delete, (tai_xe_id,))
+
+        # save vector moi
+        sql_insert = """
+        INSERT INTO
+        du_lieu_khuon_mat
+        (
+            tai_xe_id,
+            vector_khuon_mat,
+            do_tin_cay
+        )
+        VALUES
+        (%s,%s,%s)
+        """
+
+        db.execute(sql_insert, (tai_xe_id, json.dumps(embedding.tolist()), do_tin_cay))
+
+        print("Da luu vector khuon mat")
+
+        return True
+
+    except Exception as e:
+
+        print("Loi luu vector:", e)
+
+        return False
+
+
+# ==========================
+# LUU ANH KHUON MAT
+# ==========================
+def luu_anh_khuon_mat(tai_xe_id, image_bytes):
+
+    try:
+
+        sql = """
+        INSERT INTO
+        anh_khuon_mat
+        (
+            tai_xe_id,
+            du_lieu_anh
+        )
+        VALUES
+        (%s,%s)
+        """
+
+        db.execute(sql, (tai_xe_id, image_bytes))
+
+        print("Da luu anh khuon mat")
+
+        return True
+
+    except Exception as e:
+
+        print("Loi luu anh:", e)
+
+        return False
+
+
+# ==========================
+# LOAD VECTOR KHUON MAT
+# ==========================
+def lay_du_lieu_khuon_mat():
+
+    try:
+
+        sql = """
+        SELECT *
+        FROM du_lieu_khuon_mat
+        WHERE trang_thai=
+        'hoat_dong'
+        """
+
+        return db.fetch_all(sql)
+
+    except Exception as e:
+
+        print("Loi load vector:", e)
+
+        return []
+
+
+# ==========================
+# KIEM TRA DA DANG KY MAT
+# ==========================
+def da_dang_ky_khuon_mat(tai_xe_id):
+
+    try:
+
+        sql = """
+        SELECT id
+        FROM du_lieu_khuon_mat
+        WHERE tai_xe_id=%s
+        LIMIT 1
+        """
+
+        result = db.fetch_one(sql, (tai_xe_id,))
+
+        return result is not None
+
+    except Exception as e:
+
+        print("Loi check face:", e)
+
+        return False
