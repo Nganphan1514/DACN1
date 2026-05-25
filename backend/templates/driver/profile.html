@@ -54,53 +54,65 @@
 
         <hr class="border-slate-900 my-6">
 
-        <form method="POST" action="/driver/update-profile" class="space-y-5">
+        <div class="space-y-4">
+            <form method="POST" action="/driver/update-profile" class="space-y-4">
 
-            <input type="hidden" name="tai_xe_id" value="{{ tai_xe_id }}">
+                <input type="hidden" name="tai_xe_id" value="{{ tai_xe_id }}">
 
-            <div>
-                <label class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 px-1">
-                    <span class="material-icons-round text-base text-slate-500">phone</span>
-                    Số điện thoại
-                </label>
-                <input type="text" name="so_dien_thoai" value="{{ profile.so_dien_thoai }}"
-                    class="w-full mt-2 p-4 rounded-2xl bg-slate-900 border border-slate-800 text-slate-100 placeholder-slate-600 font-medium outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all duration-200"
-                    placeholder="Nhập số điện thoại mới">
-            </div>
-
-            <div>
-                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5 px-1">
-                    <span class="material-icons-round text-base text-slate-600">badge</span>
-                    Số Giấy phép lái xe
-                </label>
-                <div class="relative">
-                    <input disabled value="{{ profile.so_gplx }}"
-                        class="w-full mt-2 p-4 rounded-2xl bg-slate-900/40 border border-slate-800/60 text-slate-500 font-mono cursor-not-allowed select-none">
-                    <span class="material-icons-round text-slate-600 absolute right-4 bottom-4 text-lg">
-                        lock
-                    </span>
+                <div>
+                    <label
+                        class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 px-1">
+                        <span class="material-icons-round text-base text-slate-500">phone</span>
+                        Số điện thoại
+                    </label>
+                    <input type="text" name="so_dien_thoai" value="{{ profile.so_dien_thoai }}"
+                        class="w-full mt-2 p-4 rounded-2xl bg-slate-900 border border-slate-800 text-slate-100 placeholder-slate-600 font-medium outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all duration-200"
+                        placeholder="Nhập số điện thoại mới">
                 </div>
-            </div>
+
+                <div>
+                    <label
+                        class="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5 px-1">
+                        <span class="material-icons-round text-base text-slate-600">badge</span>
+                        Số Giấy phép lái xe
+                    </label>
+                    <div class="relative">
+                        <input disabled value="{{ profile.so_gplx }}"
+                            class="w-full mt-2 p-4 rounded-2xl bg-slate-900/40 border border-slate-800/60 text-slate-500 font-mono cursor-not-allowed select-none">
+                        <span class="material-icons-round text-slate-600 absolute right-4 bottom-4 text-lg">
+                            lock
+                        </span>
+                    </div>
+                </div>
+
+                <div>
+                    <label
+                        class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 px-1">
+                        <span class="material-icons-round text-base text-slate-500">home_pin</span>
+                        Địa chỉ thường trú
+                    </label>
+                    <textarea name="dia_chi" rows="3"
+                        class="w-full mt-2 p-4 rounded-2xl bg-slate-900 border border-slate-800 text-slate-100 placeholder-slate-600 font-medium outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all duration-200 resize-none leading-relaxed"
+                        placeholder="Nhập địa chỉ của bạn">{{ profile.dia_chi }}</textarea>
+                </div>
+
+                <div class="pt-2">
+                    <button type="submit"
+                        class="w-full p-4 rounded-2xl bg-green-600 hover:bg-green-700 active:scale-[0.99] font-bold text-sm tracking-wide text-white transition-all duration-200 shadow-lg shadow-green-600/10 flex items-center justify-center gap-2">
+                        <span class="material-icons-round text-lg">save</span>
+                        LƯU THAY ĐỔI
+                    </button>
+                </div>
+            </form>
 
             <div>
-                <label class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 px-1">
-                    <span class="material-icons-round text-base text-slate-500">home_pin</span>
-                    Địa chỉ thường trú
-                </label>
-                <textarea name="dia_chi" rows="3"
-                    class="w-full mt-2 p-4 rounded-2xl bg-slate-900 border border-slate-800 text-slate-100 placeholder-slate-600 font-medium outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all duration-200 resize-none leading-relaxed"
-                    placeholder="Nhập địa chỉ của bạn">{{ profile.dia_chi }}</textarea>
+                <a href="/driver/register-face?tai_xe_id={{ tai_xe_id }}"
+                    class="block text-center w-full p-4 rounded-2xl bg-cyan-600 hover:bg-cyan-700 active:scale-[0.99] font-bold text-sm tracking-wide text-white transition-all duration-200 shadow-lg shadow-cyan-600/10 flex items-center justify-center gap-2">
+                    <span class="material-icons-round text-lg">face</span>
+                    ĐĂNG KÝ KHUÔN MẶT
+                </a>
             </div>
-
-            <div class="pt-2">
-                <button type="submit"
-                    class="w-full p-4 rounded-2xl bg-green-600 hover:bg-green-700 active:scale-[0.99] font-bold text-sm tracking-wide text-white transition-all duration-200 shadow-lg shadow-green-600/10 flex items-center justify-center gap-2">
-                    <span class="material-icons-round text-lg">save</span>
-                    LƯU THAY ĐỔI
-                </button>
-            </div>
-
-        </form>
+        </div>
 
     </div>
 
