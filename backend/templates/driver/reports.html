@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Báo cáo sự cố</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-slate-950 text-white min-h-screen p-4">
+
+<div class="max-w-md mx-auto">
+    <h1 class="text-2xl font-bold mb-4">Báo cáo sự cố</h1>
+
+    <div class="bg-slate-900 p-4 rounded-2xl space-y-3">
+        <input id="tieu_de" class="w-full p-3 rounded-xl bg-slate-800" placeholder="Tiêu đề">
+
+        <select id="loai_su_co" class="w-full p-3 rounded-xl bg-slate-800">
+            <option value="HU_XE">Hư xe</option>
+            <option value="HET_XANG">Hết xăng</option>
+            <option value="TAI_NAN">Tai nạn</option>
+            <option value="KHAC">Khác</option>
+        </select>
+
+        <textarea id="noi_dung" class="w-full p-3 rounded-xl bg-slate-800" rows="5" placeholder="Nội dung sự cố"></textarea>
+
+        <button onclick="guiBaoCao()" class="w-full bg-red-600 p-3 rounded-xl font-semibold">
+            Gửi báo cáo
+        </button>
+
+        <p id="msg" class="text-center text-green-400"></p>
+    </div>
+
+    <h2 class="text-xl font-bold mt-6 mb-3">Lịch sử báo cáo</h2>
+    <div id="reports" class="space-y-3"></div>
+</div>
+
+<script>
+const user = JSON.parse(localStorage.getItem("user") || "{}");
+const taiXeId = user.id || 1;
+
+async function guiBaoCao() {
+    const res = await fetch("/api/driver/reports", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            tai_xe_id: taiXeId,
+            xe_id: 1,
+            lich_chay_id: null,
+            tieu_de: document.getElementById("tieu_de").value,
+            loai_su_co: document.getElementById("loai_su_co").value,
+            noi_dung: document.getElementById("noi_dung").value,
+            hinh_anh: null
+        })
+    });
+
+    const data = await res.json();
+    document.getElementById("msg").innerText = data.message;
+    loadReports();
+}
+
+async function loadReports() {
+    const res = await fetch(`/api/driver/reports/${taiXeId}`);
+    const data = await res.json();
+
+    const box = document.getElementById("reports");
+    box.innerHTML = "";
+
+    data.data.forEach(item => {
+        box.innerHTML += `
+            <div class="bg-slate-900 p-4 rounded-xl">
+                <div class="font-bold">${item.tieu_de}</div>
+                <div class="text-sm text-slate-400">${item.loai_su_co} - ${item.trang_thai}</div>
+                <p class="mt-2">${item.noi_dung}</p>
+            </div>
+        `;
+    });
+}
+
+loadReports();
+</script>
+
+</body>
+</html>

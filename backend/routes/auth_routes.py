@@ -1,82 +1,45 @@
-from flask import Blueprint, request, jsonify, render_template
+from flask import Blueprint, request, jsonify, render_template, redirect, session
+from flask_jwt_extended import create_access_token
+from database.mysql_service import kiem_tra_dang_nhap
 
-from backend.services.auth_service import login_user
-
-from database.mysql_service import db
-
-auth_bp = Blueprint("auth", __name__)
+auth_bp = Blueprint("auth_bp", __name__)
 
 
-# ==========================
-# LOGIN PAGE
-# ==========================
-@auth_bp.route("/login")
+@auth_bp.route("/login", methods=["GET"])
 def login_page():
-
     return render_template("auth/login.html")
 
 
-# ==========================
-# LOGIN API
-# ==========================
 @auth_bp.route("/api/login", methods=["POST"])
-def login():
+def api_login():
+    data = request.get_json()
 
-    try:
+    ten_dang_nhap = data.get("ten_dang_nhap")
+    mat_khau = data.get("mat_khau")
 
-        data = request.json
+    user = kiem_tra_dang_nhap(ten_dang_nhap, mat_khau)
 
-        username = data.get("username")
+    if not user:
+        return jsonify({
+            "success": False,
+            "message": "Sai tài khoản hoặc mật khẩu"
+        }), 401
 
-        password = data.get("password")
+    token = create_access_token(identity=str(user["id"]))
 
-        result = login_user(username, password)
+    return jsonify({
+        "success": True,
+        "message": "Đăng nhập thành công",
+        "token": token,
+        "user": {
+            "id": user["id"],
+            "ten_dang_nhap": user["ten_dang_nhap"],
+            "vai_tro": user["vai_tro"]
+        }
+    })
 
-        print(result)
 
-        # ==========================
-        # LOGIN FAIL
-        # ==========================
-        if not result.get("success"):
-
-            return jsonify(result)
-
-        role = result.get("role")
-
-        username = result.get("username")
-
-        # ==========================
-        # QUAN LY
-        # ==========================
-        if role == "quan_ly":
-
-            return jsonify({"success": True, "redirect": "/admin/dashboard"})
-
-        # ==========================
-        # TAI XE
-        # ==========================
-        query = """
-        SELECT
-            tx.id
-        FROM tai_xe tx
-        INNER JOIN tai_khoan tk
-        ON tx.tai_khoan_id = tk.id
-        WHERE tk.ten_dang_nhap=%s
-        LIMIT 1
-        """
-
-        tai_xe = db.fetch_one(query, (username,))
-
-        if not tai_xe:
-
-            return jsonify({"success": False, "message": "Không tìm thấy tài xế"})
-
-        return jsonify(
-            {"success": True, "redirect": f"/driver/dashboard?tai_xe_id={tai_xe['id']}"}
-        )
-
-    except Exception as e:
-
-        print("Login error:", e)
-
-        return jsonify({"success": False, "message": "Lỗi server"})
+@auth_bp.route("/logout")
+def logout():
+    session.clear()
+    return redirect("/login")

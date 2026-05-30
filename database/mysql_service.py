@@ -1240,3 +1240,558 @@ def da_dang_ky_khuon_mat(tai_xe_id):
         print("Loi check face:", e)
 
         return False
+
+        # ==================================================
+# BAO CAO SU CO
+# ==================================================
+def tao_bao_cao_su_co(
+    tai_xe_id,
+    xe_id,
+    lich_chay_id,
+    tieu_de,
+    loai_su_co,
+    noi_dung,
+    hinh_anh=None
+):
+    try:
+        sql = """
+        INSERT INTO bao_cao_su_co
+        (
+            tai_xe_id,
+            xe_id,
+            lich_chay_id,
+            tieu_de,
+            loai_su_co,
+            noi_dung,
+            hinh_anh
+        )
+        VALUES (%s,%s,%s,%s,%s,%s,%s)
+        """
+
+        db.execute(sql, (
+            tai_xe_id,
+            xe_id,
+            lich_chay_id,
+            tieu_de,
+            loai_su_co,
+            noi_dung,
+            hinh_anh
+        ))
+
+        return True
+
+    except Exception as e:
+        print("Tao bao cao su co error:", e)
+        return False
+
+
+def lay_bao_cao_su_co_tai_xe(tai_xe_id):
+    try:
+        sql = """
+        SELECT
+            bc.*,
+            tx.ho_ten,
+            x.bien_so,
+            lc.tuyen_duong
+        FROM bao_cao_su_co bc
+        LEFT JOIN tai_xe tx ON bc.tai_xe_id = tx.id
+        LEFT JOIN xe x ON bc.xe_id = x.id
+        LEFT JOIN lich_chay lc ON bc.lich_chay_id = lc.id
+        WHERE bc.tai_xe_id = %s
+        ORDER BY bc.id DESC
+        """
+
+        return db.fetch_all(sql, (tai_xe_id,))
+
+    except Exception as e:
+        print("Lay bao cao tai xe error:", e)
+        return []
+
+
+def lay_tat_ca_bao_cao_su_co():
+    try:
+        sql = """
+        SELECT
+            bc.*,
+            tx.ho_ten,
+            x.bien_so,
+            lc.tuyen_duong
+        FROM bao_cao_su_co bc
+        LEFT JOIN tai_xe tx ON bc.tai_xe_id = tx.id
+        LEFT JOIN xe x ON bc.xe_id = x.id
+        LEFT JOIN lich_chay lc ON bc.lich_chay_id = lc.id
+        ORDER BY bc.id DESC
+        """
+
+        return db.fetch_all(sql)
+
+    except Exception as e:
+        print("Lay tat ca bao cao error:", e)
+        return []
+
+
+def cap_nhat_trang_thai_bao_cao(
+    bao_cao_id,
+    trang_thai,
+    phan_hoi_quan_ly=None
+):
+    try:
+        sql = """
+        UPDATE bao_cao_su_co
+        SET
+            trang_thai = %s,
+            phan_hoi_quan_ly = %s
+        WHERE id = %s
+        """
+
+        db.execute(sql, (
+            trang_thai,
+            phan_hoi_quan_ly,
+            bao_cao_id
+        ))
+
+        return True
+
+    except Exception as e:
+        print("Cap nhat bao cao error:", e)
+        return False
+
+
+# ==================================================
+# DRIVER HISTORY / VIOLATIONS
+# ==================================================
+def lay_lich_su_vi_pham_tai_xe(tai_xe_id):
+    try:
+        sql = """
+        SELECT
+            nk.*,
+            x.bien_so
+        FROM nhat_ky_phat_hien nk
+        LEFT JOIN xe x ON nk.xe_id = x.id
+        WHERE nk.tai_xe_id = %s
+        AND nk.trang_thai IN ('MET MOI', 'BUON NGU')
+        ORDER BY nk.id DESC
+        """
+
+        return db.fetch_all(sql, (tai_xe_id,))
+
+    except Exception as e:
+        print("Lay lich su vi pham tai xe error:", e)
+        return []
+
+
+def lay_lich_su_chay_tai_xe(tai_xe_id):
+    try:
+        sql = """
+        SELECT
+            p.*,
+            x.bien_so,
+            lc.tuyen_duong
+        FROM phien_lai_xe p
+        LEFT JOIN xe x ON p.xe_id = x.id
+        LEFT JOIN lich_chay lc ON p.lich_chay_id = lc.id
+        WHERE p.tai_xe_id = %s
+        ORDER BY p.id DESC
+        """
+
+        return db.fetch_all(sql, (tai_xe_id,))
+
+    except Exception as e:
+        print("Lay lich su chay tai xe error:", e)
+        return []
+
+
+# ==================================================
+# ADMIN DASHBOARD
+# ==================================================
+def lay_admin_dashboard():
+    try:
+        tong_tai_xe = db.fetch_one("""
+            SELECT COUNT(*) AS tong
+            FROM tai_xe
+        """)
+
+        tong_xe = db.fetch_one("""
+            SELECT COUNT(*) AS tong
+            FROM xe
+        """)
+
+        xe_dang_hoat_dong = db.fetch_one("""
+            SELECT COUNT(*) AS tong
+            FROM phien_lai_xe
+            WHERE trang_thai != 'DA_KET_THUC'
+        """)
+
+        canh_bao_hom_nay = db.fetch_one("""
+            SELECT COUNT(*) AS tong
+            FROM nhat_ky_phat_hien
+            WHERE DATE(thoi_gian) = CURDATE()
+            AND trang_thai IN ('MET MOI', 'BUON NGU')
+        """)
+
+        bao_cao_chua_xu_ly = db.fetch_one("""
+            SELECT COUNT(*) AS tong
+            FROM bao_cao_su_co
+            WHERE trang_thai = 'CHO_XU_LY'
+        """)
+
+        xe_live = db.fetch_all("""
+            SELECT
+                p.id AS phien_id,
+                p.trang_thai AS trang_thai_phien,
+                p.bat_dau,
+                tx.ho_ten,
+                x.bien_so,
+                nk.trang_thai AS ai_status,
+                nk.risk_score,
+                nk.thoi_gian
+            FROM phien_lai_xe p
+            LEFT JOIN tai_xe tx ON p.tai_xe_id = tx.id
+            LEFT JOIN xe x ON p.xe_id = x.id
+            LEFT JOIN (
+                SELECT n1.*
+                FROM nhat_ky_phat_hien n1
+                INNER JOIN (
+                    SELECT tai_xe_id, MAX(id) AS max_id
+                    FROM nhat_ky_phat_hien
+                    GROUP BY tai_xe_id
+                ) n2 ON n1.id = n2.max_id
+            ) nk ON nk.tai_xe_id = p.tai_xe_id
+            WHERE p.trang_thai != 'DA_KET_THUC'
+            ORDER BY p.id DESC
+            LIMIT 10
+        """)
+
+        canh_bao_moi = db.fetch_all("""
+            SELECT
+                nk.*,
+                tx.ho_ten,
+                x.bien_so
+            FROM nhat_ky_phat_hien nk
+            LEFT JOIN tai_xe tx ON nk.tai_xe_id = tx.id
+            LEFT JOIN xe x ON nk.xe_id = x.id
+            WHERE nk.trang_thai IN ('MET MOI', 'BUON NGU')
+            ORDER BY nk.id DESC
+            LIMIT 10
+        """)
+
+        bao_cao_moi = db.fetch_all("""
+            SELECT
+                bc.*,
+                tx.ho_ten,
+                x.bien_so
+            FROM bao_cao_su_co bc
+            LEFT JOIN tai_xe tx ON bc.tai_xe_id = tx.id
+            LEFT JOIN xe x ON bc.xe_id = x.id
+            ORDER BY bc.id DESC
+            LIMIT 10
+        """)
+
+        return {
+            "tong_tai_xe": tong_tai_xe["tong"] if tong_tai_xe else 0,
+            "tong_xe": tong_xe["tong"] if tong_xe else 0,
+            "xe_dang_hoat_dong": xe_dang_hoat_dong["tong"] if xe_dang_hoat_dong else 0,
+            "canh_bao_hom_nay": canh_bao_hom_nay["tong"] if canh_bao_hom_nay else 0,
+            "bao_cao_chua_xu_ly": bao_cao_chua_xu_ly["tong"] if bao_cao_chua_xu_ly else 0,
+            "xe_live": xe_live,
+            "canh_bao_moi": canh_bao_moi,
+            "bao_cao_moi": bao_cao_moi,
+        }
+
+    except Exception as e:
+        print("Lay admin dashboard error:", e)
+        return {
+            "tong_tai_xe": 0,
+            "tong_xe": 0,
+            "xe_dang_hoat_dong": 0,
+            "canh_bao_hom_nay": 0,
+            "bao_cao_chua_xu_ly": 0,
+            "xe_live": [],
+            "canh_bao_moi": [],
+            "bao_cao_moi": [],
+        }
+    # ==================================================
+# ADMIN - QUAN LY TAI XE
+# ==================================================
+def cap_nhat_tai_xe_va_thong_bao(
+    tai_xe_id,
+    ho_ten,
+    so_dien_thoai,
+    so_gplx,
+    dia_chi,
+    trang_thai,
+    quan_ly_id=1
+):
+    try:
+        sql = """
+        UPDATE tai_xe
+        SET
+            ho_ten=%s,
+            so_dien_thoai=%s,
+            so_gplx=%s,
+            dia_chi=%s,
+            trang_thai=%s
+        WHERE id=%s
+        """
+
+        db.execute(sql, (
+            ho_ten,
+            so_dien_thoai,
+            so_gplx,
+            dia_chi,
+            trang_thai,
+            tai_xe_id
+        ))
+
+        noi_dung = "Thông tin cá nhân của bạn đã được quản lý cập nhật."
+
+        them_ghi_chu(
+            tai_xe_id=tai_xe_id,
+            quan_ly_id=quan_ly_id,
+            noi_dung=noi_dung
+        )
+
+        ghi_lich_su_thao_tac(
+            nguoi_thuc_hien_id=quan_ly_id,
+            vai_tro="quan_ly",
+            hanh_dong="CAP_NHAT_TAI_XE",
+            bang_du_lieu="tai_xe",
+            doi_tuong_id=tai_xe_id,
+            ghi_chu=f"Cập nhật thông tin tài xế ID {tai_xe_id}"
+        )
+
+        return True
+
+    except Exception as e:
+        print("Cap nhat tai xe va thong bao error:", e)
+        return False
+    
+    # ==================================================
+# ADMIN - QUAN LY XE
+# ==================================================
+def cap_nhat_xe(
+    xe_id,
+    bien_so,
+    model,
+    trang_thai,
+    tai_xe_mac_dinh_id=None
+):
+    try:
+        sql = """
+        UPDATE xe
+        SET
+            bien_so=%s,
+            model=%s,
+            trang_thai=%s,
+            tai_xe_mac_dinh_id=%s
+        WHERE id=%s
+        """
+
+        db.execute(sql, (
+            bien_so,
+            model,
+            trang_thai,
+            tai_xe_mac_dinh_id,
+            xe_id
+        ))
+
+        return True
+
+    except Exception as e:
+        print("Cap nhat xe error:", e)
+        return False
+
+
+def lay_danh_sach_xe_admin():
+    try:
+        sql = """
+        SELECT
+            x.*,
+            tx.ho_ten AS ten_tai_xe_mac_dinh
+        FROM xe x
+        LEFT JOIN tai_xe tx ON x.tai_xe_mac_dinh_id = tx.id
+        ORDER BY x.id DESC
+        """
+
+        return db.fetch_all(sql)
+
+    except Exception as e:
+        print("Lay danh sach xe admin error:", e)
+        return []
+    # ==================================================
+# ADMIN - QUAN LY LICH CHAY
+# ==================================================
+def tao_lich_chay(
+    tai_xe_id,
+    xe_id,
+    tuyen_duong,
+    gio_bat_dau,
+    gio_ket_thuc=None,
+    quan_ly_id=1
+):
+    try:
+        sql = """
+        INSERT INTO lich_chay
+        (
+            tai_xe_id,
+            xe_id,
+            tuyen_duong,
+            gio_bat_dau,
+            gio_ket_thuc,
+            trang_thai
+        )
+        VALUES
+        (%s,%s,%s,%s,%s,'sap_chay')
+        """
+
+        cursor = db.execute(sql, (
+            tai_xe_id,
+            xe_id,
+            tuyen_duong,
+            gio_bat_dau,
+            gio_ket_thuc
+        ))
+
+        noi_dung = f"Bạn được phân công lịch chạy mới: {tuyen_duong}, bắt đầu lúc {gio_bat_dau}."
+
+        them_ghi_chu(
+            tai_xe_id=tai_xe_id,
+            quan_ly_id=quan_ly_id,
+            noi_dung=noi_dung
+        )
+
+        ghi_lich_su_thao_tac(
+            nguoi_thuc_hien_id=quan_ly_id,
+            vai_tro="quan_ly",
+            hanh_dong="TAO_LICH_CHAY",
+            bang_du_lieu="lich_chay",
+            doi_tuong_id=cursor.lastrowid,
+            ghi_chu=f"Tạo lịch chạy cho tài xế ID {tai_xe_id}"
+        )
+
+        return cursor.lastrowid
+
+    except Exception as e:
+        print("Tao lich chay error:", e)
+        return None
+
+
+def lay_tat_ca_lich_chay():
+    try:
+        sql = """
+        SELECT
+            lc.*,
+            tx.ho_ten,
+            x.bien_so
+        FROM lich_chay lc
+        LEFT JOIN tai_xe tx ON lc.tai_xe_id = tx.id
+        LEFT JOIN xe x ON lc.xe_id = x.id
+        ORDER BY lc.gio_bat_dau DESC
+        """
+
+        return db.fetch_all(sql)
+
+    except Exception as e:
+        print("Lay tat ca lich chay error:", e)
+        return []
+
+
+def cap_nhat_lich_chay(
+    lich_id,
+    tai_xe_id,
+    xe_id,
+    tuyen_duong,
+    gio_bat_dau,
+    gio_ket_thuc,
+    trang_thai,
+    quan_ly_id=1
+):
+    try:
+        sql = """
+        UPDATE lich_chay
+        SET
+            tai_xe_id=%s,
+            xe_id=%s,
+            tuyen_duong=%s,
+            gio_bat_dau=%s,
+            gio_ket_thuc=%s,
+            trang_thai=%s
+        WHERE id=%s
+        """
+
+        db.execute(sql, (
+            tai_xe_id,
+            xe_id,
+            tuyen_duong,
+            gio_bat_dau,
+            gio_ket_thuc,
+            trang_thai,
+            lich_id
+        ))
+
+        noi_dung = f"Lịch chạy của bạn đã được cập nhật: {tuyen_duong}, bắt đầu lúc {gio_bat_dau}."
+
+        them_ghi_chu(
+            tai_xe_id=tai_xe_id,
+            quan_ly_id=quan_ly_id,
+            noi_dung=noi_dung
+        )
+
+        ghi_lich_su_thao_tac(
+            nguoi_thuc_hien_id=quan_ly_id,
+            vai_tro="quan_ly",
+            hanh_dong="CAP_NHAT_LICH_CHAY",
+            bang_du_lieu="lich_chay",
+            doi_tuong_id=lich_id,
+            ghi_chu=f"Cập nhật lịch chạy ID {lich_id}"
+        )
+
+        return True
+
+    except Exception as e:
+        print("Cap nhat lich chay error:", e)
+        return False
+
+
+def xoa_lich_chay(lich_id, quan_ly_id=1):
+    try:
+        lich = db.fetch_one(
+            """
+            SELECT *
+            FROM lich_chay
+            WHERE id=%s
+            """,
+            (lich_id,)
+        )
+
+        if not lich:
+            return False
+
+        sql = """
+        UPDATE lich_chay
+        SET trang_thai='da_huy'
+        WHERE id=%s
+        """
+
+        db.execute(sql, (lich_id,))
+
+        them_ghi_chu(
+            tai_xe_id=lich["tai_xe_id"],
+            quan_ly_id=quan_ly_id,
+            noi_dung=f"Lịch chạy tuyến {lich['tuyen_duong']} đã bị hủy."
+        )
+
+        ghi_lich_su_thao_tac(
+            nguoi_thuc_hien_id=quan_ly_id,
+            vai_tro="quan_ly",
+            hanh_dong="HUY_LICH_CHAY",
+            bang_du_lieu="lich_chay",
+            doi_tuong_id=lich_id,
+            ghi_chu=f"Hủy lịch chạy ID {lich_id}"
+        )
+
+        return True
+
+    except Exception as e:
+        print("Xoa lich chay error:", e)
+        return False

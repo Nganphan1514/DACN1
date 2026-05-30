@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Lịch sử vi phạm</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-slate-950 text-white min-h-screen p-4">
+
+<div class="max-w-md mx-auto">
+
+    <div class="flex justify-between items-center mb-5">
+        <div>
+            <h1 class="text-2xl font-bold">Lịch sử vi phạm</h1>
+            <p class="text-slate-400 text-sm">Các cảnh báo AI ghi nhận</p>
+        </div>
+
+        <a href="/driver/dashboard" class="bg-slate-800 px-4 py-2 rounded-xl">
+            Dashboard
+        </a>
+    </div>
+
+    <div id="list" class="space-y-3"></div>
+
+</div>
+
+<script>
+const user = JSON.parse(localStorage.getItem("user") || "{}");
+const taiXeId = user.id || 1;
+
+function statusColor(status) {
+    if (status === "BUON NGU") return "bg-red-500/20 text-red-300";
+    if (status === "MET MOI") return "bg-yellow-500/20 text-yellow-300";
+    return "bg-slate-700 text-slate-300";
+}
+
+async function loadViolations() {
+    const res = await fetch(`/api/driver/violations/${taiXeId}`);
+    const json = await res.json();
+
+    const box = document.getElementById("list");
+    box.innerHTML = "";
+
+    if (!json.data || json.data.length === 0) {
+        box.innerHTML = `
+            <div class="bg-slate-900 p-5 rounded-2xl text-slate-400">
+                Chưa có lịch sử vi phạm.
+            </div>
+        `;
+        return;
+    }
+
+    json.data.forEach(item => {
+        box.innerHTML += `
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h2 class="font-bold">${item.bien_so || "Chưa có xe"}</h2>
+                        <p class="text-sm text-slate-400">${item.thoi_gian || ""}</p>
+                    </div>
+
+                    <span class="px-3 py-1 rounded-full text-sm ${statusColor(item.trang_thai)}">
+                        ${item.trang_thai}
+                    </span>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2 mt-4 text-center text-sm">
+                    <div class="bg-slate-800 rounded-xl p-3">
+                        <p class="text-slate-400">EAR</p>
+                        <b>${item.ear}</b>
+                    </div>
+
+                    <div class="bg-slate-800 rounded-xl p-3">
+                        <p class="text-slate-400">MAR</p>
+                        <b>${item.mar}</b>
+                    </div>
+
+                    <div class="bg-slate-800 rounded-xl p-3">
+                        <p class="text-slate-400">Risk</p>
+                        <b>${item.risk_score}</b>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+}
+
+loadViolations();
+</script>
+
+</body>
+</html>

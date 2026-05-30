@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Quản lý xe</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-slate-950 text-white min-h-screen p-6">
+
+<div class="max-w-7xl mx-auto">
+
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-3xl font-bold">Quản lý xe</h1>
+            <p class="text-slate-400">Cập nhật thông tin xe và tài xế mặc định</p>
+        </div>
+
+        <a href="/admin/dashboard" class="bg-slate-800 px-4 py-2 rounded-xl">
+            Dashboard
+        </a>
+    </div>
+
+    <div id="vehicles" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+
+</div>
+
+<script>
+async function loadVehicles() {
+    const res = await fetch("/api/admin/vehicles");
+    const json = await res.json();
+
+    const box = document.getElementById("vehicles");
+    box.innerHTML = "";
+
+    json.data.forEach(item => {
+        box.innerHTML += `
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <h2 class="text-xl font-bold">${item.bien_so}</h2>
+                        <p class="text-slate-400 text-sm">${item.model || "Chưa có model"}</p>
+                    </div>
+
+                    <span class="px-3 py-1 rounded-full text-sm bg-blue-500/20 text-blue-300">
+                        ${item.trang_thai || "N/A"}
+                    </span>
+                </div>
+
+                <div class="space-y-3">
+                    <input id="bien_so-${item.id}" value="${item.bien_so || ""}"
+                        class="w-full p-3 rounded-xl bg-slate-800 border border-slate-700"
+                        placeholder="Biển số">
+
+                    <input id="model-${item.id}" value="${item.model || ""}"
+                        class="w-full p-3 rounded-xl bg-slate-800 border border-slate-700"
+                        placeholder="Model">
+
+                    <input id="tai_xe-${item.id}" value="${item.tai_xe_mac_dinh_id || ""}"
+                        class="w-full p-3 rounded-xl bg-slate-800 border border-slate-700"
+                        placeholder="ID tài xế mặc định">
+
+                    <p class="text-sm text-slate-400">
+                        Tài xế hiện tại: ${item.ten_tai_xe_mac_dinh || "Chưa gán"}
+                    </p>
+
+                    <select id="trang_thai-${item.id}"
+                        class="w-full p-3 rounded-xl bg-slate-800 border border-slate-700">
+                        <option value="hoat_dong" ${item.trang_thai === "hoat_dong" ? "selected" : ""}>Hoạt động</option>
+                        <option value="bao_tri" ${item.trang_thai === "bao_tri" ? "selected" : ""}>Bảo trì</option>
+                        <option value="ngung_hoat_dong" ${item.trang_thai === "ngung_hoat_dong" ? "selected" : ""}>Ngưng hoạt động</option>
+                    </select>
+
+                    <button onclick="updateVehicle(${item.id})"
+                        class="w-full bg-blue-600 hover:bg-blue-700 p-3 rounded-xl font-semibold">
+                        Lưu thay đổi
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+}
+
+async function updateVehicle(id) {
+    const taiXeValue = document.getElementById(`tai_xe-${id}`).value;
+
+    const body = {
+        bien_so: document.getElementById(`bien_so-${id}`).value,
+        model: document.getElementById(`model-${id}`).value,
+        trang_thai: document.getElementById(`trang_thai-${id}`).value,
+        tai_xe_mac_dinh_id: taiXeValue ? Number(taiXeValue) : null
+    };
+
+    const res = await fetch(`/api/admin/vehicles/${id}`, {
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(body)
+    });
+
+    const json = await res.json();
+
+    alert(json.message);
+
+    loadVehicles();
+}
+
+loadVehicles();
+</script>
+
+</body>
+</html>

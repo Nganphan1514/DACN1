@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Lịch sử chạy</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-slate-950 text-white min-h-screen p-4">
+
+<div class="max-w-md mx-auto">
+
+    <div class="flex justify-between items-center mb-5">
+        <div>
+            <h1 class="text-2xl font-bold">Lịch sử chạy</h1>
+            <p class="text-slate-400 text-sm">Các phiên lái xe của bạn</p>
+        </div>
+
+        <a href="/driver/dashboard" class="bg-slate-800 px-4 py-2 rounded-xl">
+            Dashboard
+        </a>
+    </div>
+
+    <div id="list" class="space-y-3"></div>
+
+</div>
+
+<script>
+const user = JSON.parse(localStorage.getItem("user") || "{}");
+const taiXeId = user.id || 1;
+
+function statusColor(status) {
+    if (status === "DANG_LAI") return "bg-green-500/20 text-green-300";
+    if (status === "TAM_MAT_DAU") return "bg-yellow-500/20 text-yellow-300";
+    if (status === "DA_KET_THUC") return "bg-slate-700 text-slate-300";
+    return "bg-blue-500/20 text-blue-300";
+}
+
+async function loadHistory() {
+    const res = await fetch(`/api/driver/history/${taiXeId}`);
+    const json = await res.json();
+
+    const box = document.getElementById("list");
+    box.innerHTML = "";
+
+    if (!json.data || json.data.length === 0) {
+        box.innerHTML = `
+            <div class="bg-slate-900 p-5 rounded-2xl text-slate-400">
+                Chưa có lịch sử chạy.
+            </div>
+        `;
+        return;
+    }
+
+    json.data.forEach(item => {
+        box.innerHTML += `
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h2 class="font-bold">${item.bien_so || "Chưa có xe"}</h2>
+                        <p class="text-sm text-slate-400">${item.tuyen_duong || "Chưa có tuyến"}</p>
+                    </div>
+
+                    <span class="px-3 py-1 rounded-full text-sm ${statusColor(item.trang_thai)}">
+                        ${item.trang_thai}
+                    </span>
+                </div>
+
+                <div class="mt-4 space-y-2 text-sm">
+                    <p><b>Bắt đầu:</b> ${item.bat_dau || "N/A"}</p>
+                    <p><b>Kết thúc:</b> ${item.ket_thuc || "Chưa kết thúc"}</p>
+                    <p><b>Tổng phút:</b> ${item.tong_phut || 0}</p>
+                </div>
+            </div>
+        `;
+    });
+}
+
+loadHistory();
+</script>
+
+</body>
+</html>

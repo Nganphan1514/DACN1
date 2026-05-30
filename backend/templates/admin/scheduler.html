@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Quản lý lịch chạy</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-slate-950 text-white min-h-screen p-6">
+
+<div class="max-w-7xl mx-auto">
+
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-3xl font-bold">Quản lý lịch chạy</h1>
+            <p class="text-slate-400">Tạo, cập nhật và hủy lịch chạy cho tài xế</p>
+        </div>
+
+        <a href="/admin/dashboard" class="bg-slate-800 px-4 py-2 rounded-xl">
+            Dashboard
+        </a>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- FORM -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+            <h2 class="text-xl font-bold mb-4">Tạo lịch chạy</h2>
+
+            <div class="space-y-3">
+                <select id="tai_xe_id" class="w-full p-3 rounded-xl bg-slate-800 border border-slate-700"></select>
+
+                <select id="xe_id" class="w-full p-3 rounded-xl bg-slate-800 border border-slate-700"></select>
+
+                <input id="tuyen_duong"
+                    class="w-full p-3 rounded-xl bg-slate-800 border border-slate-700"
+                    placeholder="Tuyến đường VD: Đà Nẵng - Huế">
+
+                <input id="gio_bat_dau"
+                    type="datetime-local"
+                    class="w-full p-3 rounded-xl bg-slate-800 border border-slate-700">
+
+                <input id="gio_ket_thuc"
+                    type="datetime-local"
+                    class="w-full p-3 rounded-xl bg-slate-800 border border-slate-700">
+
+                <button onclick="createSchedule()"
+                    class="w-full bg-blue-600 hover:bg-blue-700 p-3 rounded-xl font-semibold">
+                    Tạo lịch
+                </button>
+            </div>
+        </div>
+
+        <!-- LIST -->
+        <div class="lg:col-span-2">
+            <div id="schedules" class="space-y-4"></div>
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+let drivers = [];
+let vehicles = [];
+
+function toMysqlDateTime(value) {
+    if (!value) return null;
+    return value.replace("T", " ") + ":00";
+}
+
+async function loadOptions() {
+    const res = await fetch("/api/admin/schedules/options");
+    const json = await res.json();
+
+    console.log("OPTIONS:", json);
+
+    drivers = json.drivers || [];
+    vehicles = json.vehicles || [];
+
+    const driverSelect = document.getElementById("tai_xe_id");
+    const vehicleSelect = document.getElementById("xe_id");
+
+    driverSelect.innerHTML = "";
+    vehicleSelect.innerHTML = "";
+
+    if (drivers.length === 0) {
+        driverSelect.innerHTML = `<option value="">Không có tài xế</option>`;
+    } else {
+        drivers.forEach(d => {
+            const ten = d.ho_ten || d.ten_tai_xe || d.name || d.ten_dang_nhap || "Tài xế";
+            driverSelect.innerHTML += `
+                <option value="${d.id}">${ten} - ID ${d.id}</option>
+            `;
+        });
+    }
+
+    if (vehicles.length === 0) {
+        vehicleSelect.innerHTML = `<option value="">Không có xe</option>`;
+    } else {
+        vehicles.forEach(v => {
+            vehicleSelect.innerHTML += `
+                <option value="${v.id}">${v.bien_so || "Xe"} - ${v.model || ""}</option>
+            `;
+        });
+    }
+}
+
+async function loadSchedules() {
+    const res = await fetch("/api/admin/schedules");
+    const json = await res.json();
+
+    const box = document.getElementById("schedules");
+    box.innerHTML = "";
+
+    if (!json.data || json.data.length === 0) {
+        box.innerHTML = `
+            <div class="bg-slate-900 p-5 rounded-2xl text-slate-400">
+                Chưa có lịch chạy.
+            </div>
+        `;
+        return;
+    }
+
+    json.data.forEach(item => {
+        box.innerHTML += `
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <h2 class="text-xl font-bold">${item.tuyen_duong}</h2>
+                        <p class="text-slate-400">${item.ho_ten || "Chưa có tài xế"} - ${item.bien_so || "Chưa có xe"}</p>
+                    </div>
+
+                    <span class="px-3 py-1 rounded-full text-sm bg-blue-500/20 text-blue-300">
+                        ${item.trang_thai}
+                    </span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <input id="route-${item.id}" value="${item.tuyen_duong || ""}"
+                        class="p-3 rounded-xl bg-slate-800 border border-slate-700">
+
+                    <input id="start-${item.id}" value="${item.gio_bat_dau || ""}"
+                        class="p-3 rounded-xl bg-slate-800 border border-slate-700">
+
+                    <input id="end-${item.id}" value="${item.gio_ket_thuc || ""}"
+                        class="p-3 rounded-xl bg-slate-800 border border-slate-700">
+
+                    <select id="status-${item.id}"
+                        class="p-3 rounded-xl bg-slate-800 border border-slate-700">
+                        <option value="sap_chay" ${item.trang_thai === "sap_chay" ? "selected" : ""}>Sắp chạy</option>
+                        <option value="dang_chay" ${item.trang_thai === "dang_chay" ? "selected" : ""}>Đang chạy</option>
+                        <option value="hoan_thanh" ${item.trang_thai === "hoan_thanh" ? "selected" : ""}>Hoàn thành</option>
+                        <option value="da_huy" ${item.trang_thai === "da_huy" ? "selected" : ""}>Đã hủy</option>
+                    </select>
+                </div>
+
+                <div class="flex gap-3 mt-4">
+                    <button onclick="updateSchedule(${item.id}, ${item.tai_xe_id}, ${item.xe_id})"
+                        class="flex-1 bg-blue-600 hover:bg-blue-700 p-3 rounded-xl">
+                        Cập nhật
+                    </button>
+
+                    <button onclick="deleteSchedule(${item.id})"
+                        class="flex-1 bg-red-600 hover:bg-red-700 p-3 rounded-xl">
+                        Hủy lịch
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+}
+
+async function createSchedule() {
+    const body = {
+        tai_xe_id: Number(document.getElementById("tai_xe_id").value),
+        xe_id: Number(document.getElementById("xe_id").value),
+        tuyen_duong: document.getElementById("tuyen_duong").value,
+        gio_bat_dau: toMysqlDateTime(document.getElementById("gio_bat_dau").value),
+        gio_ket_thuc: toMysqlDateTime(document.getElementById("gio_ket_thuc").value),
+        quan_ly_id: 1
+    };
+
+    const res = await fetch("/api/admin/schedules", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(body)
+    });
+
+    const json = await res.json();
+    alert(json.message);
+
+    loadSchedules();
+}
+
+async function updateSchedule(id, taiXeId, xeId) {
+    const body = {
+        tai_xe_id: taiXeId,
+        xe_id: xeId,
+        tuyen_duong: document.getElementById(`route-${id}`).value,
+        gio_bat_dau: document.getElementById(`start-${id}`).value,
+        gio_ket_thuc: document.getElementById(`end-${id}`).value,
+        trang_thai: document.getElementById(`status-${id}`).value,
+        quan_ly_id: 1
+    };
+
+    const res = await fetch(`/api/admin/schedules/${id}`, {
+        method: "PUT",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(body)
+    });
+
+    const json = await res.json();
+    alert(json.message);
+
+    loadSchedules();
+}
+
+async function deleteSchedule(id) {
+    if (!confirm("Bạn chắc chắn muốn hủy lịch này?")) return;
+
+    const res = await fetch(`/api/admin/schedules/${id}`, {
+        method: "DELETE",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({quan_ly_id: 1})
+    });
+
+    const json = await res.json();
+    alert(json.message);
+
+    loadSchedules();
+}
+
+loadOptions();
+loadSchedules();
+</script>
+
+</body>
+</html>

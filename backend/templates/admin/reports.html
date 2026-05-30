@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Quản lý báo cáo sự cố</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-slate-950 text-white min-h-screen p-6">
+
+<div class="max-w-6xl mx-auto">
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-3xl font-bold">Báo cáo sự cố</h1>
+            <p class="text-slate-400">Danh sách báo cáo do tài xế gửi</p>
+        </div>
+
+        <a href="/admin/dashboard" class="bg-slate-800 px-4 py-2 rounded-xl">
+            Dashboard
+        </a>
+    </div>
+
+    <div id="reports" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+</div>
+
+<script>
+async function loadReports() {
+    const res = await fetch("/api/admin/reports");
+    const data = await res.json();
+
+    const box = document.getElementById("reports");
+    box.innerHTML = "";
+
+    data.data.forEach(item => {
+        const color =
+            item.trang_thai === "CHO_XU_LY" ? "bg-yellow-500/20 text-yellow-300" :
+            item.trang_thai === "DANG_XU_LY" ? "bg-blue-500/20 text-blue-300" :
+            "bg-green-500/20 text-green-300";
+
+        box.innerHTML += `
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h2 class="text-xl font-bold">${item.tieu_de}</h2>
+                        <p class="text-slate-400 text-sm">${item.bien_so || "Chưa có xe"}</p>
+                    </div>
+                    <span class="px-3 py-1 rounded-full text-sm ${color}">
+                        ${item.trang_thai}
+                    </span>
+                </div>
+
+                <div class="mt-4 space-y-2 text-sm">
+                    <p><b>Loại:</b> ${item.loai_su_co}</p>
+                    <p><b>Tài xế ID:</b> ${item.tai_xe_id}</p>
+                    <p><b>Tuyến:</b> ${item.tuyen_duong || "Không có"}</p>
+                    <p><b>Nội dung:</b> ${item.noi_dung}</p>
+                    <p class="text-slate-500"><b>Thời gian:</b> ${item.created_at}</p>
+                </div>
+
+                <div class="mt-4">
+                    <textarea id="reply-${item.id}"
+                        class="w-full p-3 rounded-xl bg-slate-800 border border-slate-700"
+                        rows="3"
+                        placeholder="Phản hồi quản lý">${item.phan_hoi_quan_ly || ""}</textarea>
+                </div>
+
+                <div class="flex gap-2 mt-3">
+                    <button onclick="updateReport(${item.id}, 'DANG_XU_LY')"
+                        class="flex-1 bg-blue-600 hover:bg-blue-700 p-2 rounded-xl">
+                        Đang xử lý
+                    </button>
+
+                    <button onclick="updateReport(${item.id}, 'DA_XU_LY')"
+                        class="flex-1 bg-green-600 hover:bg-green-700 p-2 rounded-xl">
+                        Đã xử lý
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+}
+
+async function updateReport(id, status) {
+    const reply = document.getElementById(`reply-${id}`).value;
+
+    const res = await fetch(`/api/admin/reports/${id}`, {
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            trang_thai: status,
+            phan_hoi_quan_ly: reply
+        })
+    });
+
+    const data = await res.json();
+    alert(data.message);
+    loadReports();
+}
+
+loadReports();
+</script>
+
+</body>
+</html>
