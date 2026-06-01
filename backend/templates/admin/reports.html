@@ -2,10 +2,336 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quản lý báo cáo sự cố</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 
+<body class="bg-slate-950 text-white min-h-screen">
+
+<nav class="sticky top-0 z-50 bg-slate-950/90 backdrop-blur border-b border-slate-800">
+    <div class="max-w-7xl mx-auto px-4 py-4">
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+                <h1 class="text-xl font-bold">DACN1 Admin</h1>
+                <p class="text-sm text-slate-400">Hệ thống giám sát tài xế bằng AI</p>
+            </div>
+
+            <div class="flex gap-2 overflow-x-auto pb-1">
+                <a href="/admin/dashboard" class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">Dashboard</a>
+                <a href="/admin/drivers" class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">Tài xế</a>
+                <a href="/admin/vehicles" class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">Xe</a>
+                <a href="/admin/scheduler" class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">Lịch chạy</a>
+                <a href="/admin/reports" class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">Báo cáo</a>
+                <a href="/admin/analytics" class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">Thống kê</a>
+                <a href="/logout" class="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-sm whitespace-nowrap">Đăng xuất</a>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<main class="max-w-7xl mx-auto p-6">
+
+    <div class="mb-6">
+        <h1 class="text-3xl font-black">Báo cáo sự cố</h1>
+        <p class="text-slate-400 mt-1">Theo dõi và xử lý báo cáo do tài xế gửi lên hệ thống</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <p class="text-slate-400 text-sm">📋 Tổng báo cáo</p>
+            <h2 id="totalReports" class="text-4xl font-black mt-2">0</h2>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <p class="text-slate-400 text-sm">🟡 Chờ xử lý</p>
+            <h2 id="pendingReports" class="text-4xl font-black mt-2 text-yellow-400">0</h2>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <p class="text-slate-400 text-sm">🔵 Đang xử lý</p>
+            <h2 id="processingReports" class="text-4xl font-black mt-2 text-blue-400">0</h2>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <p class="text-slate-400 text-sm">🟢 Đã xử lý</p>
+            <h2 id="doneReports" class="text-4xl font-black mt-2 text-green-400">0</h2>
+        </div>
+    </div>
+
+    <div class="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <input
+            id="searchReport"
+            onkeyup="filterReports()"
+            placeholder="🔍 Tìm tiêu đề, loại sự cố, biển số..."
+            class="w-full p-4 rounded-2xl bg-slate-900 border border-slate-800 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+
+        <select
+            id="statusFilter"
+            onchange="filterReports()"
+            class="w-full p-4 rounded-2xl bg-slate-900 border border-slate-800 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+            <option value="">Tất cả trạng thái</option>
+            <option value="CHO_XU_LY">Chờ xử lý</option>
+            <option value="DANG_XU_LY">Đang xử lý</option>
+            <option value="DA_XU_LY">Đã xử lý</option>
+        </select>
+    </div>
+
+    <div id="reports" class="grid grid-cols-1 md:grid-cols-2 gap-5"></div>
+
+</main>
+
+<script>
+const currentPath = window.location.pathname;
+
+document.querySelectorAll(".admin-link").forEach(link => {
+    if (link.getAttribute("href") === currentPath) {
+        link.classList.remove("bg-slate-800");
+        link.classList.add("bg-blue-600");
+    }
+});
+
+function statusBadge(status) {
+    if (status === "CHO_XU_LY") return "bg-yellow-500/20 text-yellow-300 border border-yellow-500/30";
+    if (status === "DANG_XU_LY") return "bg-blue-500/20 text-blue-300 border border-blue-500/30";
+    if (status === "DA_XU_LY") return "bg-green-500/20 text-green-300 border border-green-500/30";
+    return "bg-slate-700 text-slate-300 border border-slate-600";
+}
+
+function statusText(status) {
+    if (status === "CHO_XU_LY") return "Chờ xử lý";
+    if (status === "DANG_XU_LY") return "Đang xử lý";
+    if (status === "DA_XU_LY") return "Đã xử lý";
+    return status || "N/A";
+}
+
+function reportTypeText(type) {
+    if (type === "HU_XE") return "Hư xe";
+    if (type === "HET_XANG") return "Hết xăng";
+    if (type === "TAI_NAN") return "Tai nạn";
+    if (type === "KHAC") return "Khác";
+    return type || "Khác";
+}
+
+async function loadReports() {
+    const res = await fetch("/api/admin/reports");
+    const json = await res.json();
+    const data = json.data || [];
+
+    document.getElementById("totalReports").innerText = data.length;
+    document.getElementById("pendingReports").innerText = data.filter(x => x.trang_thai === "CHO_XU_LY").length;
+    document.getElementById("processingReports").innerText = data.filter(x => x.trang_thai === "DANG_XU_LY").length;
+    document.getElementById("doneReports").innerText = data.filter(x => x.trang_thai === "DA_XU_LY").length;
+
+    const box = document.getElementById("reports");
+    box.innerHTML = "";
+
+    if (data.length === 0) {
+        box.innerHTML = `
+            <div class="md:col-span-2 bg-slate-900 p-6 rounded-3xl border border-slate-800 text-slate-400">
+                Chưa có báo cáo sự cố.
+            </div>
+        `;
+        return;
+    }
+
+    data.forEach(item => {
+        box.innerHTML += `
+            <div class="report-card bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl hover:border-blue-500/40 transition"
+                 data-status="${item.trang_thai || ""}">
+                <div class="flex justify-between items-start gap-4 mb-5">
+                    <div class="flex items-center gap-4">
+                        <div class="w-14 h-14 rounded-2xl bg-red-600 flex items-center justify-center text-2xl">
+                            🛠️
+                        </div>
+
+                        <div>
+                            <h2 class="text-xl font-black">${item.tieu_de || "Không có tiêu đề"}</h2>
+                            <p class="text-slate-400 text-sm">${item.bien_so || "Chưa có xe"}</p>
+                        </div>
+                    </div>
+
+                    <span class="px-3 py-1 rounded-full text-xs font-bold ${statusBadge(item.trang_thai)}">
+                        ${statusText(item.trang_thai)}
+                    </span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                    <div class="bg-slate-800/60 rounded-2xl p-4 border border-slate-700">
+                        <p class="text-xs text-slate-400 uppercase font-bold">Loại sự cố</p>
+                        <p class="font-bold mt-1">${reportTypeText(item.loai_su_co)}</p>
+                    </div>
+
+                    <div class="bg-slate-800/60 rounded-2xl p-4 border border-slate-700">
+                        <p class="text-xs text-slate-400 uppercase font-bold">Tài xế</p>
+                        <p class="font-bold mt-1">${item.ho_ten || "ID " + item.tai_xe_id}</p>
+                    </div>
+
+                    <div class="bg-slate-800/60 rounded-2xl p-4 border border-slate-700">
+                        <p class="text-xs text-slate-400 uppercase font-bold">Tuyến</p>
+                        <p class="font-bold mt-1">${item.tuyen_duong || "Không có"}</p>
+                    </div>
+
+                    <div class="bg-slate-800/60 rounded-2xl p-4 border border-slate-700">
+                        <p class="text-xs text-slate-400 uppercase font-bold">Thời gian</p>
+                        <p class="font-bold mt-1">${item.created_at || "Không rõ"}</p>
+                    </div>
+                </div>
+
+                <div class="mb-4 bg-slate-950/40 rounded-2xl p-4 border border-slate-800">
+                    <p class="text-xs text-slate-400 uppercase font-bold mb-1">Nội dung</p>
+                    <p class="text-slate-200 leading-relaxed">${item.noi_dung || "Không có nội dung"}</p>
+                </div>
+
+                ${item.hinh_anh ? `
+                    <div class="mb-4">
+                        <img src="${item.hinh_anh}" class="rounded-2xl border border-slate-800 max-h-56 object-cover w-full">
+                    </div>
+                ` : ""}
+
+                <div class="mb-4">
+                    <label class="text-xs text-slate-400 uppercase font-bold">Phản hồi quản lý</label>
+                    <textarea id="reply-${item.id}"
+                        class="w-full mt-1 p-3 rounded-xl bg-slate-800 border border-slate-700 outline-none focus:border-blue-500"
+                        rows="3"
+                        placeholder="Nhập phản hồi cho tài xế">${item.phan_hoi_quan_ly || ""}</textarea>
+                </div>
+
+                <div class="flex gap-3">
+                    <button id="processing-${item.id}" onclick="updateReport(${item.id}, 'DANG_XU_LY')"
+                        class="flex-1 bg-blue-600 hover:bg-blue-700 p-3 rounded-xl font-bold">
+                        Đang xử lý
+                    </button>
+
+                    <button id="done-${item.id}" onclick="updateReport(${item.id}, 'DA_XU_LY')"
+                        class="flex-1 bg-green-600 hover:bg-green-700 p-3 rounded-xl font-bold">
+                        Đã xử lý
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+
+    filterReports();
+}
+
+async function updateReport(id, status) {
+    const reply = document.getElementById(`reply-${id}`).value;
+    const btn = document.getElementById(status === "DANG_XU_LY" ? `processing-${id}` : `done-${id}`);
+
+    btn.innerText = "Đang lưu...";
+    btn.disabled = true;
+    btn.classList.add("opacity-70");
+
+    try {
+        const res = await fetch(`/api/admin/reports/${id}`, {
+            method: "PUT",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+                trang_thai: status,
+                phan_hoi_quan_ly: reply
+            })
+        });
+
+        const data = await res.json();
+        alert(data.message);
+        loadReports();
+
+    } catch (error) {
+        alert("Không thể cập nhật báo cáo.");
+    } finally {
+        btn.innerText = status === "DANG_XU_LY" ? "Đang xử lý" : "Đã xử lý";
+        btn.disabled = false;
+        btn.classList.remove("opacity-70");
+    }
+}
+
+function filterReports() {
+    const keyword = document.getElementById("searchReport").value.toLowerCase();
+    const status = document.getElementById("statusFilter").value;
+
+    document.querySelectorAll(".report-card").forEach(card => {
+        const text = card.innerText.toLowerCase();
+        const cardStatus = card.dataset.status;
+
+        const matchText = text.includes(keyword);
+        const matchStatus = !status || cardStatus === status;
+
+        card.style.display = matchText && matchStatus ? "block" : "none";
+    });
+}
+
+loadReports();
+</script>
+
+</body>
+</html>
+<!-- <!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Quản lý báo cáo sự cố</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<nav class="sticky top-0 z-50 mb-6 bg-slate-950/90 backdrop-blur border-b border-slate-800">
+    <div class="max-w-7xl mx-auto px-4 py-4">
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+
+            <div>
+                <h1 class="text-xl font-bold text-white">DACN1 Admin</h1>
+                <p class="text-sm text-slate-400">Hệ thống giám sát tài xế bằng AI</p>
+            </div>
+
+            <div class="flex gap-2 overflow-x-auto pb-1">
+                <a href="/admin/dashboard"
+                   class="admin-link whitespace-nowrap px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm">
+                    Dashboard
+                </a>
+
+                <a href="/admin/drivers"
+                   class="admin-link whitespace-nowrap px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm">
+                    Tài xế
+                </a>
+
+                <a href="/admin/vehicles"
+                   class="admin-link whitespace-nowrap px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm">
+                    Xe
+                </a>
+
+                <a href="/admin/scheduler"
+                   class="admin-link whitespace-nowrap px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm">
+                    Lịch chạy
+                </a>
+
+                <a href="/admin/reports"
+                   class="admin-link whitespace-nowrap px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm">
+                    Báo cáo
+                </a>
+
+                <a href="/admin/analytics"
+                   class="admin-link whitespace-nowrap px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm">
+                    Thống kê
+                </a>
+
+                <a href="/logout"
+                   class="whitespace-nowrap px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-sm">
+                    Đăng xuất
+                </a>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<script>
+const currentPath = window.location.pathname;
+
+document.querySelectorAll(".admin-link").forEach(link => {
+    if (link.getAttribute("href") === currentPath) {
+        link.classList.remove("bg-slate-800");
+        link.classList.add("bg-blue-600");
+    }
+});
+</script>
 <body class="bg-slate-950 text-white min-h-screen p-6">
 
 <div class="max-w-6xl mx-auto">
@@ -103,4 +429,4 @@ loadReports();
 </script>
 
 </body>
-</html>
+</html> -->

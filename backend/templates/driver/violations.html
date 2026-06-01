@@ -2,6 +2,297 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lịch sử vi phạm</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+</head>
+
+<body class="bg-slate-950 text-white min-h-screen pb-[110px]">
+
+<div class="max-w-md mx-auto px-4 py-5">
+
+    <!-- HEADER -->
+    <div class="mb-5">
+        <a id="backDashboard"
+           href="/driver/dashboard"
+           class="text-cyan-400 text-sm flex items-center gap-1 mb-3">
+            <span class="material-icons-round text-base">arrow_back</span>
+            Quay lại Cabin
+        </a>
+
+        <div class="flex items-start justify-between gap-3">
+            <div>
+                <h1 class="text-3xl font-black tracking-tight">Vi phạm AI</h1>
+                <p class="text-slate-400 text-sm mt-1">
+                    Lịch sử cảnh báo mệt mỏi và buồn ngủ
+                </p>
+            </div>
+
+            <div class="w-12 h-12 rounded-2xl bg-red-600/20 border border-red-500/30 flex items-center justify-center text-red-400">
+                <span class="material-icons-round">warning</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- SUMMARY -->
+    <div class="grid grid-cols-3 gap-3 mb-5">
+        <div class="rounded-2xl bg-slate-900 border border-slate-800 p-4 text-center">
+            <p class="text-xs text-slate-400">Tổng</p>
+            <h2 id="totalCount" class="text-2xl font-black mt-1">0</h2>
+        </div>
+
+        <div class="rounded-2xl bg-yellow-600/10 border border-yellow-500/30 p-4 text-center">
+            <p class="text-xs text-yellow-300">Mệt</p>
+            <h2 id="fatigueCount" class="text-2xl font-black mt-1 text-yellow-300">0</h2>
+        </div>
+
+        <div class="rounded-2xl bg-red-600/10 border border-red-500/30 p-4 text-center">
+            <p class="text-xs text-red-300">Buồn ngủ</p>
+            <h2 id="sleepCount" class="text-2xl font-black mt-1 text-red-300">0</h2>
+        </div>
+    </div>
+
+    <!-- FILTER -->
+    <div class="mb-5">
+        <select id="statusFilter"
+                onchange="filterViolations()"
+                class="w-full p-4 rounded-2xl bg-slate-900 border border-slate-800 outline-none focus:border-cyan-500">
+            <option value="">Tất cả cảnh báo</option>
+            <option value="MET MOI">Mệt mỏi</option>
+            <option value="BUON NGU">Buồn ngủ</option>
+        </select>
+    </div>
+
+    <!-- LIST -->
+    <div id="list" class="space-y-3"></div>
+
+</div>
+
+<!-- BOTTOM NAV -->
+<div class="fixed bottom-0 left-0 right-0 bg-slate-900/90 backdrop-blur-md border-t border-slate-800 py-2 z-50 shadow-2xl">
+    <div class="w-full max-w-md mx-auto flex justify-around items-center px-4">
+
+        <a id="navDashboard"
+           href="/driver/dashboard"
+           class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 text-xs">
+            <div class="w-12 h-8 flex items-center justify-center">
+                <span class="material-icons-round text-2xl">dashboard</span>
+            </div>
+            <span>Cabin</span>
+        </a>
+
+        <a id="navSchedules"
+           href="/driver/schedules"
+           class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 text-xs">
+            <div class="w-12 h-8 flex items-center justify-center">
+                <span class="material-icons-round text-2xl">calendar_today</span>
+            </div>
+            <span>Lịch</span>
+        </a>
+
+        <a id="navViolations"
+           href="/driver/violations"
+           class="flex flex-col items-center gap-1 text-blue-500 font-medium text-xs">
+            <div class="w-12 h-8 rounded-full bg-blue-500/10 flex items-center justify-center">
+                <span class="material-icons-round text-2xl">warning</span>
+            </div>
+            <span>Vi phạm</span>
+        </a>
+
+        <a id="navNotifications"
+           href="/driver/notifications"
+           class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 text-xs">
+            <div class="w-12 h-8 flex items-center justify-center">
+                <span class="material-icons-round text-2xl">notifications</span>
+            </div>
+            <span>Thông báo</span>
+        </a>
+
+        <a id="navProfile"
+           href="/driver/profile"
+           class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 text-xs">
+            <div class="w-12 h-8 flex items-center justify-center">
+                <span class="material-icons-round text-2xl">account_circle</span>
+            </div>
+            <span>Cá nhân</span>
+        </a>
+
+    </div>
+</div>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+const user = JSON.parse(localStorage.getItem("user") || "{}");
+
+let taiXeId = params.get("tai_xe_id") || user.id || 1;
+let violations = [];
+
+function withDriverId(path) {
+    return `${path}?tai_xe_id=${taiXeId}`;
+}
+
+document.getElementById("backDashboard").href = withDriverId("/driver/dashboard");
+document.getElementById("navDashboard").href = withDriverId("/driver/dashboard");
+document.getElementById("navSchedules").href = withDriverId("/driver/schedules");
+document.getElementById("navViolations").href = withDriverId("/driver/violations");
+document.getElementById("navNotifications").href = withDriverId("/driver/notifications");
+document.getElementById("navProfile").href = withDriverId("/driver/profile");
+
+function statusStyle(status) {
+    if (status === "BUON NGU") {
+        return {
+            badge: "bg-red-500/20 text-red-300 border border-red-500/30",
+            card: "border-red-500/30 bg-red-600/10",
+            icon: "bedtime",
+            text: "Buồn ngủ"
+        };
+    }
+
+    if (status === "MET MOI") {
+        return {
+            badge: "bg-yellow-500/20 text-yellow-300 border border-yellow-500/30",
+            card: "border-yellow-500/30 bg-yellow-600/10",
+            icon: "sentiment_dissatisfied",
+            text: "Mệt mỏi"
+        };
+    }
+
+    return {
+        badge: "bg-slate-700 text-slate-300 border border-slate-600",
+        card: "border-slate-800 bg-slate-900",
+        icon: "info",
+        text: status || "Không rõ"
+    };
+}
+
+function formatNumber(value) {
+    if (value === null || value === undefined || value === "") return "0";
+    return Number(value).toFixed(2);
+}
+
+function updateSummary(rows) {
+    document.getElementById("totalCount").innerText = rows.length;
+    document.getElementById("fatigueCount").innerText = rows.filter(x => x.trang_thai === "MET MOI").length;
+    document.getElementById("sleepCount").innerText = rows.filter(x => x.trang_thai === "BUON NGU").length;
+}
+
+async function loadViolations() {
+    const box = document.getElementById("list");
+
+    box.innerHTML = `
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 text-slate-400">
+            Đang tải dữ liệu...
+        </div>
+    `;
+
+    try {
+        const res = await fetch(`/api/driver/violations/${taiXeId}`);
+        const json = await res.json();
+
+        violations = json.data || [];
+        updateSummary(violations);
+        renderViolations(violations);
+
+    } catch (error) {
+        box.innerHTML = `
+            <div class="bg-red-600/10 border border-red-500/30 rounded-3xl p-5 text-red-300">
+                Không thể tải lịch sử vi phạm.
+            </div>
+        `;
+    }
+}
+
+function renderViolations(rows) {
+    const box = document.getElementById("list");
+    box.innerHTML = "";
+
+    if (!rows || rows.length === 0) {
+        box.innerHTML = `
+            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 text-center">
+                <div class="w-14 h-14 mx-auto rounded-2xl bg-green-600/20 border border-green-500/30 flex items-center justify-center text-green-400 mb-3">
+                    <span class="material-icons-round text-3xl">verified</span>
+                </div>
+                <h2 class="font-bold text-lg">Chưa có cảnh báo</h2>
+                <p class="text-slate-400 text-sm mt-1">
+                    Hệ thống chưa ghi nhận vi phạm nào.
+                </p>
+            </div>
+        `;
+        return;
+    }
+
+    rows.forEach(item => {
+        const style = statusStyle(item.trang_thai);
+
+        box.innerHTML += `
+            <div class="violation-card rounded-3xl p-5 border ${style.card} shadow-lg"
+                 data-status="${item.trang_thai || ""}">
+                <div class="flex justify-between items-start gap-3 mb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 rounded-2xl bg-slate-950/40 border border-slate-700 flex items-center justify-center">
+                            <span class="material-icons-round">${style.icon}</span>
+                        </div>
+
+                        <div>
+                            <h2 class="font-black text-lg">${style.text}</h2>
+                            <p class="text-sm text-slate-400">${item.bien_so || "Chưa có xe"}</p>
+                        </div>
+                    </div>
+
+                    <span class="px-3 py-1 rounded-full text-xs font-bold ${style.badge}">
+                        ${item.trang_thai || "N/A"}
+                    </span>
+                </div>
+
+                <div class="text-sm text-slate-400 mb-4 flex items-center gap-1">
+                    <span class="material-icons-round text-base">schedule</span>
+                    ${item.thoi_gian || "Không rõ thời gian"}
+                </div>
+
+                <div class="grid grid-cols-3 gap-2 text-center text-sm">
+                    <div class="bg-slate-950/40 border border-slate-800 rounded-2xl p-3">
+                        <p class="text-slate-400 text-xs">EAR</p>
+                        <b class="text-slate-100">${formatNumber(item.ear)}</b>
+                    </div>
+
+                    <div class="bg-slate-950/40 border border-slate-800 rounded-2xl p-3">
+                        <p class="text-slate-400 text-xs">MAR</p>
+                        <b class="text-slate-100">${formatNumber(item.mar)}</b>
+                    </div>
+
+                    <div class="bg-slate-950/40 border border-slate-800 rounded-2xl p-3">
+                        <p class="text-slate-400 text-xs">Risk</p>
+                        <b class="${item.risk_score >= 5 ? 'text-red-300' : 'text-yellow-300'}">
+                            ${item.risk_score || 0}
+                        </b>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+}
+
+function filterViolations() {
+    const status = document.getElementById("statusFilter").value;
+
+    if (!status) {
+        renderViolations(violations);
+        return;
+    }
+
+    renderViolations(violations.filter(item => item.trang_thai === status));
+}
+
+loadViolations();
+</script>
+
+</body>
+</html>
+<!-- <!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
     <title>Lịch sử vi phạm</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
@@ -90,4 +381,4 @@ loadViolations();
 </script>
 
 </body>
-</html>
+</html> -->

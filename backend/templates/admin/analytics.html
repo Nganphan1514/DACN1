@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thống kê hệ thống</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body class="bg-slate-950 text-white min-h-screen">
+
+<nav class="sticky top-0 z-50 bg-slate-950/90 backdrop-blur border-b border-slate-800">
+    <div class="max-w-7xl mx-auto px-4 py-4">
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+                <h1 class="text-xl font-bold">DACN1 Admin</h1>
+                <p class="text-sm text-slate-400">Hệ thống giám sát tài xế bằng AI</p>
+            </div>
+
+            <div class="flex gap-2 overflow-x-auto pb-1">
+                <a href="/admin/dashboard" class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">Dashboard</a>
+                <a href="/admin/drivers" class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">Tài xế</a>
+                <a href="/admin/vehicles" class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">Xe</a>
+                <a href="/admin/scheduler" class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">Lịch chạy</a>
+                <a href="/admin/reports" class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">Báo cáo</a>
+                <a href="/admin/analytics" class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">Thống kê</a>
+                <a href="/logout" class="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-sm whitespace-nowrap">Đăng xuất</a>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<main class="max-w-7xl mx-auto p-6">
+
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+        <div>
+            <h1 class="text-3xl font-black">Thống kê hệ thống</h1>
+            <p class="text-slate-400 mt-1">Phân tích cảnh báo AI, mức độ rủi ro và báo cáo sự cố</p>
+        </div>
+
+        <a href="/api/admin/export-pdf"
+           class="w-fit bg-red-600 hover:bg-red-700 active:scale-[0.99] transition px-5 py-3 rounded-2xl font-bold shadow-lg shadow-red-600/10">
+            📄 Xuất PDF
+        </a>
+    </div>
+
+    <!-- CARDS -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-slate-900 rounded-3xl p-5 border border-slate-800 shadow-xl">
+            <p class="text-slate-400 text-sm">🚨 Tổng cảnh báo</p>
+            <h2 id="tong_canh_bao" class="text-4xl font-black mt-2 text-red-400">0</h2>
+        </div>
+
+        <div class="bg-slate-900 rounded-3xl p-5 border border-slate-800 shadow-xl">
+            <p class="text-slate-400 text-sm">😴 Buồn ngủ</p>
+            <h2 id="tong_buon_ngu" class="text-4xl font-black mt-2 text-red-300">0</h2>
+        </div>
+
+        <div class="bg-slate-900 rounded-3xl p-5 border border-slate-800 shadow-xl">
+            <p class="text-slate-400 text-sm">🥱 Mệt mỏi</p>
+            <h2 id="tong_met_moi" class="text-4xl font-black mt-2 text-yellow-300">0</h2>
+        </div>
+
+        <div class="bg-slate-900 rounded-3xl p-5 border border-slate-800 shadow-xl">
+            <p class="text-slate-400 text-sm">🛠️ Báo cáo sự cố</p>
+            <h2 id="tong_bao_cao_su_co" class="text-4xl font-black mt-2 text-blue-300">0</h2>
+        </div>
+    </div>
+
+    <!-- CHARTS -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <section class="bg-slate-900 rounded-3xl p-5 border border-slate-800 shadow-xl">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h2 class="text-xl font-bold">Buồn ngủ theo ngày</h2>
+                    <p class="text-sm text-slate-400">Số lần AI ghi nhận trạng thái buồn ngủ</p>
+                </div>
+            </div>
+
+            <div class="bg-slate-950/40 rounded-2xl p-4 border border-slate-800">
+                <canvas id="sleepChart"></canvas>
+            </div>
+        </section>
+
+        <section class="bg-slate-900 rounded-3xl p-5 border border-slate-800 shadow-xl">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h2 class="text-xl font-bold">Báo cáo sự cố theo loại</h2>
+                    <p class="text-sm text-slate-400">Phân loại sự cố do tài xế gửi</p>
+                </div>
+            </div>
+
+            <div class="bg-slate-950/40 rounded-2xl p-4 border border-slate-800">
+                <canvas id="reportChart"></canvas>
+            </div>
+        </section>
+    </div>
+
+    <!-- TOP DRIVERS + REPORT TYPES -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <section class="lg:col-span-2 bg-slate-900 rounded-3xl p-5 border border-slate-800 shadow-xl">
+            <div class="flex justify-between items-center mb-4">
+                <div>
+                    <h2 class="text-xl font-bold">Top tài xế nguy cơ cao</h2>
+                    <p class="text-sm text-slate-400">Xếp hạng theo tổng số cảnh báo AI</p>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="text-slate-400 border-b border-slate-700">
+                        <tr>
+                            <th class="text-left py-3">Tài xế</th>
+                            <th class="text-left py-3">Tổng cảnh báo</th>
+                            <th class="text-left py-3">Buồn ngủ</th>
+                            <th class="text-left py-3">Mệt mỏi</th>
+                        </tr>
+                    </thead>
+
+                    <tbody id="top_tai_xe"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="bg-slate-900 rounded-3xl p-5 border border-slate-800 shadow-xl">
+            <h2 class="text-xl font-bold mb-4">Loại sự cố phổ biến</h2>
+            <div id="reportTypes" class="space-y-3"></div>
+        </section>
+
+    </div>
+
+</main>
+
+<script>
+const currentPath = window.location.pathname;
+
+document.querySelectorAll(".admin-link").forEach(link => {
+    if (link.getAttribute("href") === currentPath) {
+        link.classList.remove("bg-slate-800");
+        link.classList.add("bg-blue-600");
+    }
+});
+
+let sleepChart = null;
+let reportChart = null;
+
+function formatDate(value) {
+    if (!value) return "Không rõ";
+    return String(value);
+}
+
+function reportTypeText(type) {
+    if (type === "HU_XE") return "Hư xe";
+    if (type === "HET_XANG") return "Hết xăng";
+    if (type === "TAI_NAN") return "Tai nạn";
+    if (type === "KHAC") return "Khác";
+    return type || "Khác";
+}
+
+async function loadAnalytics() {
+    try {
+        const res = await fetch("/api/admin/analytics");
+        const json = await res.json();
+        const data = json.data || {};
+
+        document.getElementById("tong_canh_bao").innerText = data.tong_canh_bao || 0;
+        document.getElementById("tong_buon_ngu").innerText = data.tong_buon_ngu || 0;
+        document.getElementById("tong_met_moi").innerText = data.tong_met_moi || 0;
+        document.getElementById("tong_bao_cao_su_co").innerText = data.tong_bao_cao_su_co || 0;
+
+        renderSleepChart(data.buon_ngu_theo_ngay || []);
+        renderReportChart(data.bao_cao_su_co_theo_loai || []);
+        renderTopDrivers(data.top_tai_xe || []);
+        renderReportTypes(data.bao_cao_su_co_theo_loai || []);
+
+    } catch (error) {
+        console.error("Analytics error:", error);
+        alert("Không thể tải dữ liệu thống kê.");
+    }
+}
+
+function renderSleepChart(rows) {
+    const labels = rows.map(x => formatDate(x.ngay));
+    const values = rows.map(x => x.tong || 0);
+
+    if (sleepChart) sleepChart.destroy();
+
+    sleepChart = new Chart(document.getElementById("sleepChart"), {
+        type: "line",
+        data: {
+            labels: labels.length ? labels : ["Chưa có dữ liệu"],
+            datasets: [{
+                label: "Số lần buồn ngủ",
+                data: values.length ? values : [0],
+                borderWidth: 3,
+                tension: 0.35,
+                pointRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    labels: {
+                        color: "white"
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: {
+                        color: "#cbd5e1"
+                    },
+                    grid: {
+                        color: "rgba(148,163,184,0.12)"
+                    }
+                },
+                y: {
+                    ticks: {
+                        color: "#cbd5e1",
+                        precision: 0
+                    },
+                    grid: {
+                        color: "rgba(148,163,184,0.12)"
+                    },
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+function renderReportChart(rows) {
+    const labels = rows.map(x => reportTypeText(x.loai_su_co));
+    const values = rows.map(x => x.tong || 0);
+
+    if (reportChart) reportChart.destroy();
+
+    reportChart = new Chart(document.getElementById("reportChart"), {
+        type: "bar",
+        data: {
+            labels: labels.length ? labels : ["Chưa có dữ liệu"],
+            datasets: [{
+                label: "Số báo cáo",
+                data: values.length ? values : [0],
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    labels: {
+                        color: "white"
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: {
+                        color: "#cbd5e1"
+                    },
+                    grid: {
+                        color: "rgba(148,163,184,0.12)"
+                    }
+                },
+                y: {
+                    ticks: {
+                        color: "#cbd5e1",
+                        precision: 0
+                    },
+                    grid: {
+                        color: "rgba(148,163,184,0.12)"
+                    },
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+function renderTopDrivers(rows) {
+    const box = document.getElementById("top_tai_xe");
+    box.innerHTML = "";
+
+    if (!rows || rows.length === 0) {
+        box.innerHTML = `
+            <tr>
+                <td colspan="4" class="py-5 text-slate-400">
+                    Chưa có dữ liệu cảnh báo.
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    rows.forEach((item, index) => {
+        box.innerHTML += `
+            <tr class="border-b border-slate-800 hover:bg-slate-800/40">
+                <td class="py-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center font-bold">
+                            ${index + 1}
+                        </div>
+                        <div>
+                            <p class="font-bold">${item.ho_ten || "Chưa xác định"}</p>
+                            <p class="text-xs text-slate-500">ID: ${item.id || "N/A"}</p>
+                        </div>
+                    </div>
+                </td>
+
+                <td class="py-4 font-bold">${item.tong_canh_bao || 0}</td>
+                <td class="py-4 text-red-300 font-bold">${item.so_lan_buon_ngu || 0}</td>
+                <td class="py-4 text-yellow-300 font-bold">${item.so_lan_met_moi || 0}</td>
+            </tr>
+        `;
+    });
+}
+
+function renderReportTypes(rows) {
+    const box = document.getElementById("reportTypes");
+    box.innerHTML = "";
+
+    if (!rows || rows.length === 0) {
+        box.innerHTML = `
+            <div class="bg-slate-800/60 rounded-2xl p-4 text-slate-400">
+                Chưa có báo cáo sự cố.
+            </div>
+        `;
+        return;
+    }
+
+    rows.forEach(item => {
+        box.innerHTML += `
+            <div class="bg-slate-800/60 border border-slate-700 rounded-2xl p-4">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <p class="font-bold">${reportTypeText(item.loai_su_co)}</p>
+                        <p class="text-xs text-slate-400">Loại sự cố</p>
+                    </div>
+
+                    <div class="text-2xl font-black text-blue-300">
+                        ${item.tong || 0}
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+}
+
+loadAnalytics();
+</script>
+
+</body>
+</html>

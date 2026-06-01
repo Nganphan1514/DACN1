@@ -2,6 +2,311 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lịch sử chạy</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+</head>
+
+<body class="bg-slate-950 text-white min-h-screen pb-[110px]">
+
+<div class="max-w-md mx-auto px-4 py-5">
+
+    <!-- HEADER -->
+    <div class="mb-5">
+        <a id="backDashboard"
+           href="/driver/dashboard"
+           class="text-cyan-400 text-sm flex items-center gap-1 mb-3">
+            <span class="material-icons-round text-base">arrow_back</span>
+            Quay lại Cabin
+        </a>
+
+        <div class="flex items-start justify-between gap-3">
+            <div>
+                <h1 class="text-3xl font-black tracking-tight">Lịch sử chạy</h1>
+                <p class="text-slate-400 text-sm mt-1">
+                    Các phiên lái xe đã được ghi nhận
+                </p>
+            </div>
+
+            <div class="w-12 h-12 rounded-2xl bg-cyan-600/20 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+                <span class="material-icons-round">route</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- SUMMARY -->
+    <div class="grid grid-cols-3 gap-3 mb-5">
+        <div class="rounded-2xl bg-slate-900 border border-slate-800 p-4 text-center">
+            <p class="text-xs text-slate-400">Tổng phiên</p>
+            <h2 id="totalCount" class="text-2xl font-black mt-1">0</h2>
+        </div>
+
+        <div class="rounded-2xl bg-green-600/10 border border-green-500/30 p-4 text-center">
+            <p class="text-xs text-green-300">Đang lái</p>
+            <h2 id="runningCount" class="text-2xl font-black mt-1 text-green-300">0</h2>
+        </div>
+
+        <div class="rounded-2xl bg-slate-800/80 border border-slate-700 p-4 text-center">
+            <p class="text-xs text-slate-400">Đã xong</p>
+            <h2 id="doneCount" class="text-2xl font-black mt-1 text-slate-200">0</h2>
+        </div>
+    </div>
+
+    <!-- FILTER -->
+    <div class="mb-5">
+        <select id="statusFilter"
+                onchange="filterHistory()"
+                class="w-full p-4 rounded-2xl bg-slate-900 border border-slate-800 outline-none focus:border-cyan-500">
+            <option value="">Tất cả phiên lái</option>
+            <option value="DANG_LAI">Đang lái</option>
+            <option value="TAM_MAT_DAU">Tạm mất dấu</option>
+            <option value="DA_KET_THUC">Đã kết thúc</option>
+        </select>
+    </div>
+
+    <!-- LIST -->
+    <div id="list" class="space-y-3"></div>
+
+</div>
+
+<!-- BOTTOM NAV -->
+<div class="fixed bottom-0 left-0 right-0 bg-slate-900/90 backdrop-blur-md border-t border-slate-800 py-2 z-50 shadow-2xl">
+    <div class="w-full max-w-md mx-auto flex justify-around items-center px-4">
+
+        <a id="navDashboard"
+           href="/driver/dashboard"
+           class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 text-xs">
+            <div class="w-12 h-8 flex items-center justify-center">
+                <span class="material-icons-round text-2xl">dashboard</span>
+            </div>
+            <span>Cabin</span>
+        </a>
+
+        <a id="navSchedules"
+           href="/driver/schedules"
+           class="flex flex-col items-center gap-1 text-blue-500 font-medium text-xs">
+            <div class="w-12 h-8 rounded-full bg-blue-500/10 flex items-center justify-center">
+                <span class="material-icons-round text-2xl">calendar_today</span>
+            </div>
+            <span>Lịch</span>
+        </a>
+
+        <a id="navViolations"
+           href="/driver/violations"
+           class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 text-xs">
+            <div class="w-12 h-8 flex items-center justify-center">
+                <span class="material-icons-round text-2xl">warning</span>
+            </div>
+            <span>Vi phạm</span>
+        </a>
+
+        <a id="navNotifications"
+           href="/driver/notifications"
+           class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 text-xs">
+            <div class="w-12 h-8 flex items-center justify-center">
+                <span class="material-icons-round text-2xl">notifications</span>
+            </div>
+            <span>Thông báo</span>
+        </a>
+
+        <a id="navProfile"
+           href="/driver/profile"
+           class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 text-xs">
+            <div class="w-12 h-8 flex items-center justify-center">
+                <span class="material-icons-round text-2xl">account_circle</span>
+            </div>
+            <span>Cá nhân</span>
+        </a>
+
+    </div>
+</div>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+const user = JSON.parse(localStorage.getItem("user") || "{}");
+
+let taiXeId = params.get("tai_xe_id") || user.id || 1;
+let histories = [];
+
+function withDriverId(path) {
+    return `${path}?tai_xe_id=${taiXeId}`;
+}
+
+document.getElementById("backDashboard").href = withDriverId("/driver/dashboard");
+document.getElementById("navDashboard").href = withDriverId("/driver/dashboard");
+document.getElementById("navSchedules").href = withDriverId("/driver/schedules");
+document.getElementById("navViolations").href = withDriverId("/driver/violations");
+document.getElementById("navNotifications").href = withDriverId("/driver/notifications");
+document.getElementById("navProfile").href = withDriverId("/driver/profile");
+
+function statusStyle(status) {
+    if (status === "DANG_LAI") {
+        return {
+            badge: "bg-green-500/20 text-green-300 border border-green-500/30",
+            card: "border-green-500/30 bg-green-600/10",
+            icon: "directions_car",
+            text: "Đang lái"
+        };
+    }
+
+    if (status === "TAM_MAT_DAU") {
+        return {
+            badge: "bg-yellow-500/20 text-yellow-300 border border-yellow-500/30",
+            card: "border-yellow-500/30 bg-yellow-600/10",
+            icon: "visibility_off",
+            text: "Tạm mất dấu"
+        };
+    }
+
+    if (status === "DA_KET_THUC") {
+        return {
+            badge: "bg-slate-700 text-slate-300 border border-slate-600",
+            card: "border-slate-800 bg-slate-900",
+            icon: "check_circle",
+            text: "Đã kết thúc"
+        };
+    }
+
+    return {
+        badge: "bg-blue-500/20 text-blue-300 border border-blue-500/30",
+        card: "border-slate-800 bg-slate-900",
+        icon: "info",
+        text: status || "Không rõ"
+    };
+}
+
+function formatMinutes(value) {
+    const minutes = Number(value || 0);
+
+    if (minutes <= 0) return "0 phút";
+
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+
+    if (h > 0) return `${h} giờ ${m} phút`;
+    return `${m} phút`;
+}
+
+function updateSummary(rows) {
+    document.getElementById("totalCount").innerText = rows.length;
+    document.getElementById("runningCount").innerText = rows.filter(x => x.trang_thai === "DANG_LAI").length;
+    document.getElementById("doneCount").innerText = rows.filter(x => x.trang_thai === "DA_KET_THUC").length;
+}
+
+async function loadHistory() {
+    const box = document.getElementById("list");
+
+    box.innerHTML = `
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 text-slate-400">
+            Đang tải dữ liệu...
+        </div>
+    `;
+
+    try {
+        const res = await fetch(`/api/driver/history/${taiXeId}`);
+        const json = await res.json();
+
+        histories = json.data || [];
+        updateSummary(histories);
+        renderHistory(histories);
+
+    } catch (error) {
+        box.innerHTML = `
+            <div class="bg-red-600/10 border border-red-500/30 rounded-3xl p-5 text-red-300">
+                Không thể tải lịch sử chạy.
+            </div>
+        `;
+    }
+}
+
+function renderHistory(rows) {
+    const box = document.getElementById("list");
+    box.innerHTML = "";
+
+    if (!rows || rows.length === 0) {
+        box.innerHTML = `
+            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 text-center">
+                <div class="w-14 h-14 mx-auto rounded-2xl bg-cyan-600/20 border border-cyan-500/30 flex items-center justify-center text-cyan-400 mb-3">
+                    <span class="material-icons-round text-3xl">route</span>
+                </div>
+                <h2 class="font-bold text-lg">Chưa có phiên lái</h2>
+                <p class="text-slate-400 text-sm mt-1">
+                    Khi tài xế bắt đầu chạy, hệ thống sẽ ghi nhận tại đây.
+                </p>
+            </div>
+        `;
+        return;
+    }
+
+    rows.forEach(item => {
+        const style = statusStyle(item.trang_thai);
+
+        box.innerHTML += `
+            <div class="history-card rounded-3xl p-5 border ${style.card} shadow-lg"
+                 data-status="${item.trang_thai || ""}">
+                <div class="flex justify-between items-start gap-3 mb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 rounded-2xl bg-slate-950/40 border border-slate-700 flex items-center justify-center">
+                            <span class="material-icons-round">${style.icon}</span>
+                        </div>
+
+                        <div>
+                            <h2 class="font-black text-lg">${item.bien_so || "Chưa có xe"}</h2>
+                            <p class="text-sm text-slate-400">${item.tuyen_duong || "Chưa có tuyến"}</p>
+                        </div>
+                    </div>
+
+                    <span class="px-3 py-1 rounded-full text-xs font-bold ${style.badge}">
+                        ${style.text}
+                    </span>
+                </div>
+
+                <div class="space-y-3">
+                    <div class="bg-slate-950/40 border border-slate-800 rounded-2xl p-4">
+                        <p class="text-xs text-slate-400 uppercase font-bold">Bắt đầu</p>
+                        <p class="font-bold mt-1">${item.bat_dau || "N/A"}</p>
+                    </div>
+
+                    <div class="bg-slate-950/40 border border-slate-800 rounded-2xl p-4">
+                        <p class="text-xs text-slate-400 uppercase font-bold">Kết thúc</p>
+                        <p class="font-bold mt-1">${item.ket_thuc || "Chưa kết thúc"}</p>
+                    </div>
+
+                    <div class="bg-slate-950/40 border border-slate-800 rounded-2xl p-4 flex justify-between items-center">
+                        <div>
+                            <p class="text-xs text-slate-400 uppercase font-bold">Thời lượng</p>
+                            <p class="font-bold mt-1">${formatMinutes(item.tong_phut)}</p>
+                        </div>
+
+                        <span class="material-icons-round text-slate-500">timer</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+}
+
+function filterHistory() {
+    const status = document.getElementById("statusFilter").value;
+
+    if (!status) {
+        renderHistory(histories);
+        return;
+    }
+
+    renderHistory(histories.filter(item => item.trang_thai === status));
+}
+
+loadHistory();
+</script>
+
+</body>
+</html>
+<!-- <!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
     <title>Lịch sử chạy</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
@@ -80,4 +385,4 @@ loadHistory();
 </script>
 
 </body>
-</html>
+</html> -->

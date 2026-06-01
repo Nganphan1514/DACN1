@@ -11,6 +11,205 @@
 
 <body class="bg-slate-950 text-white min-h-screen pb-[110px]">
 
+<div class="max-w-md mx-auto px-4 py-5">
+
+    <div class="mb-5">
+        <a href="/driver/dashboard?tai_xe_id={{ tai_xe_id }}"
+           class="text-cyan-400 text-sm flex items-center gap-1 mb-3">
+            <span class="material-icons-round text-base">arrow_back</span>
+            Quay lại Cabin
+        </a>
+
+        <div class="flex items-start justify-between gap-3">
+            <div>
+                <h1 class="text-3xl font-black tracking-tight">Hộp thư nhắc nhở</h1>
+                <p class="text-slate-400 text-sm mt-1">
+                    Thông báo và ghi chú từ quản lý
+                </p>
+            </div>
+
+            <div class="w-12 h-12 rounded-2xl bg-cyan-600/20 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+                <span class="material-icons-round">notifications</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3 mb-5">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 text-center">
+            <p class="text-xs text-slate-400">Tổng thông báo</p>
+            <h2 class="text-2xl font-black mt-1">{{ notifications|length }}</h2>
+        </div>
+
+        <div class="bg-cyan-600/10 border border-cyan-500/30 rounded-2xl p-4 text-center">
+            <p class="text-xs text-cyan-300">Chưa đọc</p>
+            <h2 class="text-2xl font-black mt-1 text-cyan-300">
+                {{ notifications | rejectattr("da_doc") | list | length }}
+            </h2>
+        </div>
+    </div>
+
+    <div class="space-y-4">
+
+        {% if notifications|length == 0 %}
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-8 text-center">
+            <div class="w-14 h-14 mx-auto rounded-2xl bg-cyan-600/20 border border-cyan-500/30 flex items-center justify-center text-cyan-400 mb-4">
+                <span class="material-icons-round text-3xl">notifications_none</span>
+            </div>
+
+            <h2 class="font-bold text-lg">Chưa có thông báo</h2>
+            <p class="text-slate-400 text-sm mt-1">
+                Các ghi chú từ quản lý sẽ xuất hiện tại đây.
+            </p>
+        </div>
+        {% endif %}
+
+        {% for item in notifications %}
+        <div class="rounded-[28px] p-5 border transition-all duration-300
+            {% if item.da_doc %}
+                bg-slate-900/50 border-slate-800
+            {% else %}
+                bg-cyan-600/10 border-cyan-500/40 shadow-lg shadow-cyan-500/5
+            {% endif %}
+        ">
+
+            <div class="flex justify-between items-start mb-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-slate-800 flex items-center justify-center text-slate-400">
+                        <span class="material-icons-round">account_box</span>
+                    </div>
+
+                    <div>
+                        <h2 class="text-xs text-slate-500 font-medium">Quản lý</h2>
+                        <h3 class="font-bold text-sm text-slate-200">
+                            {{ item.quan_ly or "Quản lý hệ thống" }}
+                        </h3>
+
+                        {% if item.created_at %}
+                        <p class="text-[11px] text-slate-500 mt-0.5">
+                            {{ item.created_at }}
+                        </p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if not item.da_doc %}
+                <span class="bg-cyan-500/20 text-cyan-400 px-2.5 py-1 rounded-full text-[10px] font-black tracking-wider border border-cyan-500/30">
+                    MỚI
+                </span>
+                {% else %}
+                <span class="bg-slate-800 text-slate-400 px-2.5 py-1 rounded-full text-[10px] font-bold border border-slate-700">
+                    ĐÃ ĐỌC
+                </span>
+                {% endif %}
+            </div>
+
+            <p class="text-slate-300 text-base leading-relaxed mb-4 break-words whitespace-normal">
+                {{ item.noi_dung }}
+            </p>
+
+            {% if not item.da_doc %}
+            <button data-id="{{ item.id }}" onclick="markAsRead(this)"
+                class="w-full bg-green-600 hover:bg-green-700 active:scale-[0.98] transition-all rounded-2xl p-3 font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-green-600/10">
+                <span class="material-icons-round text-lg">check_circle</span>
+                XÁC NHẬN ĐÃ ĐỌC
+            </button>
+            {% else %}
+            <div class="text-emerald-400 text-sm font-bold flex items-center gap-1.5 px-1 py-1">
+                <span class="material-icons-round text-lg">done_all</span>
+                Đã đọc
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+
+</div>
+
+<div class="fixed bottom-0 left-0 right-0 bg-slate-900/90 backdrop-blur-md border-t border-slate-800 py-2 z-50 shadow-2xl">
+    <div class="w-full max-w-md mx-auto flex justify-around items-center px-4">
+
+        <a href="/driver/dashboard?tai_xe_id={{ tai_xe_id }}"
+           class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 text-xs">
+            <div class="w-12 h-8 flex items-center justify-center">
+                <span class="material-icons-round text-2xl">dashboard</span>
+            </div>
+            <span>Cabin</span>
+        </a>
+
+        <a href="/driver/schedules?tai_xe_id={{ tai_xe_id }}"
+           class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 text-xs">
+            <div class="w-12 h-8 flex items-center justify-center">
+                <span class="material-icons-round text-2xl">calendar_today</span>
+            </div>
+            <span>Lịch</span>
+        </a>
+
+        <a href="/driver/violations?tai_xe_id={{ tai_xe_id }}"
+           class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 text-xs">
+            <div class="w-12 h-8 flex items-center justify-center">
+                <span class="material-icons-round text-2xl">warning</span>
+            </div>
+            <span>Vi phạm</span>
+        </a>
+
+        <a href="/driver/notifications?tai_xe_id={{ tai_xe_id }}"
+           class="flex flex-col items-center gap-1 text-blue-500 font-medium text-xs">
+            <div class="w-12 h-8 rounded-full bg-blue-500/10 flex items-center justify-center">
+                <span class="material-icons-round text-2xl">notifications</span>
+            </div>
+            <span>Thông báo</span>
+        </a>
+
+        <a href="/driver/profile?tai_xe_id={{ tai_xe_id }}"
+           class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 text-xs">
+            <div class="w-12 h-8 flex items-center justify-center">
+                <span class="material-icons-round text-2xl">account_circle</span>
+            </div>
+            <span>Cá nhân</span>
+        </a>
+
+    </div>
+</div>
+
+<script>
+async function markAsRead(button) {
+    const noteId = button.dataset.id;
+
+    button.disabled = true;
+    button.innerHTML = `
+        <span class="material-icons-round animate-spin">sync</span>
+        Đang xử lý...
+    `;
+
+    try {
+        await fetch(`/driver/read-note/${noteId}`, {
+            method: "POST"
+        });
+
+        location.reload();
+
+    } catch (error) {
+        alert("Không thể đánh dấu đã đọc.");
+        location.reload();
+    }
+}
+</script>
+
+</body>
+</html>
+<!-- <!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thông báo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+</head>
+
+<body class="bg-slate-950 text-white min-h-screen pb-[110px]">
+
     <div class="max-w-md mx-auto p-4">
 
         <div class="mb-6">
@@ -120,4 +319,4 @@
 
 </body>
 
-</html>
+</html> -->

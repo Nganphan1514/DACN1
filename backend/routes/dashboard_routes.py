@@ -49,10 +49,10 @@ def driver_dashboard():
 # ==========================
 # ADMIN DASHBOARD
 # ==========================
-@dashboard_bp.route("/admin/dashboard")
-def admin_dashboard():
+# @dashboard_bp.route("/admin/dashboard")
+# def admin_dashboard():
 
-    return render_template("admin/dashboard.html")
+#     return render_template("admin/dashboard.html")
 
 
 # ==========================

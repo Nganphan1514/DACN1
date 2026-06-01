@@ -2,6 +2,401 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Báo cáo sự cố</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+</head>
+
+<body class="bg-slate-950 text-white min-h-screen pb-[110px]">
+
+<div class="max-w-md mx-auto px-4 py-5">
+
+    <!-- HEADER -->
+    <div class="mb-5">
+        <a id="backDashboard"
+           href="/driver/dashboard"
+           class="text-cyan-400 text-sm flex items-center gap-1 mb-3">
+            <span class="material-icons-round text-base">arrow_back</span>
+            Quay lại Cabin
+        </a>
+
+        <div class="flex items-start justify-between gap-3">
+            <div>
+                <h1 class="text-3xl font-black tracking-tight">Báo cáo sự cố</h1>
+                <p class="text-slate-400 text-sm mt-1">
+                    Gửi tình trạng xe hoặc sự cố trong lúc chạy
+                </p>
+            </div>
+
+            <div class="w-12 h-12 rounded-2xl bg-red-600/20 border border-red-500/30 flex items-center justify-center text-red-400">
+                <span class="material-icons-round">report_problem</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- FORM -->
+    <section class="bg-slate-900 border border-slate-800 rounded-[28px] p-5 shadow-xl mb-6">
+        <h2 class="text-lg font-bold mb-4">Tạo báo cáo mới</h2>
+
+        <div class="space-y-4">
+            <div>
+                <label class="text-xs text-slate-400 font-bold uppercase">Tiêu đề</label>
+                <input id="tieu_de"
+                       class="w-full mt-1 p-4 rounded-2xl bg-slate-800 border border-slate-700 outline-none focus:border-cyan-500"
+                       placeholder="VD: Xe bị hết xăng">
+            </div>
+
+            <div>
+                <label class="text-xs text-slate-400 font-bold uppercase">Loại sự cố</label>
+                <select id="loai_su_co"
+                        class="w-full mt-1 p-4 rounded-2xl bg-slate-800 border border-slate-700 outline-none focus:border-cyan-500">
+                    <option value="HU_XE">Hư xe</option>
+                    <option value="HET_XANG">Hết xăng</option>
+                    <option value="TAI_NAN">Tai nạn</option>
+                    <option value="KHAC">Khác</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="text-xs text-slate-400 font-bold uppercase">Nội dung</label>
+                <textarea id="noi_dung"
+                          class="w-full mt-1 p-4 rounded-2xl bg-slate-800 border border-slate-700 outline-none focus:border-cyan-500 resize-none"
+                          rows="5"
+                          placeholder="Mô tả ngắn gọn sự cố bạn đang gặp..."></textarea>
+            </div>
+
+            <button id="sendBtn"
+                    onclick="guiBaoCao()"
+                    class="w-full bg-red-600 hover:bg-red-700 active:scale-[0.99] transition p-4 rounded-2xl font-bold shadow-lg shadow-red-600/10 flex items-center justify-center gap-2">
+                <span class="material-icons-round">send</span>
+                Gửi báo cáo
+            </button>
+
+            <p id="msg" class="text-center text-sm min-h-[20px]"></p>
+        </div>
+    </section>
+
+    <!-- SUMMARY -->
+    <div class="grid grid-cols-3 gap-3 mb-5">
+        <div class="rounded-2xl bg-slate-900 border border-slate-800 p-4 text-center">
+            <p class="text-xs text-slate-400">Tổng</p>
+            <h2 id="totalReports" class="text-2xl font-black mt-1">0</h2>
+        </div>
+
+        <div class="rounded-2xl bg-yellow-600/10 border border-yellow-500/30 p-4 text-center">
+            <p class="text-xs text-yellow-300">Chờ xử lý</p>
+            <h2 id="pendingReports" class="text-2xl font-black mt-1 text-yellow-300">0</h2>
+        </div>
+
+        <div class="rounded-2xl bg-green-600/10 border border-green-500/30 p-4 text-center">
+            <p class="text-xs text-green-300">Đã xử lý</p>
+            <h2 id="doneReports" class="text-2xl font-black mt-1 text-green-300">0</h2>
+        </div>
+    </div>
+
+    <div class="flex items-center justify-between mb-3">
+        <h2 class="text-xl font-black">Lịch sử báo cáo</h2>
+
+        <select id="statusFilter"
+                onchange="filterReports()"
+                class="p-2 rounded-xl bg-slate-900 border border-slate-800 text-sm outline-none">
+            <option value="">Tất cả</option>
+            <option value="CHO_XU_LY">Chờ xử lý</option>
+            <option value="DANG_XU_LY">Đang xử lý</option>
+            <option value="DA_XU_LY">Đã xử lý</option>
+        </select>
+    </div>
+
+    <div id="reports" class="space-y-3"></div>
+
+</div>
+
+<!-- BOTTOM NAV -->
+<div class="fixed bottom-0 left-0 right-0 bg-slate-900/90 backdrop-blur-md border-t border-slate-800 py-2 z-50 shadow-2xl">
+    <div class="w-full max-w-md mx-auto flex justify-around items-center px-4">
+
+        <a id="navDashboard"
+           href="/driver/dashboard"
+           class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 text-xs">
+            <div class="w-12 h-8 flex items-center justify-center">
+                <span class="material-icons-round text-2xl">dashboard</span>
+            </div>
+            <span>Cabin</span>
+        </a>
+
+        <a id="navSchedules"
+           href="/driver/schedules"
+           class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 text-xs">
+            <div class="w-12 h-8 flex items-center justify-center">
+                <span class="material-icons-round text-2xl">calendar_today</span>
+            </div>
+            <span>Lịch</span>
+        </a>
+
+        <a id="navViolations"
+           href="/driver/violations"
+           class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 text-xs">
+            <div class="w-12 h-8 flex items-center justify-center">
+                <span class="material-icons-round text-2xl">warning</span>
+            </div>
+            <span>Vi phạm</span>
+        </a>
+
+        <a id="navNotifications"
+           href="/driver/notifications"
+           class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 text-xs">
+            <div class="w-12 h-8 flex items-center justify-center">
+                <span class="material-icons-round text-2xl">notifications</span>
+            </div>
+            <span>Thông báo</span>
+        </a>
+
+        <a id="navProfile"
+           href="/driver/profile"
+           class="flex flex-col items-center gap-1 text-blue-500 font-medium text-xs">
+            <div class="w-12 h-8 rounded-full bg-blue-500/10 flex items-center justify-center">
+                <span class="material-icons-round text-2xl">account_circle</span>
+            </div>
+            <span>Cá nhân</span>
+        </a>
+
+    </div>
+</div>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+const user = JSON.parse(localStorage.getItem("user") || "{}");
+
+let taiXeId = params.get("tai_xe_id") || user.id || 1;
+let reports = [];
+
+function withDriverId(path) {
+    return `${path}?tai_xe_id=${taiXeId}`;
+}
+
+document.getElementById("backDashboard").href = withDriverId("/driver/dashboard");
+document.getElementById("navDashboard").href = withDriverId("/driver/dashboard");
+document.getElementById("navSchedules").href = withDriverId("/driver/schedules");
+document.getElementById("navViolations").href = withDriverId("/driver/violations");
+document.getElementById("navNotifications").href = withDriverId("/driver/notifications");
+document.getElementById("navProfile").href = withDriverId("/driver/profile");
+
+function reportTypeText(type) {
+    if (type === "HU_XE") return "Hư xe";
+    if (type === "HET_XANG") return "Hết xăng";
+    if (type === "TAI_NAN") return "Tai nạn";
+    if (type === "KHAC") return "Khác";
+    return type || "Khác";
+}
+
+function statusStyle(status) {
+    if (status === "CHO_XU_LY") {
+        return {
+            badge: "bg-yellow-500/20 text-yellow-300 border border-yellow-500/30",
+            card: "border-yellow-500/30 bg-yellow-600/10",
+            text: "Chờ xử lý",
+            icon: "hourglass_empty"
+        };
+    }
+
+    if (status === "DANG_XU_LY") {
+        return {
+            badge: "bg-blue-500/20 text-blue-300 border border-blue-500/30",
+            card: "border-blue-500/30 bg-blue-600/10",
+            text: "Đang xử lý",
+            icon: "sync"
+        };
+    }
+
+    if (status === "DA_XU_LY") {
+        return {
+            badge: "bg-green-500/20 text-green-300 border border-green-500/30",
+            card: "border-green-500/30 bg-green-600/10",
+            text: "Đã xử lý",
+            icon: "check_circle"
+        };
+    }
+
+    return {
+        badge: "bg-slate-700 text-slate-300 border border-slate-600",
+        card: "border-slate-800 bg-slate-900",
+        text: status || "Không rõ",
+        icon: "info"
+    };
+}
+
+function updateSummary(rows) {
+    document.getElementById("totalReports").innerText = rows.length;
+    document.getElementById("pendingReports").innerText = rows.filter(x => x.trang_thai === "CHO_XU_LY").length;
+    document.getElementById("doneReports").innerText = rows.filter(x => x.trang_thai === "DA_XU_LY").length;
+}
+
+async function guiBaoCao() {
+    const title = document.getElementById("tieu_de").value.trim();
+    const content = document.getElementById("noi_dung").value.trim();
+    const type = document.getElementById("loai_su_co").value;
+    const msg = document.getElementById("msg");
+    const btn = document.getElementById("sendBtn");
+
+    msg.innerText = "";
+    msg.className = "text-center text-sm min-h-[20px]";
+
+    if (!title || !content) {
+        msg.innerText = "Vui lòng nhập tiêu đề và nội dung.";
+        msg.classList.add("text-red-400");
+        return;
+    }
+
+    btn.disabled = true;
+    btn.classList.add("opacity-70");
+    btn.innerHTML = `<span class="material-icons-round animate-spin">sync</span> Đang gửi...`;
+
+    try {
+        const res = await fetch("/api/driver/reports", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+                tai_xe_id: Number(taiXeId),
+                xe_id: 1,
+                lich_chay_id: null,
+                tieu_de: title,
+                loai_su_co: type,
+                noi_dung: content,
+                hinh_anh: null
+            })
+        });
+
+        const data = await res.json();
+
+        msg.innerText = data.message || "Đã gửi báo cáo.";
+        msg.classList.add(data.success ? "text-green-400" : "text-red-400");
+
+        if (data.success !== false) {
+            document.getElementById("tieu_de").value = "";
+            document.getElementById("noi_dung").value = "";
+            loadReports();
+        }
+
+    } catch (error) {
+        msg.innerText = "Không thể gửi báo cáo.";
+        msg.classList.add("text-red-400");
+    } finally {
+        btn.disabled = false;
+        btn.classList.remove("opacity-70");
+        btn.innerHTML = `<span class="material-icons-round">send</span> Gửi báo cáo`;
+    }
+}
+
+async function loadReports() {
+    const box = document.getElementById("reports");
+
+    box.innerHTML = `
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 text-slate-400">
+            Đang tải báo cáo...
+        </div>
+    `;
+
+    try {
+        const res = await fetch(`/api/driver/reports/${taiXeId}`);
+        const data = await res.json();
+
+        reports = data.data || [];
+        updateSummary(reports);
+        renderReports(reports);
+
+    } catch (error) {
+        box.innerHTML = `
+            <div class="bg-red-600/10 border border-red-500/30 rounded-3xl p-5 text-red-300">
+                Không thể tải lịch sử báo cáo.
+            </div>
+        `;
+    }
+}
+
+function renderReports(rows) {
+    const box = document.getElementById("reports");
+    box.innerHTML = "";
+
+    if (!rows || rows.length === 0) {
+        box.innerHTML = `
+            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 text-center">
+                <div class="w-14 h-14 mx-auto rounded-2xl bg-cyan-600/20 border border-cyan-500/30 flex items-center justify-center text-cyan-400 mb-3">
+                    <span class="material-icons-round text-3xl">assignment</span>
+                </div>
+                <h2 class="font-bold text-lg">Chưa có báo cáo</h2>
+                <p class="text-slate-400 text-sm mt-1">
+                    Khi bạn gửi báo cáo, lịch sử sẽ hiển thị tại đây.
+                </p>
+            </div>
+        `;
+        return;
+    }
+
+    rows.forEach(item => {
+        const style = statusStyle(item.trang_thai);
+
+        box.innerHTML += `
+            <div class="report-card rounded-3xl p-5 border ${style.card} shadow-lg"
+                 data-status="${item.trang_thai || ""}">
+                <div class="flex justify-between items-start gap-3 mb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 rounded-2xl bg-slate-950/40 border border-slate-700 flex items-center justify-center">
+                            <span class="material-icons-round">${style.icon}</span>
+                        </div>
+
+                        <div>
+                            <h2 class="font-black text-lg">${item.tieu_de || "Không có tiêu đề"}</h2>
+                            <p class="text-sm text-slate-400">${reportTypeText(item.loai_su_co)}</p>
+                        </div>
+                    </div>
+
+                    <span class="px-3 py-1 rounded-full text-xs font-bold ${style.badge}">
+                        ${style.text}
+                    </span>
+                </div>
+
+                <div class="mb-4 bg-slate-950/40 border border-slate-800 rounded-2xl p-4">
+                    <p class="text-xs text-slate-400 uppercase font-bold mb-1">Nội dung</p>
+                    <p class="text-slate-200 leading-relaxed">${item.noi_dung || "Không có nội dung"}</p>
+                </div>
+
+                ${item.phan_hoi_quan_ly ? `
+                    <div class="mb-4 bg-green-600/10 border border-green-500/30 rounded-2xl p-4">
+                        <p class="text-xs text-green-300 uppercase font-bold mb-1">Phản hồi quản lý</p>
+                        <p class="text-green-100 leading-relaxed">${item.phan_hoi_quan_ly}</p>
+                    </div>
+                ` : ""}
+
+                <div class="text-xs text-slate-500 flex items-center gap-1">
+                    <span class="material-icons-round text-base">schedule</span>
+                    ${item.created_at || "Không rõ thời gian"}
+                </div>
+            </div>
+        `;
+    });
+}
+
+function filterReports() {
+    const status = document.getElementById("statusFilter").value;
+
+    if (!status) {
+        renderReports(reports);
+        return;
+    }
+
+    renderReports(reports.filter(item => item.trang_thai === status));
+}
+
+loadReports();
+</script>
+
+</body>
+</html>
+<!-- <!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
     <title>Báo cáo sự cố</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
@@ -80,4 +475,4 @@ loadReports();
 </script>
 
 </body>
-</html>
+</html> -->

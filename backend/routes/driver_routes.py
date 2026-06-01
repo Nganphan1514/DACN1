@@ -12,19 +12,19 @@ from database.mysql_service import (
 driver_bp = Blueprint("driver_bp", __name__)
 
 
-@driver_bp.route("/driver/dashboard")
-def driver_dashboard():
-    return render_template("driver/dashboard.html")
+# @driver_bp.route("/driver/dashboard")
+# def driver_dashboard():
+#     return render_template("driver/dashboard.html")
 
 
-@driver_bp.route("/driver/schedules")
-def driver_schedules_page():
-    return render_template("driver/schedules.html")
+# @driver_bp.route("/driver/schedules")
+# def driver_schedules_page():
+#     return render_template("driver/schedules.html")
 
 
-@driver_bp.route("/driver/notifications")
-def driver_notifications_page():
-    return render_template("driver/notifications.html")
+# @driver_bp.route("/driver/notifications")
+# def driver_notifications_page():
+#     return render_template("driver/notifications.html")
 
 
 @driver_bp.route("/driver/reports")

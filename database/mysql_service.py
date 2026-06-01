@@ -1,99 +1,79 @@
 import mysql.connector
 from mysql.connector import Error
+import threading
 
 
-# ==========================
-# MYSQL SERVICE
-# ==========================
 class MySQLService:
 
     def __init__(self):
-
         self.connection = None
-
+        self.lock = threading.RLock()
         self.connect()
 
-    # ==========================
-    # CONNECT
-    # ==========================
     def connect(self):
-
         try:
-
             self.connection = mysql.connector.connect(
                 host="localhost",
                 user="root",
                 password="",
                 database="he_thong_tai_xe",
                 charset="utf8mb4",
+                autocommit=True,
+                connection_timeout=60
             )
 
             print("MySQL Connected")
 
         except Error as e:
-
             print("Database Error:", e)
+            self.connection = None
 
-    # ==========================
-    # CHECK CONNECTION
-    # ==========================
     def reconnect_if_needed(self):
-
-        try:
-
-            if self.connection is None or not self.connection.is_connected():
-
-                self.connect()
-
-        except Exception:
-
+        if self.connection is None or not self.connection.is_connected():
             self.connect()
+        else:
+            self.connection.ping(reconnect=True, attempts=3, delay=2)
 
-    # ==========================
-    # GET CURSOR
-    # ==========================
     def get_cursor(self):
-
         self.reconnect_if_needed()
+        return self.connection.cursor(dictionary=True, buffered=True)
 
-        return self.connection.cursor(dictionary=True)
-
-    # ==========================
-    # EXECUTE
-    # ==========================
     def execute(self, query, values=None):
+        with self.lock:
+            cursor = self.get_cursor()
+            try:
+                cursor.execute(query, values)
+                last_id = cursor.lastrowid
 
-        cursor = self.get_cursor()
+                class Result:
+                    pass
 
-        cursor.execute(query, values)
+                result = Result()
+                result.lastrowid = last_id
+                return result
 
-        self.connection.commit()
+            finally:
+                cursor.close()
 
-        return cursor
-
-    # ==========================
-    # FETCH ONE
-    # ==========================
     def fetch_one(self, query, values=None):
+        with self.lock:
+            cursor = self.get_cursor()
+            try:
+                cursor.execute(query, values)
+                return cursor.fetchone()
 
-        cursor = self.get_cursor()
+            finally:
+                cursor.close()
 
-        cursor.execute(query, values)
-
-        return cursor.fetchone()
-
-    # ==========================
-    # FETCH ALL
-    # ==========================
     def fetch_all(self, query, values=None):
+        with self.lock:
+            cursor = self.get_cursor()
+            try:
+                cursor.execute(query, values)
+                return cursor.fetchall()
 
-        cursor = self.get_cursor()
-
-        cursor.execute(query, values)
-
-        return cursor.fetchall()
-
-
+            finally:
+                cursor.close()
 # ==========================
 # INIT DB
 # ==========================
@@ -1795,3 +1775,98 @@ def xoa_lich_chay(lich_id, quan_ly_id=1):
     except Exception as e:
         print("Xoa lich chay error:", e)
         return False
+    # ==================================================
+# ADMIN - ANALYTICS
+# ==================================================
+def lay_admin_analytics():
+    try:
+        tong_canh_bao = db.fetch_one("""
+            SELECT COUNT(*) AS tong
+            FROM nhat_ky_phat_hien
+            WHERE trang_thai IN ('MET MOI', 'BUON NGU')
+        """)
+
+        tong_buon_ngu = db.fetch_one("""
+            SELECT COUNT(*) AS tong
+            FROM nhat_ky_phat_hien
+            WHERE trang_thai = 'BUON NGU'
+        """)
+
+        tong_met_moi = db.fetch_one("""
+            SELECT COUNT(*) AS tong
+            FROM nhat_ky_phat_hien
+            WHERE trang_thai = 'MET MOI'
+        """)
+
+        tong_bao_cao_su_co = db.fetch_one("""
+            SELECT COUNT(*) AS tong
+            FROM bao_cao_su_co
+        """)
+
+        buon_ngu_theo_ngay = db.fetch_all("""
+            SELECT
+                DATE(thoi_gian) AS ngay,
+                COUNT(*) AS tong
+            FROM nhat_ky_phat_hien
+            WHERE trang_thai = 'BUON NGU'
+            GROUP BY DATE(thoi_gian)
+            ORDER BY ngay ASC
+        """)
+
+        met_moi_theo_ngay = db.fetch_all("""
+            SELECT
+                DATE(thoi_gian) AS ngay,
+                COUNT(*) AS tong
+            FROM nhat_ky_phat_hien
+            WHERE trang_thai = 'MET MOI'
+            GROUP BY DATE(thoi_gian)
+            ORDER BY ngay ASC
+        """)
+
+        top_tai_xe = db.fetch_all("""
+            SELECT
+                tx.id,
+                tx.ho_ten,
+                COUNT(*) AS tong_canh_bao,
+                SUM(CASE WHEN nk.trang_thai = 'BUON NGU' THEN 1 ELSE 0 END) AS so_lan_buon_ngu,
+                SUM(CASE WHEN nk.trang_thai = 'MET MOI' THEN 1 ELSE 0 END) AS so_lan_met_moi
+            FROM nhat_ky_phat_hien nk
+            LEFT JOIN tai_xe tx ON nk.tai_xe_id = tx.id
+            WHERE nk.trang_thai IN ('MET MOI', 'BUON NGU')
+            GROUP BY nk.tai_xe_id
+            ORDER BY tong_canh_bao DESC
+            LIMIT 10
+        """)
+
+        bao_cao_su_co_theo_loai = db.fetch_all("""
+            SELECT
+                loai_su_co,
+                COUNT(*) AS tong
+            FROM bao_cao_su_co
+            GROUP BY loai_su_co
+            ORDER BY tong DESC
+        """)
+
+        return {
+            "tong_canh_bao": tong_canh_bao["tong"] if tong_canh_bao else 0,
+            "tong_buon_ngu": tong_buon_ngu["tong"] if tong_buon_ngu else 0,
+            "tong_met_moi": tong_met_moi["tong"] if tong_met_moi else 0,
+            "tong_bao_cao_su_co": tong_bao_cao_su_co["tong"] if tong_bao_cao_su_co else 0,
+            "buon_ngu_theo_ngay": buon_ngu_theo_ngay,
+            "met_moi_theo_ngay": met_moi_theo_ngay,
+            "top_tai_xe": top_tai_xe,
+            "bao_cao_su_co_theo_loai": bao_cao_su_co_theo_loai,
+        }
+
+    except Exception as e:
+        print("Lay admin analytics error:", e)
+        return {
+            "tong_canh_bao": 0,
+            "tong_buon_ngu": 0,
+            "tong_met_moi": 0,
+            "tong_bao_cao_su_co": 0,
+            "buon_ngu_theo_ngay": [],
+            "met_moi_theo_ngay": [],
+            "top_tai_xe": [],
+            "bao_cao_su_co_theo_loai": [],
+        }

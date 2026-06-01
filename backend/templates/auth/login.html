@@ -2,65 +2,155 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Đăng nhập DACN1</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 
-<body class="min-h-screen bg-slate-950 flex items-center justify-center text-white">
+<body class="min-h-screen bg-slate-950 text-white flex items-center justify-center px-4 overflow-hidden">
 
-<div class="w-full max-w-md bg-slate-900 p-8 rounded-2xl shadow-xl">
-    <h1 class="text-3xl font-bold mb-2 text-center">DACN1</h1>
-    <p class="text-slate-400 text-center mb-6">Hệ thống giám sát tài xế</p>
-
-    <div class="space-y-4">
-        <input id="username"
-               class="w-full p-3 rounded-xl bg-slate-800 border border-slate-700"
-               placeholder="Tên đăng nhập">
-
-        <input id="password"
-               type="password"
-               class="w-full p-3 rounded-xl bg-slate-800 border border-slate-700"
-               placeholder="Mật khẩu">
-
-        <button onclick="login()"
-                class="w-full bg-blue-600 hover:bg-blue-700 p-3 rounded-xl font-semibold">
-            Đăng nhập
-        </button>
-
-        <p id="message" class="text-center text-red-400"></p>
+    <!-- BACKGROUND EFFECT -->
+    <div class="fixed inset-0 pointer-events-none">
+        <div class="absolute -top-32 -left-32 w-80 h-80 bg-blue-600/20 rounded-full blur-3xl"></div>
+        <div class="absolute bottom-0 right-0 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl"></div>
     </div>
-</div>
+
+    <div class="relative w-full max-w-md">
+
+        <!-- LOGO / HEADER -->
+        <div class="text-center mb-6">
+            <div class="mx-auto mb-4 w-16 h-16 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center shadow-lg shadow-blue-600/10">
+                <span class="text-3xl">🚍</span>
+            </div>
+
+            <h1 class="text-4xl font-black tracking-tight">
+                DACN1
+            </h1>
+
+            <p class="text-slate-400 mt-2">
+                Hệ thống giám sát tài xế bằng AI
+            </p>
+        </div>
+
+        <!-- CARD -->
+        <div class="bg-slate-900/90 backdrop-blur border border-slate-800 p-7 rounded-3xl shadow-2xl">
+
+            <div class="mb-6">
+                <h2 class="text-2xl font-bold">Đăng nhập</h2>
+                <p class="text-slate-400 text-sm mt-1">
+                    Quản lý đội xe và tài xế an toàn hơn.
+                </p>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                        Tên đăng nhập
+                    </label>
+
+                    <input id="username"
+                           class="w-full mt-2 p-4 rounded-2xl bg-slate-800 border border-slate-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
+                           placeholder="Nhập tên đăng nhập">
+                </div>
+
+                <div>
+                    <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                        Mật khẩu
+                    </label>
+
+                    <input id="password"
+                           type="password"
+                           class="w-full mt-2 p-4 rounded-2xl bg-slate-800 border border-slate-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
+                           placeholder="Nhập mật khẩu">
+                </div>
+
+                <button id="loginBtn"
+                        onclick="login()"
+                        class="w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.99] transition p-4 rounded-2xl font-bold shadow-lg shadow-blue-600/20">
+                    Đăng nhập
+                </button>
+
+                <p id="message" class="min-h-[24px] text-center text-sm text-red-400"></p>
+            </div>
+        </div>
+
+        <p class="text-center text-xs text-slate-600 mt-5">
+            DACN1 Driver Monitoring System
+        </p>
+    </div>
 
 <script>
+const usernameInput = document.getElementById("username");
+const passwordInput = document.getElementById("password");
+const messageEl = document.getElementById("message");
+const loginBtn = document.getElementById("loginBtn");
+
+usernameInput.addEventListener("keydown", handleEnter);
+passwordInput.addEventListener("keydown", handleEnter);
+
+function handleEnter(event) {
+    if (event.key === "Enter") {
+        login();
+    }
+}
+
+function setLoading(isLoading) {
+    loginBtn.disabled = isLoading;
+
+    if (isLoading) {
+        loginBtn.innerText = "Đang đăng nhập...";
+        loginBtn.classList.add("opacity-70", "cursor-not-allowed");
+    } else {
+        loginBtn.innerText = "Đăng nhập";
+        loginBtn.classList.remove("opacity-70", "cursor-not-allowed");
+    }
+}
+
 async function login() {
-    const ten_dang_nhap = document.getElementById("username").value;
-    const mat_khau = document.getElementById("password").value;
+    const ten_dang_nhap = usernameInput.value.trim();
+    const mat_khau = passwordInput.value.trim();
 
-    const res = await fetch("/api/login", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            ten_dang_nhap,
-            mat_khau
-        })
-    });
+    messageEl.innerText = "";
 
-    const data = await res.json();
-
-    if (!data.success) {
-        document.getElementById("message").innerText = data.message;
+    if (!ten_dang_nhap || !mat_khau) {
+        messageEl.innerText = "Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu.";
         return;
     }
 
-    localStorage.setItem("token", data.token);
-    localStorage.setItem("user", JSON.stringify(data.user));
+    try {
+        setLoading(true);
 
-    if (data.user.vai_tro === "quan_ly") {
-        window.location.href = "/admin/dashboard";
-    } else {
-        window.location.href = "/driver/dashboard";
+        const res = await fetch("/api/login", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                ten_dang_nhap,
+                mat_khau
+            })
+        });
+
+        const data = await res.json();
+
+        if (!data.success) {
+            messageEl.innerText = data.message || "Đăng nhập thất bại.";
+            return;
+        }
+
+        localStorage.setItem("token", data.token || "");
+        localStorage.setItem("user", JSON.stringify(data.user || {}));
+
+        if (data.user.vai_tro === "quan_ly") {
+            window.location.href = "/admin/dashboard";
+        } else {
+            window.location.href = `/driver/dashboard?tai_xe_id=${data.user.id}`;
+        }
+
+    } catch (error) {
+        messageEl.innerText = "Không kết nối được máy chủ.";
+    } finally {
+        setLoading(false);
     }
 }
 </script>
