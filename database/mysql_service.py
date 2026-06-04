@@ -79,7 +79,40 @@ class MySQLService:
 # ==========================
 db = MySQLService()
 
+# ==================================================
+# CAC TRANG THAI HOP LE
+# ==================================================
+TRANG_THAI_TAI_XE_HOP_LE = {
+    "dang_lam",
+    "nghi",
+    "tam_khoa",
+}
 
+TRANG_THAI_XE_HOP_LE = {
+    "hoat_dong",
+    "bao_tri",
+    "ngung",
+}
+
+TRANG_THAI_LICH_CHAY_HOP_LE = {
+    "sap_chay",
+    "dang_chay",
+    "tam_ngung",
+    "hoan_thanh",
+    "da_huy",
+}
+
+
+def chuyen_int_hoac_none(gia_tri):
+    """
+    Chuyển dữ liệu từ form HTML thành int hoặc None.
+    Tránh lỗi khóa ngoại khi select gửi chuỗi rỗng "".
+    """
+
+    if gia_tri in (None, "", "null", "None"):
+        return None
+
+    return int(gia_tri)
 # ==================================================
 # AUTH / LOGIN
 # ==================================================
@@ -135,6 +168,127 @@ def lay_tai_khoan_theo_id(tai_khoan_id):
 # ==================================================
 # TAI XE
 # ==================================================
+def tao_tai_xe_va_tai_khoan(
+    ten_dang_nhap,
+    mat_khau,
+    ho_ten,
+    so_dien_thoai=None,
+    so_gplx=None,
+    dia_chi=None,
+    trang_thai="dang_lam",
+    quan_ly_id=1,
+):
+    """
+    Admin tạo tài khoản đăng nhập và hồ sơ tài xế.
+    """
+
+    try:
+        ten_dang_nhap = (ten_dang_nhap or "").strip()
+        mat_khau = (mat_khau or "").strip()
+        ho_ten = (ho_ten or "").strip()
+        trang_thai = (trang_thai or "dang_lam").strip()
+
+        if not ten_dang_nhap:
+            print("Ten dang nhap khong duoc de trong")
+            return None
+
+        if not mat_khau:
+            print("Mat khau khong duoc de trong")
+            return None
+
+        if not ho_ten:
+            print("Ho ten khong duoc de trong")
+            return None
+
+        if trang_thai not in TRANG_THAI_TAI_XE_HOP_LE:
+            print("Trang thai tai xe khong hop le:", trang_thai)
+            return None
+
+        tai_khoan_da_ton_tai = db.fetch_one(
+            """
+            SELECT id
+            FROM tai_khoan
+            WHERE ten_dang_nhap=%s
+            LIMIT 1
+            """,
+            (ten_dang_nhap,)
+        )
+
+        if tai_khoan_da_ton_tai:
+            print("Ten dang nhap da ton tai")
+            return None
+
+        if so_gplx:
+            gplx_da_ton_tai = db.fetch_one(
+                """
+                SELECT id
+                FROM tai_xe
+                WHERE so_gplx=%s
+                LIMIT 1
+                """,
+                (so_gplx,)
+            )
+
+            if gplx_da_ton_tai:
+                print("So GPLX da ton tai")
+                return None
+
+        tai_khoan = db.execute(
+            """
+            INSERT INTO tai_khoan
+            (
+                ten_dang_nhap,
+                mat_khau,
+                vai_tro,
+                trang_thai
+            )
+            VALUES
+            (%s,%s,'tai_xe','hoat_dong')
+            """,
+            (
+                ten_dang_nhap,
+                mat_khau,
+            )
+        )
+
+        tai_xe = db.execute(
+            """
+            INSERT INTO tai_xe
+            (
+                tai_khoan_id,
+                ho_ten,
+                so_dien_thoai,
+                so_gplx,
+                dia_chi,
+                trang_thai
+            )
+            VALUES
+            (%s,%s,%s,%s,%s,%s)
+            """,
+            (
+                tai_khoan.lastrowid,
+                ho_ten,
+                so_dien_thoai,
+                so_gplx,
+                dia_chi,
+                trang_thai,
+            )
+        )
+
+        ghi_lich_su_thao_tac(
+            nguoi_thuc_hien_id=quan_ly_id,
+            vai_tro="quan_ly",
+            hanh_dong="THEM_TAI_XE",
+            bang_du_lieu="tai_xe",
+            doi_tuong_id=tai_xe.lastrowid,
+            ghi_chu=f"Thêm tài xế {ho_ten}"
+        )
+
+        return tai_xe.lastrowid
+
+    except Exception as e:
+        print("Tao tai xe error:", e)
+        return None
 def lay_tai_xe_theo_id(tai_xe_id):
 
     try:
@@ -212,6 +366,106 @@ def cap_nhat_tai_xe(tai_xe_id, ho_ten, so_dien_thoai, so_gplx, dia_chi, trang_th
 # ==================================================
 # XE
 # ==================================================
+def tao_xe(
+    bien_so,
+    model=None,
+    loai_xe=None,
+    trang_thai="hoat_dong",
+    ghi_chu=None,
+    tai_xe_mac_dinh_id=None,
+    quan_ly_id=1,
+):
+    """
+    Admin thêm xe mới và có thể phân công tài xế phụ trách ngay.
+    """
+
+    try:
+        bien_so = (bien_so or "").strip()
+        trang_thai = (trang_thai or "hoat_dong").strip()
+        tai_xe_mac_dinh_id = chuyen_int_hoac_none(tai_xe_mac_dinh_id)
+
+        if not bien_so:
+            print("Bien so khong duoc de trong")
+            return None
+
+        if trang_thai not in TRANG_THAI_XE_HOP_LE:
+            print("Trang thai xe khong hop le:", trang_thai)
+            return None
+
+        xe_da_ton_tai = db.fetch_one(
+            """
+            SELECT id
+            FROM xe
+            WHERE bien_so=%s
+            LIMIT 1
+            """,
+            (bien_so,)
+        )
+
+        if xe_da_ton_tai:
+            print("Bien so xe da ton tai")
+            return None
+
+        if tai_xe_mac_dinh_id is not None:
+            tai_xe = db.fetch_one(
+                """
+                SELECT id
+                FROM tai_xe
+                WHERE id=%s
+                LIMIT 1
+                """,
+                (tai_xe_mac_dinh_id,)
+            )
+
+            if not tai_xe:
+                print("Tai xe phu trach khong ton tai")
+                return None
+
+        xe = db.execute(
+            """
+            INSERT INTO xe
+            (
+                bien_so,
+                model,
+                loai_xe,
+                trang_thai,
+                ghi_chu,
+                tai_xe_mac_dinh_id
+            )
+            VALUES
+            (%s,%s,%s,%s,%s,%s)
+            """,
+            (
+                bien_so,
+                model,
+                loai_xe,
+                trang_thai,
+                ghi_chu,
+                tai_xe_mac_dinh_id,
+            )
+        )
+
+        ghi_lich_su_thao_tac(
+            nguoi_thuc_hien_id=quan_ly_id,
+            vai_tro="quan_ly",
+            hanh_dong="THEM_XE",
+            bang_du_lieu="xe",
+            doi_tuong_id=xe.lastrowid,
+            ghi_chu=f"Thêm xe {bien_so}"
+        )
+
+        if tai_xe_mac_dinh_id is not None:
+            them_ghi_chu(
+                tai_xe_id=tai_xe_mac_dinh_id,
+                quan_ly_id=quan_ly_id,
+                noi_dung=f"Bạn được phân công phụ trách xe {bien_so}."
+            )
+
+        return xe.lastrowid
+
+    except Exception as e:
+        print("Tao xe error:", e)
+        return None
 def lay_xe_theo_id(xe_id):
 
     try:
@@ -899,28 +1153,32 @@ def lay_dashboard_tai_xe(tai_xe_id):
 
         WHERE tx.id = %s
 
-        ORDER BY
-        CASE
+ORDER BY
+CASE
 
-            WHEN lc.trang_thai =
-            'dang_chay'
-            THEN 1
+    WHEN lc.trang_thai = 'dang_chay'
+    THEN 1
 
-            WHEN lc.trang_thai =
-            'sap_chay'
-            THEN 2
+    WHEN lc.trang_thai = 'tam_ngung'
+    THEN 2
 
-            WHEN lc.trang_thai =
-            'hoan_thanh'
-            THEN 3
+    WHEN lc.trang_thai = 'sap_chay'
+    THEN 3
 
-            ELSE 4
+    WHEN lc.trang_thai = 'hoan_thanh'
+    THEN 4
 
-        END,
+    WHEN lc.trang_thai = 'da_huy'
+    THEN 5
 
-        lc.gio_bat_dau DESC
+    ELSE 6
 
-        LIMIT 1
+END,
+
+lc.gio_bat_dau DESC
+
+LIMIT 1
+
         """
 
         return db.fetch_one(sql, (tai_xe_id,))
@@ -1002,28 +1260,6 @@ def lay_thong_bao_tai_xe(tai_xe_id):
         return []
 
 
-# ==========================
-# DANH DAU DA DOC
-# ==========================
-def danh_dau_da_doc(ghi_chu_id):
-
-    try:
-
-        sql = """
-        UPDATE ghi_chu
-        SET da_doc=1
-        WHERE id=%s
-        """
-
-        db.execute(sql, (ghi_chu_id,))
-
-        return True
-
-    except Exception as e:
-
-        print("Loi update thong bao:", e)
-
-        return False
 # ==========================
 # LAY PROFILE TAI XE
 # ==========================
@@ -1503,6 +1739,31 @@ def cap_nhat_tai_xe_va_thong_bao(
     quan_ly_id=1
 ):
     try:
+        ho_ten = (ho_ten or "").strip()
+        trang_thai = (trang_thai or "").strip()
+
+        if not ho_ten:
+            print("Ho ten khong duoc de trong")
+            return False
+
+        if trang_thai not in TRANG_THAI_TAI_XE_HOP_LE:
+            print("Trang thai tai xe khong hop le:", trang_thai)
+            return False
+
+        tai_xe = db.fetch_one(
+            """
+            SELECT id
+            FROM tai_xe
+            WHERE id=%s
+            LIMIT 1
+            """,
+            (tai_xe_id,)
+        )
+
+        if not tai_xe:
+            print("Khong tim thay tai xe")
+            return False
+
         sql = """
         UPDATE tai_xe
         SET
@@ -1523,12 +1784,10 @@ def cap_nhat_tai_xe_va_thong_bao(
             tai_xe_id
         ))
 
-        noi_dung = "Thông tin cá nhân của bạn đã được quản lý cập nhật."
-
         them_ghi_chu(
             tai_xe_id=tai_xe_id,
             quan_ly_id=quan_ly_id,
-            noi_dung=noi_dung
+            noi_dung="Thông tin cá nhân của bạn đã được quản lý cập nhật."
         )
 
         ghi_lich_su_thao_tac(
@@ -1545,42 +1804,137 @@ def cap_nhat_tai_xe_va_thong_bao(
     except Exception as e:
         print("Cap nhat tai xe va thong bao error:", e)
         return False
-    
     # ==================================================
 # ADMIN - QUAN LY XE
 # ==================================================
 def cap_nhat_xe(
     xe_id,
     bien_so,
-    model,
-    trang_thai,
-    tai_xe_mac_dinh_id=None
+    model=None,
+    loai_xe=None,
+    trang_thai="hoat_dong",
+    ghi_chu=None,
+    tai_xe_mac_dinh_id=None,
+    quan_ly_id=1,
 ):
-    try:
-        sql = """
-        UPDATE xe
-        SET
-            bien_so=%s,
-            model=%s,
-            trang_thai=%s,
-            tai_xe_mac_dinh_id=%s
-        WHERE id=%s
-        """
+    """
+    Admin sửa thông tin xe và thay đổi tài xế phụ trách xe.
+    """
 
-        db.execute(sql, (
-            bien_so,
-            model,
-            trang_thai,
-            tai_xe_mac_dinh_id,
-            xe_id
-        ))
+    try:
+        bien_so = (bien_so or "").strip()
+        trang_thai = (trang_thai or "").strip()
+        tai_xe_mac_dinh_id = chuyen_int_hoac_none(tai_xe_mac_dinh_id)
+
+        if not bien_so:
+            print("Bien so khong duoc de trong")
+            return False
+
+        if trang_thai not in TRANG_THAI_XE_HOP_LE:
+            print("Trang thai xe khong hop le:", trang_thai)
+            return False
+
+        xe_cu = db.fetch_one(
+            """
+            SELECT *
+            FROM xe
+            WHERE id=%s
+            LIMIT 1
+            """,
+            (xe_id,)
+        )
+
+        if not xe_cu:
+            print("Khong tim thay xe")
+            return False
+
+        xe_trung_bien_so = db.fetch_one(
+            """
+            SELECT id
+            FROM xe
+            WHERE bien_so=%s
+            AND id<>%s
+            LIMIT 1
+            """,
+            (
+                bien_so,
+                xe_id,
+            )
+        )
+
+        if xe_trung_bien_so:
+            print("Bien so xe da ton tai")
+            return False
+
+        if tai_xe_mac_dinh_id is not None:
+            tai_xe = db.fetch_one(
+                """
+                SELECT id
+                FROM tai_xe
+                WHERE id=%s
+                LIMIT 1
+                """,
+                (tai_xe_mac_dinh_id,)
+            )
+
+            if not tai_xe:
+                print("Tai xe phu trach khong ton tai")
+                return False
+
+        db.execute(
+            """
+            UPDATE xe
+            SET
+                bien_so=%s,
+                model=%s,
+                loai_xe=%s,
+                trang_thai=%s,
+                ghi_chu=%s,
+                tai_xe_mac_dinh_id=%s
+            WHERE id=%s
+            """,
+            (
+                bien_so,
+                model,
+                loai_xe,
+                trang_thai,
+                ghi_chu,
+                tai_xe_mac_dinh_id,
+                xe_id,
+            )
+        )
+
+        ghi_lich_su_thao_tac(
+            nguoi_thuc_hien_id=quan_ly_id,
+            vai_tro="quan_ly",
+            hanh_dong="CAP_NHAT_XE",
+            bang_du_lieu="xe",
+            doi_tuong_id=xe_id,
+            ghi_chu=f"Cập nhật xe {bien_so}"
+        )
+
+        tai_xe_cu_id = xe_cu.get("tai_xe_mac_dinh_id")
+
+        if tai_xe_cu_id != tai_xe_mac_dinh_id:
+            if tai_xe_cu_id is not None:
+                them_ghi_chu(
+                    tai_xe_id=tai_xe_cu_id,
+                    quan_ly_id=quan_ly_id,
+                    noi_dung=f"Bạn không còn phụ trách xe {xe_cu['bien_so']}."
+                )
+
+            if tai_xe_mac_dinh_id is not None:
+                them_ghi_chu(
+                    tai_xe_id=tai_xe_mac_dinh_id,
+                    quan_ly_id=quan_ly_id,
+                    noi_dung=f"Bạn được phân công phụ trách xe {bien_so}."
+                )
 
         return True
 
     except Exception as e:
         print("Cap nhat xe error:", e)
         return False
-
 
 def lay_danh_sach_xe_admin():
     try:
@@ -1601,6 +1955,9 @@ def lay_danh_sach_xe_admin():
     # ==================================================
 # ADMIN - QUAN LY LICH CHAY
 # ==================================================
+# ==================================================
+# ADMIN - QUAN LY LICH CHAY
+# ==================================================
 def tao_lich_chay(
     tai_xe_id,
     xe_id,
@@ -1609,35 +1966,99 @@ def tao_lich_chay(
     gio_ket_thuc=None,
     quan_ly_id=1
 ):
+    """
+    Tạo lịch chạy mới.
+
+    Chỉ cho phép:
+    - tài xế đang làm việc
+    - xe đang hoạt động
+    """
+
     try:
-        sql = """
-        INSERT INTO lich_chay
-        (
-            tai_xe_id,
-            xe_id,
-            tuyen_duong,
-            gio_bat_dau,
-            gio_ket_thuc,
-            trang_thai
+        tuyen_duong = (tuyen_duong or "").strip()
+
+        if not tai_xe_id:
+            print("Chua chon tai xe")
+            return None
+
+        if not xe_id:
+            print("Chua chon xe")
+            return None
+
+        if not tuyen_duong:
+            print("Tuyen duong khong duoc de trong")
+            return None
+
+        if not gio_bat_dau:
+            print("Gio bat dau khong duoc de trong")
+            return None
+
+        tai_xe = db.fetch_one(
+            """
+            SELECT id, ho_ten, trang_thai
+            FROM tai_xe
+            WHERE id=%s
+            LIMIT 1
+            """,
+            (tai_xe_id,)
         )
-        VALUES
-        (%s,%s,%s,%s,%s,'sap_chay')
-        """
 
-        cursor = db.execute(sql, (
-            tai_xe_id,
-            xe_id,
-            tuyen_duong,
-            gio_bat_dau,
-            gio_ket_thuc
-        ))
+        if not tai_xe:
+            print("Khong tim thay tai xe")
+            return None
 
-        noi_dung = f"Bạn được phân công lịch chạy mới: {tuyen_duong}, bắt đầu lúc {gio_bat_dau}."
+        if tai_xe["trang_thai"] != "dang_lam":
+            print("Tai xe khong o trang thai dang lam")
+            return None
+
+        xe = db.fetch_one(
+            """
+            SELECT id, bien_so, trang_thai
+            FROM xe
+            WHERE id=%s
+            LIMIT 1
+            """,
+            (xe_id,)
+        )
+
+        if not xe:
+            print("Khong tim thay xe")
+            return None
+
+        if xe["trang_thai"] != "hoat_dong":
+            print("Xe khong o trang thai hoat dong")
+            return None
+
+        cursor = db.execute(
+            """
+            INSERT INTO lich_chay
+            (
+                tai_xe_id,
+                xe_id,
+                tuyen_duong,
+                gio_bat_dau,
+                gio_ket_thuc,
+                trang_thai
+            )
+            VALUES
+            (%s,%s,%s,%s,%s,'sap_chay')
+            """,
+            (
+                tai_xe_id,
+                xe_id,
+                tuyen_duong,
+                gio_bat_dau,
+                gio_ket_thuc
+            )
+        )
 
         them_ghi_chu(
             tai_xe_id=tai_xe_id,
             quan_ly_id=quan_ly_id,
-            noi_dung=noi_dung
+            noi_dung=(
+                f"Bạn được phân công lịch chạy mới: "
+                f"{tuyen_duong}, bắt đầu lúc {gio_bat_dau}."
+            )
         )
 
         ghi_lich_su_thao_tac(
@@ -1646,7 +2067,10 @@ def tao_lich_chay(
             hanh_dong="TAO_LICH_CHAY",
             bang_du_lieu="lich_chay",
             doi_tuong_id=cursor.lastrowid,
-            ghi_chu=f"Tạo lịch chạy cho tài xế ID {tai_xe_id}"
+            ghi_chu=(
+                f"Tạo lịch chạy cho tài xế ID {tai_xe_id}, "
+                f"xe ID {xe_id}"
+            )
         )
 
         return cursor.lastrowid
@@ -1664,8 +2088,10 @@ def lay_tat_ca_lich_chay():
             tx.ho_ten,
             x.bien_so
         FROM lich_chay lc
-        LEFT JOIN tai_xe tx ON lc.tai_xe_id = tx.id
-        LEFT JOIN xe x ON lc.xe_id = x.id
+        LEFT JOIN tai_xe tx
+            ON lc.tai_xe_id = tx.id
+        LEFT JOIN xe x
+            ON lc.xe_id = x.id
         ORDER BY lc.gio_bat_dau DESC
         """
 
@@ -1686,35 +2112,113 @@ def cap_nhat_lich_chay(
     trang_thai,
     quan_ly_id=1
 ):
+    """
+    Cập nhật lịch chạy.
+
+    Lịch đã hủy không được kích hoạt lại.
+    Muốn hủy lịch phải dùng hàm xoa_lich_chay().
+    """
+
     try:
-        sql = """
-        UPDATE lich_chay
-        SET
-            tai_xe_id=%s,
-            xe_id=%s,
-            tuyen_duong=%s,
-            gio_bat_dau=%s,
-            gio_ket_thuc=%s,
-            trang_thai=%s
-        WHERE id=%s
-        """
+        trang_thai = (trang_thai or "").strip()
+        tuyen_duong = (tuyen_duong or "").strip()
 
-        db.execute(sql, (
-            tai_xe_id,
-            xe_id,
-            tuyen_duong,
-            gio_bat_dau,
-            gio_ket_thuc,
-            trang_thai,
-            lich_id
-        ))
+        trang_thai_duoc_cap_nhat = {
+            "sap_chay",
+            "dang_chay",
+            "tam_ngung",
+            "hoan_thanh",
+        }
 
-        noi_dung = f"Lịch chạy của bạn đã được cập nhật: {tuyen_duong}, bắt đầu lúc {gio_bat_dau}."
+        if trang_thai not in trang_thai_duoc_cap_nhat:
+            print("Trang thai lich chay khong hop le:", trang_thai)
+            return False
+
+        if not tuyen_duong:
+            print("Tuyen duong khong duoc de trong")
+            return False
+
+        lich_cu = db.fetch_one(
+            """
+            SELECT *
+            FROM lich_chay
+            WHERE id=%s
+            LIMIT 1
+            """,
+            (lich_id,)
+        )
+
+        if not lich_cu:
+            print("Khong tim thay lich chay")
+            return False
+
+        if lich_cu["trang_thai"] == "da_huy":
+            print("Lich da huy, khong the cap nhat lai")
+            return False
+
+        # Nếu lịch chuẩn bị chạy hoặc đang chạy,
+        # tài xế và xe bắt buộc phải còn hoạt động.
+        if trang_thai in {"sap_chay", "dang_chay"}:
+            tai_xe = db.fetch_one(
+                """
+                SELECT id
+                FROM tai_xe
+                WHERE id=%s
+                AND trang_thai='dang_lam'
+                LIMIT 1
+                """,
+                (tai_xe_id,)
+            )
+
+            if not tai_xe:
+                print("Tai xe khong san sang lam viec")
+                return False
+
+            xe = db.fetch_one(
+                """
+                SELECT id
+                FROM xe
+                WHERE id=%s
+                AND trang_thai='hoat_dong'
+                LIMIT 1
+                """,
+                (xe_id,)
+            )
+
+            if not xe:
+                print("Xe khong o trang thai hoat dong")
+                return False
+
+        db.execute(
+            """
+            UPDATE lich_chay
+            SET
+                tai_xe_id=%s,
+                xe_id=%s,
+                tuyen_duong=%s,
+                gio_bat_dau=%s,
+                gio_ket_thuc=%s,
+                trang_thai=%s
+            WHERE id=%s
+            """,
+            (
+                tai_xe_id,
+                xe_id,
+                tuyen_duong,
+                gio_bat_dau,
+                gio_ket_thuc,
+                trang_thai,
+                lich_id
+            )
+        )
 
         them_ghi_chu(
             tai_xe_id=tai_xe_id,
             quan_ly_id=quan_ly_id,
-            noi_dung=noi_dung
+            noi_dung=(
+                f"Lịch chạy tuyến {tuyen_duong} đã được cập nhật. "
+                f"Trạng thái mới: {trang_thai}."
+            )
         )
 
         ghi_lich_su_thao_tac(
@@ -1723,7 +2227,10 @@ def cap_nhat_lich_chay(
             hanh_dong="CAP_NHAT_LICH_CHAY",
             bang_du_lieu="lich_chay",
             doi_tuong_id=lich_id,
-            ghi_chu=f"Cập nhật lịch chạy ID {lich_id}"
+            ghi_chu=(
+                f"Cập nhật lịch chạy ID {lich_id}: "
+                f"{trang_thai}"
+            )
         )
 
         return True
@@ -1734,31 +2241,48 @@ def cap_nhat_lich_chay(
 
 
 def xoa_lich_chay(lich_id, quan_ly_id=1):
+    """
+    Hủy lịch nhưng không xóa dữ liệu.
+
+    Trạng thái cuối cùng là da_huy.
+    """
+
     try:
         lich = db.fetch_one(
             """
             SELECT *
             FROM lich_chay
             WHERE id=%s
+            LIMIT 1
             """,
             (lich_id,)
         )
 
         if not lich:
+            print("Khong tim thay lich chay")
             return False
 
-        sql = """
-        UPDATE lich_chay
-        SET trang_thai='da_huy'
-        WHERE id=%s
-        """
+        # Tránh ghi thông báo và lịch sử lặp lại
+        # nếu admin bấm hủy nhiều lần.
+        if lich["trang_thai"] == "da_huy":
+            return True
 
-        db.execute(sql, (lich_id,))
+        db.execute(
+            """
+            UPDATE lich_chay
+            SET trang_thai='da_huy'
+            WHERE id=%s
+            """,
+            (lich_id,)
+        )
 
         them_ghi_chu(
             tai_xe_id=lich["tai_xe_id"],
             quan_ly_id=quan_ly_id,
-            noi_dung=f"Lịch chạy tuyến {lich['tuyen_duong']} đã bị hủy."
+            noi_dung=(
+                f"Lịch chạy tuyến "
+                f"{lich['tuyen_duong']} đã bị hủy."
+            )
         )
 
         ghi_lich_su_thao_tac(
@@ -1870,3 +2394,44 @@ def lay_admin_analytics():
             "top_tai_xe": [],
             "bao_cao_su_co_theo_loai": [],
         }
+
+
+# ==================================================
+# KIEM TRA TAI XE CO DUOC PHAN CONG DUNG XE KHONG
+# ==================================================
+def kiem_tra_tai_xe_duoc_phan_cong_xe(tai_xe_id, xe_id):
+    try:
+        # Cách 1: Kiểm tra tài xế mặc định của xe
+        sql_xe = """
+        SELECT id
+        FROM xe
+        WHERE id = %s
+        AND tai_xe_mac_dinh_id = %s
+        LIMIT 1
+        """
+
+        result_xe = db.fetch_one(sql_xe, (xe_id, tai_xe_id))
+
+        if result_xe:
+            return True
+
+        # Cách 2: Kiểm tra theo lịch chạy đang/sắp chạy
+        sql_lich = """
+        SELECT id
+        FROM lich_chay
+        WHERE xe_id = %s
+        AND tai_xe_id = %s
+        AND trang_thai IN ('dang_chay', 'sap_chay')
+        LIMIT 1
+        """
+
+        result_lich = db.fetch_one(sql_lich, (xe_id, tai_xe_id))
+
+        if result_lich:
+            return True
+
+        return False
+
+    except Exception as e:
+        print("Loi kiem tra tai xe duoc phan cong xe:", e)
+        return False

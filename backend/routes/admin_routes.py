@@ -1,10 +1,13 @@
-from flask import Blueprint, render_template, jsonify
+from flask import Blueprint, render_template, jsonify, request
 
 from database.mysql_service import (
     lay_admin_dashboard,
     lay_danh_sach_tai_xe,
+    tao_tai_xe_va_tai_khoan,
     cap_nhat_tai_xe_va_thong_bao,
     lay_danh_sach_xe_admin,
+    lay_xe_theo_id,
+    tao_xe,
     cap_nhat_xe,
     lay_admin_analytics,
 )
@@ -48,13 +51,57 @@ def api_admin_drivers():
         "success": True,
         "data": data
     })
+@admin_bp.route("/api/admin/drivers", methods=["POST"])
+def api_create_driver():
+    data = request.get_json(silent=True) or {}
 
+    required_fields = [
+        "ten_dang_nhap",
+        "mat_khau",
+        "ho_ten",
+    ]
+
+    missing_fields = [
+        field
+        for field in required_fields
+        if not str(data.get(field, "")).strip()
+    ]
+
+    if missing_fields:
+        return jsonify({
+            "success": False,
+            "message": "Vui lòng nhập đầy đủ tên đăng nhập, mật khẩu và họ tên."
+        }), 400
+
+    tai_xe_id = tao_tai_xe_va_tai_khoan(
+        ten_dang_nhap=data.get("ten_dang_nhap"),
+        mat_khau=data.get("mat_khau"),
+        ho_ten=data.get("ho_ten"),
+        so_dien_thoai=data.get("so_dien_thoai"),
+        so_gplx=data.get("so_gplx"),
+        dia_chi=data.get("dia_chi"),
+        trang_thai=data.get("trang_thai", "dang_lam"),
+        quan_ly_id=data.get("quan_ly_id", 1),
+    )
+
+    if tai_xe_id is None:
+        return jsonify({
+            "success": False,
+            "message": (
+                "Không thể thêm tài xế. "
+                "Hãy kiểm tra tên đăng nhập hoặc số GPLX đã tồn tại hay chưa."
+            )
+        }), 400
+
+    return jsonify({
+        "success": True,
+        "message": "Đã thêm tài xế mới.",
+        "id": tai_xe_id,
+    }), 201
 
 @admin_bp.route("/api/admin/drivers/<int:tai_xe_id>", methods=["PUT"])
 def api_update_driver(tai_xe_id):
-    from flask import request
-
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
 
     ok = cap_nhat_tai_xe_va_thong_bao(
         tai_xe_id=tai_xe_id,
@@ -63,13 +110,17 @@ def api_update_driver(tai_xe_id):
         so_gplx=data.get("so_gplx"),
         dia_chi=data.get("dia_chi"),
         trang_thai=data.get("trang_thai"),
-        quan_ly_id=data.get("quan_ly_id", 1)
+        quan_ly_id=data.get("quan_ly_id", 1),
     )
 
     return jsonify({
         "success": ok,
-        "message": "Đã cập nhật tài xế và gửi thông báo" if ok else "Cập nhật thất bại"
-    })
+        "message": (
+            "Đã cập nhật tài xế và gửi thông báo."
+            if ok
+            else "Cập nhật tài xế thất bại."
+        )
+    }), 200 if ok else 400
 @admin_bp.route("/admin/vehicles")
 def admin_vehicles_page():
     return render_template("admin/vehicles.html")
@@ -84,25 +135,76 @@ def api_admin_vehicles():
         "data": data
     })
 
+@admin_bp.route("/api/admin/vehicles", methods=["POST"])
+def api_create_vehicle():
+    data = request.get_json(silent=True) or {}
 
+    bien_so = str(data.get("bien_so", "")).strip()
+
+    if not bien_so:
+        return jsonify({
+            "success": False,
+            "message": "Biển số xe không được để trống."
+        }), 400
+
+    xe_id = tao_xe(
+        bien_so=bien_so,
+        model=data.get("model"),
+        loai_xe=data.get("loai_xe"),
+        trang_thai=data.get("trang_thai", "hoat_dong"),
+        ghi_chu=data.get("ghi_chu"),
+        tai_xe_mac_dinh_id=data.get("tai_xe_mac_dinh_id"),
+        quan_ly_id=data.get("quan_ly_id", 1),
+    )
+
+    if xe_id is None:
+        return jsonify({
+            "success": False,
+            "message": (
+                "Không thể thêm xe. "
+                "Hãy kiểm tra biển số hoặc tài xế phụ trách."
+            )
+        }), 400
+
+    return jsonify({
+        "success": True,
+        "message": "Đã thêm xe mới.",
+        "id": xe_id,
+    }), 201
 @admin_bp.route("/api/admin/vehicles/<int:xe_id>", methods=["PUT"])
 def api_update_vehicle(xe_id):
-    from flask import request
+    data = request.get_json(silent=True) or {}
 
-    data = request.get_json()
+    xe_cu = lay_xe_theo_id(xe_id)
+
+    if not xe_cu:
+        return jsonify({
+            "success": False,
+            "message": "Không tìm thấy xe."
+        }), 404
 
     ok = cap_nhat_xe(
         xe_id=xe_id,
-        bien_so=data.get("bien_so"),
-        model=data.get("model"),
-        trang_thai=data.get("trang_thai"),
-        tai_xe_mac_dinh_id=data.get("tai_xe_mac_dinh_id")
+        bien_so=data.get("bien_so", xe_cu.get("bien_so")),
+        model=data.get("model", xe_cu.get("model")),
+        loai_xe=data.get("loai_xe", xe_cu.get("loai_xe")),
+        trang_thai=data.get("trang_thai", xe_cu.get("trang_thai")),
+        ghi_chu=data.get("ghi_chu", xe_cu.get("ghi_chu")),
+        tai_xe_mac_dinh_id=data.get(
+            "tai_xe_mac_dinh_id",
+            xe_cu.get("tai_xe_mac_dinh_id")
+        ),
+        quan_ly_id=data.get("quan_ly_id", 1),
     )
 
     return jsonify({
         "success": ok,
-        "message": "Đã cập nhật xe" if ok else "Cập nhật xe thất bại"
-    })
+        "message": (
+            "Đã cập nhật xe."
+            if ok
+            else "Cập nhật xe thất bại."
+        )
+    }), 200 if ok else 400
 @admin_bp.route("/admin/analytics")
 def admin_analytics_page():
     return render_template("admin/analytics.html")

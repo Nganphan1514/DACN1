@@ -37,27 +37,69 @@
         <p class="text-slate-400 mt-1">Tạo, cập nhật và hủy lịch chạy cho tài xế</p>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
-            <p class="text-slate-400 text-sm">📅 Tổng lịch</p>
-            <h2 id="totalSchedules" class="text-4xl font-black mt-2">0</h2>
-        </div>
+<div class="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
 
-        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
-            <p class="text-slate-400 text-sm">🟦 Sắp chạy</p>
-            <h2 id="upcomingSchedules" class="text-4xl font-black mt-2 text-cyan-400">0</h2>
-        </div>
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+        <p class="text-slate-400 text-sm">📅 Tổng lịch</p>
 
-        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
-            <p class="text-slate-400 text-sm">🟢 Đang chạy</p>
-            <h2 id="runningSchedules" class="text-4xl font-black mt-2 text-green-400">0</h2>
-        </div>
-
-        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
-            <p class="text-slate-400 text-sm">🔴 Đã hủy</p>
-            <h2 id="cancelSchedules" class="text-4xl font-black mt-2 text-red-400">0</h2>
-        </div>
+        <h2
+            id="totalSchedules"
+            class="text-4xl font-black mt-2">
+            0
+        </h2>
     </div>
+
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+        <p class="text-slate-400 text-sm">🟦 Sắp chạy</p>
+
+        <h2
+            id="upcomingSchedules"
+            class="text-4xl font-black mt-2 text-cyan-400">
+            0
+        </h2>
+    </div>
+
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+        <p class="text-slate-400 text-sm">🟢 Đang diễn ra</p>
+
+        <h2
+            id="runningSchedules"
+            class="text-4xl font-black mt-2 text-green-400">
+            0
+        </h2>
+    </div>
+
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+        <p class="text-slate-400 text-sm">🟡 Tạm ngưng</p>
+
+        <h2
+            id="pausedSchedules"
+            class="text-4xl font-black mt-2 text-yellow-400">
+            0
+        </h2>
+    </div>
+
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+        <p class="text-slate-400 text-sm">✅ Hoàn thành</p>
+
+        <h2
+            id="completedSchedules"
+            class="text-4xl font-black mt-2 text-slate-300">
+            0
+        </h2>
+    </div>
+
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+        <p class="text-slate-400 text-sm">🔴 Đã hủy</p>
+
+        <h2
+            id="cancelSchedules"
+            class="text-4xl font-black mt-2 text-red-400">
+            0
+        </h2>
+    </div>
+
+</div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
@@ -126,176 +168,472 @@
 <script>
 const currentPath = window.location.pathname;
 
-document.querySelectorAll(".admin-link").forEach(link => {
-    if (link.getAttribute("href") === currentPath) {
-        link.classList.remove("bg-slate-800");
-        link.classList.add("bg-blue-600");
-    }
-});
-
 let drivers = [];
 let vehicles = [];
 
-function toMysqlDateTime(value) {
-    if (!value) return null;
-    return value.replace("T", " ") + ":00";
+/* ================================================= */
+/* ACTIVE MENU */
+/* ================================================= */
+document
+    .querySelectorAll(".admin-link")
+    .forEach(link => {
+        if (link.getAttribute("href") === currentPath) {
+            link.classList.remove("bg-slate-800");
+            link.classList.add("bg-blue-600");
+        }
+    });
+
+/* ================================================= */
+/* ESCAPE HTML */
+/* ================================================= */
+function escapeHtml(value) {
+    return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
 }
 
+/* ================================================= */
+/* DATE TIME */
+/* ================================================= */
+function toMysqlDateTime(value) {
+    if (!value) return null;
+
+    return value
+        .replace("T", " ")
+        .slice(0, 16) + ":00";
+}
+
+function toInputDateTime(value) {
+    if (!value) return "";
+
+    return String(value)
+        .replace(" ", "T")
+        .slice(0, 16);
+}
+
+function formatDateTime(value) {
+    if (!value) return "Chưa xác định";
+
+    return String(value)
+        .replace("T", " ")
+        .slice(0, 16);
+}
+
+/* ================================================= */
+/* TRẠNG THÁI */
+/* ================================================= */
 function statusBadge(status) {
-    if (status === "sap_chay") return "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30";
-    if (status === "dang_chay") return "bg-green-500/20 text-green-300 border border-green-500/30";
-    if (status === "hoan_thanh") return "bg-slate-700 text-slate-300 border border-slate-600";
-    if (status === "da_huy") return "bg-red-500/20 text-red-300 border border-red-500/30";
-    return "bg-blue-500/20 text-blue-300 border border-blue-500/30";
+    if (status === "sap_chay") {
+        return "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30";
+    }
+
+    if (status === "dang_chay") {
+        return "bg-green-500/20 text-green-300 border border-green-500/30";
+    }
+
+    if (status === "tam_ngung") {
+        return "bg-yellow-500/20 text-yellow-300 border border-yellow-500/30";
+    }
+
+    if (status === "hoan_thanh") {
+        return "bg-slate-700 text-slate-300 border border-slate-600";
+    }
+
+    if (status === "da_huy") {
+        return "bg-red-500/20 text-red-300 border border-red-500/30";
+    }
+
+    return "bg-slate-700 text-slate-300 border border-slate-600";
 }
 
 function statusText(status) {
     if (status === "sap_chay") return "Sắp chạy";
-    if (status === "dang_chay") return "Đang chạy";
+    if (status === "dang_chay") return "Đang diễn ra";
+    if (status === "tam_ngung") return "Tạm ngưng";
     if (status === "hoan_thanh") return "Hoàn thành";
     if (status === "da_huy") return "Đã hủy";
-    return status || "N/A";
+
+    return status || "Chưa xác định";
 }
 
-function formatDateTime(value) {
-    if (!value) return "";
-    return String(value).replace("T", " ");
-}
-
+/* ================================================= */
+/* OPTION TÀI XẾ VÀ XE */
+/* ================================================= */
 async function loadOptions() {
-    const res = await fetch("/api/admin/schedules/options");
-    const json = await res.json();
+    try {
+        const res = await fetch(
+            "/api/admin/schedules/options"
+        );
 
-    drivers = json.drivers || [];
-    vehicles = json.vehicles || [];
+        const json = await res.json();
 
-    const driverSelect = document.getElementById("tai_xe_id");
-    const vehicleSelect = document.getElementById("xe_id");
+        if (!res.ok || !json.success) {
+            throw new Error(
+                json.message ||
+                "Không thể tải dữ liệu tạo lịch."
+            );
+        }
 
-    driverSelect.innerHTML = "";
-    vehicleSelect.innerHTML = "";
+        drivers = json.drivers || [];
+        vehicles = json.vehicles || [];
 
-    if (drivers.length === 0) {
-        driverSelect.innerHTML = `<option value="">Không có tài xế</option>`;
-    } else {
-        drivers.forEach(d => {
-            const ten = d.ho_ten || d.ten_tai_xe || d.name || d.ten_dang_nhap || "Tài xế";
-            driverSelect.innerHTML += `<option value="${d.id}">${ten} - ID ${d.id}</option>`;
-        });
-    }
+        const driverSelect =
+            document.getElementById("tai_xe_id");
 
-    if (vehicles.length === 0) {
-        vehicleSelect.innerHTML = `<option value="">Không có xe</option>`;
-    } else {
-        vehicles.forEach(v => {
-            vehicleSelect.innerHTML += `<option value="${v.id}">${v.bien_so || "Xe"} - ${v.model || ""}</option>`;
-        });
+        const vehicleSelect =
+            document.getElementById("xe_id");
+
+        driverSelect.innerHTML = "";
+        vehicleSelect.innerHTML = "";
+
+        if (drivers.length === 0) {
+            driverSelect.innerHTML = `
+                <option value="">
+                    Không có tài xế đang làm việc
+                </option>
+            `;
+        } else {
+            drivers.forEach(driver => {
+                driverSelect.innerHTML += `
+                    <option value="${Number(driver.id)}">
+                        ${escapeHtml(driver.ho_ten || "Tài xế")}
+                        — ID ${Number(driver.id)}
+                    </option>
+                `;
+            });
+        }
+
+        if (vehicles.length === 0) {
+            vehicleSelect.innerHTML = `
+                <option value="">
+                    Không có xe đang hoạt động
+                </option>
+            `;
+        } else {
+            vehicles.forEach(vehicle => {
+                vehicleSelect.innerHTML += `
+                    <option value="${Number(vehicle.id)}">
+                        ${escapeHtml(vehicle.bien_so || "Xe")}
+                        — ${escapeHtml(vehicle.model || "Chưa có model")}
+                    </option>
+                `;
+            });
+        }
+
+    } catch (error) {
+        console.error(error);
+
+        alert(
+            error.message ||
+            "Không thể tải danh sách tài xế và xe."
+        );
     }
 }
 
+/* ================================================= */
+/* DANH SÁCH LỊCH CHẠY */
+/* ================================================= */
 async function loadSchedules() {
-    const res = await fetch("/api/admin/schedules");
-    const json = await res.json();
+    const box =
+        document.getElementById("schedules");
 
-    const data = json.data || [];
-    const box = document.getElementById("schedules");
+    box.innerHTML = `
+        <div class="bg-slate-900 p-6 rounded-3xl border border-slate-800 text-slate-400">
+            Đang tải danh sách lịch chạy...
+        </div>
+    `;
 
-    document.getElementById("totalSchedules").innerText = data.length;
-    document.getElementById("upcomingSchedules").innerText = data.filter(x => x.trang_thai === "sap_chay").length;
-    document.getElementById("runningSchedules").innerText = data.filter(x => x.trang_thai === "dang_chay").length;
-    document.getElementById("cancelSchedules").innerText = data.filter(x => x.trang_thai === "da_huy").length;
+    try {
+        const res = await fetch(
+            "/api/admin/schedules"
+        );
 
-    box.innerHTML = "";
+        const json = await res.json();
 
-    if (data.length === 0) {
-        box.innerHTML = `
-            <div class="bg-slate-900 p-6 rounded-3xl border border-slate-800 text-slate-400">
-                Chưa có lịch chạy.
-            </div>
-        `;
-        return;
-    }
+        if (!res.ok || !json.success) {
+            throw new Error(
+                json.message ||
+                "Không thể tải danh sách lịch chạy."
+            );
+        }
 
-    data.forEach(item => {
-        box.innerHTML += `
-            <div class="schedule-card bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl hover:border-blue-500/40 transition">
-                <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-5">
-                    <div>
+        const data = json.data || [];
+
+        document
+            .getElementById("totalSchedules")
+            .innerText = data.length;
+
+        document
+            .getElementById("upcomingSchedules")
+            .innerText = data.filter(
+                item => item.trang_thai === "sap_chay"
+            ).length;
+
+        document
+            .getElementById("runningSchedules")
+            .innerText = data.filter(
+                item => item.trang_thai === "dang_chay"
+            ).length;
+
+        document
+            .getElementById("pausedSchedules")
+            .innerText = data.filter(
+                item => item.trang_thai === "tam_ngung"
+            ).length;
+
+        document
+            .getElementById("completedSchedules")
+            .innerText = data.filter(
+                item => item.trang_thai === "hoan_thanh"
+            ).length;
+
+        document
+            .getElementById("cancelSchedules")
+            .innerText = data.filter(
+                item => item.trang_thai === "da_huy"
+            ).length;
+
+        box.innerHTML = "";
+
+        if (data.length === 0) {
+            box.innerHTML = `
+                <div class="bg-slate-900 p-6 rounded-3xl border border-slate-800 text-slate-400">
+                    Chưa có lịch chạy.
+                </div>
+            `;
+
+            return;
+        }
+
+        data.forEach(item => {
+            const id = Number(item.id);
+
+            const cancelled =
+                item.trang_thai === "da_huy";
+
+            const disabled =
+                cancelled
+                    ? "disabled"
+                    : "";
+
+            const disabledClass =
+                cancelled
+                    ? "opacity-60 cursor-not-allowed"
+                    : "";
+
+            const statusControl =
+                cancelled
+                    ? `
+                        <div class="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 font-bold">
+                            Lịch đã hủy — không thể kích hoạt lại
+                        </div>
+                    `
+                    : `
+                        <select
+                            id="status-${id}"
+                            class="p-3 rounded-xl bg-slate-800 border border-slate-700 outline-none focus:border-blue-500">
+
+                            <option
+                                value="sap_chay"
+                                ${item.trang_thai === "sap_chay" ? "selected" : ""}>
+                                Sắp chạy
+                            </option>
+
+                            <option
+                                value="dang_chay"
+                                ${item.trang_thai === "dang_chay" ? "selected" : ""}>
+                                Đang diễn ra
+                            </option>
+
+                            <option
+                                value="tam_ngung"
+                                ${item.trang_thai === "tam_ngung" ? "selected" : ""}>
+                                Tạm ngưng
+                            </option>
+
+                            <option
+                                value="hoan_thanh"
+                                ${item.trang_thai === "hoan_thanh" ? "selected" : ""}>
+                                Hoàn thành
+                            </option>
+
+                        </select>
+                    `;
+
+            const actionButtons =
+                cancelled
+                    ? `
+                        <button
+                            disabled
+                            class="w-full bg-slate-800 text-slate-500 p-3 rounded-xl font-bold cursor-not-allowed">
+                            Lịch đã hủy
+                        </button>
+                    `
+                    : `
+                        <button
+                            id="update-${id}"
+                            onclick="updateSchedule(
+                                ${id},
+                                ${Number(item.tai_xe_id) || 0},
+                                ${Number(item.xe_id) || 0}
+                            )"
+                            class="flex-1 bg-blue-600 hover:bg-blue-700 p-3 rounded-xl font-bold transition">
+                            Cập nhật
+                        </button>
+
+                        <button
+                            onclick="cancelSchedule(${id})"
+                            class="flex-1 bg-red-600 hover:bg-red-700 p-3 rounded-xl font-bold transition">
+                            Hủy lịch
+                        </button>
+                    `;
+
+            box.innerHTML += `
+                <div class="schedule-card bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl hover:border-blue-500/40 transition">
+
+                    <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-5">
+
                         <div class="flex items-center gap-3">
+
                             <div class="w-12 h-12 rounded-2xl bg-purple-600 flex items-center justify-center text-2xl">
                                 📅
                             </div>
+
                             <div>
-                                <h2 class="text-xl font-black">${item.tuyen_duong || "Chưa có tuyến"}</h2>
-                                <p class="text-slate-400 text-sm">${item.ho_ten || "Chưa có tài xế"} - ${item.bien_so || "Chưa có xe"}</p>
+                                <h2 class="text-xl font-black">
+                                    ${escapeHtml(item.tuyen_duong || "Chưa có tuyến")}
+                                </h2>
+
+                                <p class="text-slate-400 text-sm">
+                                    ${escapeHtml(item.ho_ten || "Chưa có tài xế")}
+                                    —
+                                    ${escapeHtml(item.bien_so || "Chưa có xe")}
+                                </p>
                             </div>
+
                         </div>
+
+                        <span class="px-3 py-1 rounded-full text-xs font-bold w-fit ${statusBadge(item.trang_thai)}">
+                            ${statusText(item.trang_thai)}
+                        </span>
+
                     </div>
 
-                    <span class="px-3 py-1 rounded-full text-xs font-bold w-fit ${statusBadge(item.trang_thai)}">
-                        ${statusText(item.trang_thai)}
-                    </span>
-                </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-                    <div class="bg-slate-800/60 border border-slate-700 rounded-2xl p-4">
-                        <p class="text-xs text-slate-400 uppercase font-bold">Bắt đầu</p>
-                        <p class="font-bold mt-1">${formatDateTime(item.gio_bat_dau) || "Chưa có"}</p>
+                        <div class="bg-slate-800/60 border border-slate-700 rounded-2xl p-4">
+                            <p class="text-xs text-slate-400 uppercase font-bold">
+                                Bắt đầu
+                            </p>
+
+                            <p class="font-bold mt-1">
+                                ${formatDateTime(item.gio_bat_dau)}
+                            </p>
+                        </div>
+
+                        <div class="bg-slate-800/60 border border-slate-700 rounded-2xl p-4">
+                            <p class="text-xs text-slate-400 uppercase font-bold">
+                                Kết thúc dự kiến
+                            </p>
+
+                            <p class="font-bold mt-1">
+                                ${formatDateTime(item.gio_ket_thuc)}
+                            </p>
+                        </div>
+
                     </div>
 
-                    <div class="bg-slate-800/60 border border-slate-700 rounded-2xl p-4">
-                        <p class="text-xs text-slate-400 uppercase font-bold">Kết thúc</p>
-                        <p class="font-bold mt-1">${formatDateTime(item.gio_ket_thuc) || "Chưa có"}</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+
+                        <input
+                            id="route-${id}"
+                            value="${escapeHtml(item.tuyen_duong || "")}"
+                            ${disabled}
+                            class="p-3 rounded-xl bg-slate-800 border border-slate-700 outline-none focus:border-blue-500 ${disabledClass}"
+                            placeholder="Tuyến đường">
+
+                        <input
+                            id="start-${id}"
+                            type="datetime-local"
+                            value="${toInputDateTime(item.gio_bat_dau)}"
+                            ${disabled}
+                            class="p-3 rounded-xl bg-slate-800 border border-slate-700 outline-none focus:border-blue-500 ${disabledClass}">
+
+                        <input
+                            id="end-${id}"
+                            type="datetime-local"
+                            value="${toInputDateTime(item.gio_ket_thuc)}"
+                            ${disabled}
+                            class="p-3 rounded-xl bg-slate-800 border border-slate-700 outline-none focus:border-blue-500 ${disabledClass}">
+
+                        ${statusControl}
+
                     </div>
+
+                    <div class="flex gap-3 mt-4">
+                        ${actionButtons}
+                    </div>
+
                 </div>
+            `;
+        });
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <input id="route-${item.id}" value="${item.tuyen_duong || ""}"
-                        class="p-3 rounded-xl bg-slate-800 border border-slate-700 outline-none focus:border-blue-500"
-                        placeholder="Tuyến đường">
+    } catch (error) {
+        console.error(error);
 
-                    <input id="start-${item.id}" value="${item.gio_bat_dau || ""}"
-                        class="p-3 rounded-xl bg-slate-800 border border-slate-700 outline-none focus:border-blue-500"
-                        placeholder="Giờ bắt đầu">
-
-                    <input id="end-${item.id}" value="${item.gio_ket_thuc || ""}"
-                        class="p-3 rounded-xl bg-slate-800 border border-slate-700 outline-none focus:border-blue-500"
-                        placeholder="Giờ kết thúc">
-
-                    <select id="status-${item.id}"
-                        class="p-3 rounded-xl bg-slate-800 border border-slate-700 outline-none focus:border-blue-500">
-                        <option value="sap_chay" ${item.trang_thai === "sap_chay" ? "selected" : ""}>Sắp chạy</option>
-                        <option value="dang_chay" ${item.trang_thai === "dang_chay" ? "selected" : ""}>Đang chạy</option>
-                        <option value="hoan_thanh" ${item.trang_thai === "hoan_thanh" ? "selected" : ""}>Hoàn thành</option>
-                        <option value="da_huy" ${item.trang_thai === "da_huy" ? "selected" : ""}>Đã hủy</option>
-                    </select>
-                </div>
-
-                <div class="flex gap-3 mt-4">
-                    <button id="update-${item.id}" onclick="updateSchedule(${item.id}, ${item.tai_xe_id || 0}, ${item.xe_id || 0})"
-                        class="flex-1 bg-blue-600 hover:bg-blue-700 p-3 rounded-xl font-bold">
-                        Cập nhật
-                    </button>
-
-                    <button onclick="deleteSchedule(${item.id})"
-                        class="flex-1 bg-red-600 hover:bg-red-700 p-3 rounded-xl font-bold">
-                        Hủy lịch
-                    </button>
-                </div>
+        box.innerHTML = `
+            <div class="bg-red-500/10 p-6 rounded-3xl border border-red-500/30 text-red-300">
+                Không thể tải danh sách lịch chạy.
             </div>
         `;
-    });
+    }
 }
 
+/* ================================================= */
+/* TẠO LỊCH */
+/* ================================================= */
 async function createSchedule() {
-    const btn = document.getElementById("createBtn");
-    const taiXeId = Number(document.getElementById("tai_xe_id").value);
-    const xeId = Number(document.getElementById("xe_id").value);
-    const tuyenDuong = document.getElementById("tuyen_duong").value.trim();
-    const gioBatDau = document.getElementById("gio_bat_dau").value;
+    const btn =
+        document.getElementById("createBtn");
 
-    if (!taiXeId || !xeId || !tuyenDuong || !gioBatDau) {
-        alert("Vui lòng nhập đủ tài xế, xe, tuyến đường và giờ bắt đầu.");
+    const taiXeId =
+        Number(
+            document
+                .getElementById("tai_xe_id")
+                .value
+        );
+
+    const xeId =
+        Number(
+            document
+                .getElementById("xe_id")
+                .value
+        );
+
+    const tuyenDuong =
+        document
+            .getElementById("tuyen_duong")
+            .value
+            .trim();
+
+    const gioBatDau =
+        document
+            .getElementById("gio_bat_dau")
+            .value;
+
+    if (
+        !taiXeId ||
+        !xeId ||
+        !tuyenDuong ||
+        !gioBatDau
+    ) {
+        alert(
+            "Vui lòng chọn tài xế, xe, tuyến đường và giờ bắt đầu."
+        );
+
         return;
     }
 
@@ -308,30 +646,69 @@ async function createSchedule() {
             tai_xe_id: taiXeId,
             xe_id: xeId,
             tuyen_duong: tuyenDuong,
-            gio_bat_dau: toMysqlDateTime(gioBatDau),
-            gio_ket_thuc: toMysqlDateTime(document.getElementById("gio_ket_thuc").value),
+
+            gio_bat_dau:
+                toMysqlDateTime(gioBatDau),
+
+            gio_ket_thuc:
+                toMysqlDateTime(
+                    document
+                        .getElementById("gio_ket_thuc")
+                        .value
+                ),
+
             quan_ly_id: 1
         };
 
-        const res = await fetch("/api/admin/schedules", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify(body)
-        });
+        const res = await fetch(
+            "/api/admin/schedules",
+            {
+                method: "POST",
+
+                headers: {
+                    "Content-Type": "application/json"
+                },
+
+                body: JSON.stringify(body)
+            }
+        );
 
         const json = await res.json();
-        alert(json.message);
 
-        if (json.success) {
-            document.getElementById("tuyen_duong").value = "";
-            document.getElementById("gio_bat_dau").value = "";
-            document.getElementById("gio_ket_thuc").value = "";
+        if (!res.ok || !json.success) {
+            throw new Error(
+                json.message ||
+                "Không thể tạo lịch chạy."
+            );
         }
 
-        loadSchedules();
+        alert(
+            json.message ||
+            "Đã tạo lịch chạy."
+        );
+
+        document
+            .getElementById("tuyen_duong")
+            .value = "";
+
+        document
+            .getElementById("gio_bat_dau")
+            .value = "";
+
+        document
+            .getElementById("gio_ket_thuc")
+            .value = "";
+
+        await loadSchedules();
 
     } catch (error) {
-        alert("Không thể tạo lịch chạy.");
+        console.error(error);
+
+        alert(
+            error.message ||
+            "Không thể tạo lịch chạy."
+        );
+
     } finally {
         btn.innerText = "Tạo lịch chạy";
         btn.disabled = false;
@@ -339,8 +716,17 @@ async function createSchedule() {
     }
 }
 
-async function updateSchedule(id, taiXeId, xeId) {
-    const btn = document.getElementById(`update-${id}`);
+/* ================================================= */
+/* CẬP NHẬT LỊCH */
+/* ================================================= */
+async function updateSchedule(
+    id,
+    taiXeId,
+    xeId
+) {
+    const btn =
+        document.getElementById(`update-${id}`);
+
     btn.innerText = "Đang cập nhật...";
     btn.disabled = true;
     btn.classList.add("opacity-70");
@@ -349,25 +735,72 @@ async function updateSchedule(id, taiXeId, xeId) {
         const body = {
             tai_xe_id: taiXeId,
             xe_id: xeId,
-            tuyen_duong: document.getElementById(`route-${id}`).value,
-            gio_bat_dau: document.getElementById(`start-${id}`).value,
-            gio_ket_thuc: document.getElementById(`end-${id}`).value,
-            trang_thai: document.getElementById(`status-${id}`).value,
+
+            tuyen_duong:
+                document
+                    .getElementById(`route-${id}`)
+                    .value
+                    .trim(),
+
+            gio_bat_dau:
+                toMysqlDateTime(
+                    document
+                        .getElementById(`start-${id}`)
+                        .value
+                ),
+
+            gio_ket_thuc:
+                toMysqlDateTime(
+                    document
+                        .getElementById(`end-${id}`)
+                        .value
+                ),
+
+            trang_thai:
+                document
+                    .getElementById(`status-${id}`)
+                    .value,
+
             quan_ly_id: 1
         };
 
-        const res = await fetch(`/api/admin/schedules/${id}`, {
-            method: "PUT",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify(body)
-        });
+        const res = await fetch(
+            `/api/admin/schedules/${id}`,
+            {
+                method: "PUT",
+
+                headers: {
+                    "Content-Type": "application/json"
+                },
+
+                body: JSON.stringify(body)
+            }
+        );
 
         const json = await res.json();
-        alert(json.message);
-        loadSchedules();
+
+        if (!res.ok || !json.success) {
+            throw new Error(
+                json.message ||
+                "Không thể cập nhật lịch chạy."
+            );
+        }
+
+        alert(
+            json.message ||
+            "Đã cập nhật lịch chạy."
+        );
+
+        await loadSchedules();
 
     } catch (error) {
-        alert("Không thể cập nhật lịch chạy.");
+        console.error(error);
+
+        alert(
+            error.message ||
+            "Không thể cập nhật lịch chạy."
+        );
+
     } finally {
         btn.innerText = "Cập nhật";
         btn.disabled = false;
@@ -375,28 +808,84 @@ async function updateSchedule(id, taiXeId, xeId) {
     }
 }
 
-async function deleteSchedule(id) {
-    if (!confirm("Bạn chắc chắn muốn hủy lịch này?")) return;
+/* ================================================= */
+/* HỦY LỊCH */
+/* ================================================= */
+async function cancelSchedule(id) {
+    const confirmed = confirm(
+        "Bạn chắc chắn muốn hủy lịch này? Lịch đã hủy sẽ không thể kích hoạt lại."
+    );
 
-    const res = await fetch(`/api/admin/schedules/${id}`, {
-        method: "DELETE",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({quan_ly_id: 1})
-    });
+    if (!confirmed) return;
 
-    const json = await res.json();
-    alert(json.message);
-    loadSchedules();
+    try {
+        const res = await fetch(
+            `/api/admin/schedules/${id}`,
+            {
+                method: "DELETE",
+
+                headers: {
+                    "Content-Type": "application/json"
+                },
+
+                body: JSON.stringify({
+                    quan_ly_id: 1
+                })
+            }
+        );
+
+        const json = await res.json();
+
+        if (!res.ok || !json.success) {
+            throw new Error(
+                json.message ||
+                "Không thể hủy lịch chạy."
+            );
+        }
+
+        alert(
+            json.message ||
+            "Đã hủy lịch chạy."
+        );
+
+        await loadSchedules();
+
+    } catch (error) {
+        console.error(error);
+
+        alert(
+            error.message ||
+            "Không thể hủy lịch chạy."
+        );
+    }
 }
 
+/* ================================================= */
+/* TÌM KIẾM */
+/* ================================================= */
 function filterSchedules() {
-    const keyword = document.getElementById("searchSchedule").value.toLowerCase();
+    const keyword =
+        document
+            .getElementById("searchSchedule")
+            .value
+            .toLowerCase();
 
-    document.querySelectorAll(".schedule-card").forEach(card => {
-        const text = card.innerText.toLowerCase();
-        card.style.display = text.includes(keyword) ? "block" : "none";
-    });
+    document
+        .querySelectorAll(".schedule-card")
+        .forEach(card => {
+            const text =
+                card.innerText.toLowerCase();
+
+            card.style.display =
+                text.includes(keyword)
+                    ? "block"
+                    : "none";
+        });
 }
+
+/* ================================================= */
+/* KHỞI TẠO */
+/* ================================================= */
 async function initScheduler() {
     await loadOptions();
     await loadSchedules();

@@ -24,7 +24,7 @@
             <div>
                 <h1 class="text-3xl font-black tracking-tight">Hồ sơ cá nhân</h1>
                 <p class="text-slate-400 text-sm mt-1">
-                    Thông tin tài xế và xác thực khuôn mặt
+                      Xem và cập nhật thông tin cá nhân
                 </p>
             </div>
 
@@ -89,21 +89,7 @@
         </div>
     </section>
 
-    <!-- FACE STATUS -->
-    <section class="bg-slate-900 border border-slate-800 rounded-3xl p-4 mb-5 shadow-md">
-        <div class="flex justify-between items-center">
-            <div>
-                <p class="text-sm text-slate-400">Xác thực khuôn mặt</p>
-                <p class="font-bold mt-1 text-cyan-400">
-                    Có thể đăng ký / cập nhật
-                </p>
-            </div>
-
-            <span class="material-icons-round text-cyan-400 text-3xl">
-                face
-            </span>
-        </div>
-    </section>
+  
 
     <!-- FORM -->
     <section class="rounded-[32px] bg-slate-900 border border-slate-800 p-5 shadow-xl">
@@ -164,11 +150,7 @@
 
     <!-- ACTIONS -->
     <div class="space-y-3 mt-4">
-        <a href="/driver/register-face?tai_xe_id={{ tai_xe_id }}"
-           class="w-full p-4 rounded-2xl bg-cyan-600 hover:bg-cyan-700 active:scale-[0.99] font-bold text-sm tracking-wide text-white transition-all duration-200 shadow-lg shadow-cyan-600/10 flex items-center justify-center gap-2">
-            <span class="material-icons-round text-lg">face</span>
-            ĐĂNG KÝ / CẬP NHẬT KHUÔN MẶT
-        </a>
+        
 
         <button onclick="logout()"
                 class="w-full p-4 rounded-2xl bg-red-600 hover:bg-red-700 active:scale-[0.99] font-bold text-sm tracking-wide text-white transition-all duration-200 shadow-lg shadow-red-600/10 flex items-center justify-center gap-2">
@@ -236,163 +218,3 @@ function logout() {
 
 </body>
 </html>
-<!-- <!DOCTYPE html>
-<html lang="vi">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hồ sơ tài xế</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
-</head>
-
-<body class="bg-slate-950 text-white min-h-screen pb-[110px]">
-
-    <div class="max-w-md mx-auto p-4">
-
-        <div class="mb-6">
-            <a href="/driver/dashboard?tai_xe_id={{ tai_xe_id }}" class="text-cyan-400 text-sm flex items-center gap-1">
-                <span class="material-icons-round text-base">arrow_back</span> Quay lại
-            </a>
-            <h1 class="text-3xl font-bold mt-3">Hồ sơ cá nhân</h1>
-        </div>
-
-        <div class="flex flex-col items-center mb-6">
-            <div
-                class="w-24 h-24 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center mb-3 shadow-lg">
-                <span class="material-icons-round text-6xl text-slate-500">account_circle</span>
-            </div>
-            <h2 class="text-2xl font-bold text-slate-100">{{ profile.ho_ten }}</h2>
-            <p
-                class="text-cyan-400 text-xs font-bold uppercase tracking-wider mt-1 bg-cyan-500/10 px-3 py-0.5 rounded-full border border-cyan-500/20">
-                Tài xế đối tác
-            </p>
-        </div>
-
-        <div class="mb-6 p-4 rounded-2xl bg-slate-900 border border-slate-800/80 shadow-md">
-            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5 px-1">
-                <span class="material-icons-round text-base text-slate-600">local_shipping</span>
-                Phương tiện được bàn giao
-            </label>
-            <div
-                class="mt-2.5 flex justify-between items-center bg-slate-950/40 p-3 rounded-xl border border-slate-800/40">
-                <div>
-                    <h3 class="font-mono font-bold text-lg text-slate-200">{{ profile.bien_so or "Chưa phân xe" }}</h3>
-                    {% if profile.model %}
-                    <p class="text-xs text-slate-400 mt-0.5">{{ profile.model }}</p>
-                    {% endif %}
-                </div>
-                <span
-                    class="bg-slate-800 text-slate-400 px-2.5 py-1 rounded-md text-[11px] font-bold tracking-wider uppercase">
-                    Cố định
-                </span>
-            </div>
-        </div>
-
-        <hr class="border-slate-900 my-6">
-
-        <div class="space-y-4">
-            <form method="POST" action="/driver/update-profile" class="space-y-4">
-
-                <input type="hidden" name="tai_xe_id" value="{{ tai_xe_id }}">
-
-                <div>
-                    <label
-                        class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 px-1">
-                        <span class="material-icons-round text-base text-slate-500">phone</span>
-                        Số điện thoại
-                    </label>
-                    <input type="text" name="so_dien_thoai" value="{{ profile.so_dien_thoai }}"
-                        class="w-full mt-2 p-4 rounded-2xl bg-slate-900 border border-slate-800 text-slate-100 placeholder-slate-600 font-medium outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all duration-200"
-                        placeholder="Nhập số điện thoại mới">
-                </div>
-
-                <div>
-                    <label
-                        class="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5 px-1">
-                        <span class="material-icons-round text-base text-slate-600">badge</span>
-                        Số Giấy phép lái xe
-                    </label>
-                    <div class="relative">
-                        <input disabled value="{{ profile.so_gplx }}"
-                            class="w-full mt-2 p-4 rounded-2xl bg-slate-900/40 border border-slate-800/60 text-slate-500 font-mono cursor-not-allowed select-none">
-                        <span class="material-icons-round text-slate-600 absolute right-4 bottom-4 text-lg">
-                            lock
-                        </span>
-                    </div>
-                </div>
-
-                <div>
-                    <label
-                        class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 px-1">
-                        <span class="material-icons-round text-base text-slate-500">home_pin</span>
-                        Địa chỉ thường trú
-                    </label>
-                    <textarea name="dia_chi" rows="3"
-                        class="w-full mt-2 p-4 rounded-2xl bg-slate-900 border border-slate-800 text-slate-100 placeholder-slate-600 font-medium outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all duration-200 resize-none leading-relaxed"
-                        placeholder="Nhập địa chỉ của bạn">{{ profile.dia_chi }}</textarea>
-                </div>
-
-                <div class="pt-2">
-                    <button type="submit"
-                        class="w-full p-4 rounded-2xl bg-green-600 hover:bg-green-700 active:scale-[0.99] font-bold text-sm tracking-wide text-white transition-all duration-200 shadow-lg shadow-green-600/10 flex items-center justify-center gap-2">
-                        <span class="material-icons-round text-lg">save</span>
-                        LƯU THAY ĐỔI
-                    </button>
-                </div>
-            </form>
-
-            <div>
-                <a href="/driver/register-face?tai_xe_id={{ tai_xe_id }}"
-                    class="block text-center w-full p-4 rounded-2xl bg-cyan-600 hover:bg-cyan-700 active:scale-[0.99] font-bold text-sm tracking-wide text-white transition-all duration-200 shadow-lg shadow-cyan-600/10 flex items-center justify-center gap-2">
-                    <span class="material-icons-round text-lg">face</span>
-                    ĐĂNG KÝ KHUÔN MẶT
-                </a>
-            </div>
-        </div>
-
-    </div>
-
-    <div
-        class="fixed bottom-0 left-0 right-0 bg-slate-900/90 backdrop-blur-md border-t border-slate-800 py-2 z-50 shadow-2xl">
-        <div class="w-full max-w-md mx-auto flex justify-around items-center px-4">
-
-            <a href="/driver/dashboard?tai_xe_id={{ tai_xe_id }}"
-                class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 text-xs">
-                <div class="w-12 h-8 flex items-center justify-center">
-                    <span class="material-icons-round text-2xl">dashboard</span>
-                </div>
-                <span>Cabin</span>
-            </a>
-
-            <a href="/driver/schedules?tai_xe_id={{ tai_xe_id }}"
-                class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 text-xs">
-                <div class="w-12 h-8 flex items-center justify-center">
-                    <span class="material-icons-round text-2xl">calendar_today</span>
-                </div>
-                <span>Lịch chạy</span>
-            </a>
-
-            <a href="/driver/notifications?tai_xe_id={{ tai_xe_id }}"
-                class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 text-xs">
-                <div class="w-12 h-8 flex items-center justify-center">
-                    <span class="material-icons-round text-2xl">notifications</span>
-                </div>
-                <span>Thông báo</span>
-            </a>
-
-            <a href="/driver/profile?tai_xe_id={{ tai_xe_id }}"
-                class="flex flex-col items-center gap-1 text-blue-500 font-medium text-xs">
-                <div class="w-12 h-8 rounded-full bg-blue-500/10 flex items-center justify-center">
-                    <span class="material-icons-round text-2xl">account_circle</span>
-                </div>
-                <span>Cá nhân</span>
-            </a>
-
-        </div>
-    </div>
-
-</body>
-
-</html> -->

@@ -4,6 +4,769 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quản lý tài xế</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-slate-950 text-white min-h-screen">
+
+<nav class="sticky top-0 z-50 bg-slate-950/90 backdrop-blur border-b border-slate-800">
+    <div class="max-w-7xl mx-auto px-4 py-4">
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+
+            <div>
+                <h1 class="text-xl font-bold">DACN1 Admin</h1>
+                <p class="text-sm text-slate-400">
+                    Hệ thống giám sát tài xế bằng AI
+                </p>
+            </div>
+
+            <div class="flex gap-2 overflow-x-auto pb-1">
+                <a href="/admin/dashboard"
+                   class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">
+                    Dashboard
+                </a>
+
+                <a href="/admin/drivers"
+                   class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">
+                    Tài xế
+                </a>
+
+                <a href="/admin/vehicles"
+                   class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">
+                    Xe
+                </a>
+
+                <a href="/admin/scheduler"
+                   class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">
+                    Lịch chạy
+                </a>
+
+                <a href="/admin/reports"
+                   class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">
+                    Báo cáo
+                </a>
+
+                <a href="/admin/analytics"
+                   class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">
+                    Thống kê
+                </a>
+
+                <a href="/logout"
+                   class="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-sm whitespace-nowrap">
+                    Đăng xuất
+                </a>
+            </div>
+
+        </div>
+    </div>
+</nav>
+
+<main class="max-w-7xl mx-auto p-6">
+
+    <!-- ================================================= -->
+    <!-- HEADER -->
+    <!-- ================================================= -->
+    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
+
+        <div>
+            <h1 class="text-3xl font-black">Quản lý tài xế</h1>
+
+            <p class="text-slate-400 mt-1">
+                Thêm tài xế, cập nhật hồ sơ và theo dõi trạng thái làm việc
+            </p>
+        </div>
+
+        <button
+            onclick="openCreateDriverModal()"
+            class="bg-blue-600 hover:bg-blue-700 px-5 py-3 rounded-xl font-bold transition">
+            + Thêm tài xế
+        </button>
+
+    </div>
+
+    <!-- ================================================= -->
+    <!-- THỐNG KÊ -->
+    <!-- ================================================= -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <p class="text-slate-400 text-sm">
+                👨‍✈️ Tổng tài xế
+            </p>
+
+            <h2 id="totalDrivers"
+                class="text-4xl font-black mt-2">
+                0
+            </h2>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <p class="text-slate-400 text-sm">
+                🟢 Đang làm
+            </p>
+
+            <h2 id="workingDrivers"
+                class="text-4xl font-black mt-2 text-green-400">
+                0
+            </h2>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <p class="text-slate-400 text-sm">
+                🟡 Nghỉ
+            </p>
+
+            <h2 id="restingDrivers"
+                class="text-4xl font-black mt-2 text-yellow-400">
+                0
+            </h2>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <p class="text-slate-400 text-sm">
+                🔴 Tạm khóa
+            </p>
+
+            <h2 id="lockedDrivers"
+                class="text-4xl font-black mt-2 text-red-400">
+                0
+            </h2>
+        </div>
+
+    </div>
+
+    <!-- ================================================= -->
+    <!-- TÌM KIẾM -->
+    <!-- ================================================= -->
+    <div class="mb-6">
+
+        <input
+            id="searchDriver"
+            onkeyup="filterDrivers()"
+            placeholder="🔍 Tìm theo tên, số điện thoại, GPLX..."
+            class="w-full p-4 rounded-2xl bg-slate-900 border border-slate-800 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+
+    </div>
+
+    <!-- ================================================= -->
+    <!-- DANH SÁCH TÀI XẾ -->
+    <!-- ================================================= -->
+    <div id="drivers"
+         class="grid grid-cols-1 md:grid-cols-2 gap-5">
+    </div>
+
+</main>
+
+<!-- ================================================= -->
+<!-- MODAL THÊM TÀI XẾ -->
+<!-- ================================================= -->
+<div id="createDriverModal"
+     class="hidden fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm p-4 overflow-y-auto">
+
+    <div class="max-w-2xl mx-auto mt-8 mb-8 bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl">
+
+        <div class="flex justify-between items-center p-6 border-b border-slate-800">
+
+            <div>
+                <h2 class="text-2xl font-black">
+                    Thêm tài xế mới
+                </h2>
+
+                <p class="text-slate-400 text-sm mt-1">
+                    Hệ thống sẽ tạo tài khoản đăng nhập cho tài xế
+                </p>
+            </div>
+
+            <button
+                onclick="closeCreateDriverModal()"
+                class="w-10 h-10 rounded-xl bg-slate-800 hover:bg-red-600 transition font-bold">
+                ✕
+            </button>
+
+        </div>
+
+        <form id="createDriverForm"
+              onsubmit="createDriver(event)"
+              class="p-6 space-y-4">
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                <div>
+                    <label class="text-xs text-slate-400 font-bold uppercase">
+                        Tên đăng nhập *
+                    </label>
+
+                    <input
+                        id="new_username"
+                        required
+                        class="w-full mt-1 p-3 rounded-xl bg-slate-800 border border-slate-700 outline-none focus:border-blue-500"
+                        placeholder="Ví dụ: taixe_nguyenan">
+                </div>
+
+                <div>
+                    <label class="text-xs text-slate-400 font-bold uppercase">
+                        Mật khẩu *
+                    </label>
+
+                    <input
+                        id="new_password"
+                        type="password"
+                        required
+                        class="w-full mt-1 p-3 rounded-xl bg-slate-800 border border-slate-700 outline-none focus:border-blue-500"
+                        placeholder="Nhập mật khẩu ban đầu">
+                </div>
+
+            </div>
+
+            <div>
+                <label class="text-xs text-slate-400 font-bold uppercase">
+                    Họ tên *
+                </label>
+
+                <input
+                    id="new_fullname"
+                    required
+                    class="w-full mt-1 p-3 rounded-xl bg-slate-800 border border-slate-700 outline-none focus:border-blue-500"
+                    placeholder="Họ và tên tài xế">
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                <div>
+                    <label class="text-xs text-slate-400 font-bold uppercase">
+                        Số điện thoại
+                    </label>
+
+                    <input
+                        id="new_phone"
+                        class="w-full mt-1 p-3 rounded-xl bg-slate-800 border border-slate-700 outline-none focus:border-blue-500"
+                        placeholder="Số điện thoại">
+                </div>
+
+                <div>
+                    <label class="text-xs text-slate-400 font-bold uppercase">
+                        Số GPLX
+                    </label>
+
+                    <input
+                        id="new_license"
+                        class="w-full mt-1 p-3 rounded-xl bg-slate-800 border border-slate-700 outline-none focus:border-blue-500"
+                        placeholder="Số giấy phép lái xe">
+                </div>
+
+            </div>
+
+            <div>
+                <label class="text-xs text-slate-400 font-bold uppercase">
+                    Địa chỉ
+                </label>
+
+                <input
+                    id="new_address"
+                    class="w-full mt-1 p-3 rounded-xl bg-slate-800 border border-slate-700 outline-none focus:border-blue-500"
+                    placeholder="Địa chỉ">
+            </div>
+
+            <div>
+                <label class="text-xs text-slate-400 font-bold uppercase">
+                    Trạng thái
+                </label>
+
+                <select
+                    id="new_status"
+                    class="w-full mt-1 p-3 rounded-xl bg-slate-800 border border-slate-700 outline-none focus:border-blue-500">
+
+                    <option value="dang_lam">
+                        Đang làm
+                    </option>
+
+                    <option value="nghi">
+                        Nghỉ
+                    </option>
+
+                    <option value="tam_khoa">
+                        Tạm khóa
+                    </option>
+
+                </select>
+            </div>
+
+            <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-3">
+
+                <button
+                    type="button"
+                    onclick="closeCreateDriverModal()"
+                    class="px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 font-bold transition">
+                    Hủy
+                </button>
+
+                <button
+                    id="createDriverButton"
+                    type="submit"
+                    class="px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 font-bold transition">
+                    Thêm tài xế
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+<script>
+const currentPath = window.location.pathname;
+
+/* ================================================= */
+/* ACTIVE MENU */
+/* ================================================= */
+document.querySelectorAll(".admin-link").forEach(link => {
+    if (link.getAttribute("href") === currentPath) {
+        link.classList.remove("bg-slate-800");
+        link.classList.add("bg-blue-600");
+    }
+});
+
+/* ================================================= */
+/* ESCAPE HTML */
+/* Tránh lỗi khi dữ liệu chứa ký tự đặc biệt */
+/* ================================================= */
+function escapeHtml(value) {
+    return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+}
+
+/* ================================================= */
+/* HIỂN THỊ TRẠNG THÁI */
+/* ================================================= */
+function statusBadge(status) {
+    if (status === "dang_lam") {
+        return "bg-green-500/20 text-green-300 border border-green-500/30";
+    }
+
+    if (status === "nghi") {
+        return "bg-yellow-500/20 text-yellow-300 border border-yellow-500/30";
+    }
+
+    if (status === "tam_khoa") {
+        return "bg-red-500/20 text-red-300 border border-red-500/30";
+    }
+
+    return "bg-slate-700 text-slate-300 border border-slate-600";
+}
+
+function statusText(status) {
+    if (status === "dang_lam") return "Đang làm";
+    if (status === "nghi") return "Nghỉ";
+    if (status === "tam_khoa") return "Tạm khóa";
+
+    return status || "Chưa xác định";
+}
+
+/* ================================================= */
+/* LOAD TÀI XẾ */
+/* ================================================= */
+async function loadDrivers() {
+    const box = document.getElementById("drivers");
+
+    box.innerHTML = `
+        <div class="md:col-span-2 bg-slate-900 p-6 rounded-3xl border border-slate-800 text-slate-400">
+            Đang tải danh sách tài xế...
+        </div>
+    `;
+
+    try {
+        const res = await fetch("/api/admin/drivers");
+        const json = await res.json();
+
+        if (!res.ok || !json.success) {
+            throw new Error(json.message || "Không thể tải danh sách tài xế.");
+        }
+
+        const data = json.data || [];
+
+        document.getElementById("totalDrivers").innerText =
+            data.length;
+
+        document.getElementById("workingDrivers").innerText =
+            data.filter(item => item.trang_thai === "dang_lam").length;
+
+        document.getElementById("restingDrivers").innerText =
+            data.filter(item => item.trang_thai === "nghi").length;
+
+        document.getElementById("lockedDrivers").innerText =
+            data.filter(item => item.trang_thai === "tam_khoa").length;
+
+        box.innerHTML = "";
+
+        if (data.length === 0) {
+            box.innerHTML = `
+                <div class="md:col-span-2 bg-slate-900 p-6 rounded-3xl border border-slate-800 text-slate-400">
+                    Chưa có tài xế nào.
+                </div>
+            `;
+
+            return;
+        }
+
+        data.forEach(item => {
+            const id = Number(item.id);
+
+            const fullname = escapeHtml(item.ho_ten || "");
+            const phone = escapeHtml(item.so_dien_thoai || "");
+            const license = escapeHtml(item.so_gplx || "");
+            const address = escapeHtml(item.dia_chi || "");
+
+            const firstLetter = fullname
+                ? fullname.charAt(0).toUpperCase()
+                : "T";
+
+            box.innerHTML += `
+                <div class="driver-card bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl hover:border-blue-500/40 transition">
+
+                    <div class="flex justify-between items-start gap-4 mb-5">
+
+                        <div class="flex items-center gap-4">
+
+                            <div class="w-14 h-14 rounded-2xl bg-blue-600 flex items-center justify-center text-2xl font-black shadow-lg">
+                                ${firstLetter}
+                            </div>
+
+                            <div>
+                                <h2 class="driver-name text-xl font-bold">
+                                    ${fullname || "Chưa có tên"}
+                                </h2>
+
+                                <p class="text-slate-400 text-sm">
+                                    ID: ${id}
+                                </p>
+                            </div>
+
+                        </div>
+
+                        <span class="px-3 py-1 rounded-full text-xs font-bold ${statusBadge(item.trang_thai)}">
+                            ${statusText(item.trang_thai)}
+                        </span>
+
+                    </div>
+
+                    <div class="space-y-3">
+
+                        <div>
+                            <label class="text-xs text-slate-400 font-bold uppercase">
+                                Họ tên
+                            </label>
+
+                            <input
+                                id="ho_ten-${id}"
+                                value="${fullname}"
+                                class="w-full mt-1 p-3 rounded-xl bg-slate-800 border border-slate-700 outline-none focus:border-blue-500"
+                                placeholder="Họ tên">
+                        </div>
+
+                        <div>
+                            <label class="text-xs text-slate-400 font-bold uppercase">
+                                Số điện thoại
+                            </label>
+
+                            <input
+                                id="sdt-${id}"
+                                value="${phone}"
+                                class="w-full mt-1 p-3 rounded-xl bg-slate-800 border border-slate-700 outline-none focus:border-blue-500"
+                                placeholder="Số điện thoại">
+                        </div>
+
+                        <div>
+                            <label class="text-xs text-slate-400 font-bold uppercase">
+                                Số GPLX
+                            </label>
+
+                            <input
+                                id="gplx-${id}"
+                                value="${license}"
+                                class="w-full mt-1 p-3 rounded-xl bg-slate-800 border border-slate-700 outline-none focus:border-blue-500"
+                                placeholder="Số GPLX">
+                        </div>
+
+                        <div>
+                            <label class="text-xs text-slate-400 font-bold uppercase">
+                                Địa chỉ
+                            </label>
+
+                            <input
+                                id="dia_chi-${id}"
+                                value="${address}"
+                                class="w-full mt-1 p-3 rounded-xl bg-slate-800 border border-slate-700 outline-none focus:border-blue-500"
+                                placeholder="Địa chỉ">
+                        </div>
+
+                        <div>
+                            <label class="text-xs text-slate-400 font-bold uppercase">
+                                Trạng thái
+                            </label>
+
+                            <select
+                                id="trang_thai-${id}"
+                                class="w-full mt-1 p-3 rounded-xl bg-slate-800 border border-slate-700 outline-none focus:border-blue-500">
+
+                                <option
+                                    value="dang_lam"
+                                    ${item.trang_thai === "dang_lam" ? "selected" : ""}>
+                                    Đang làm
+                                </option>
+
+                                <option
+                                    value="nghi"
+                                    ${item.trang_thai === "nghi" ? "selected" : ""}>
+                                    Nghỉ
+                                </option>
+
+                                <option
+                                    value="tam_khoa"
+                                    ${item.trang_thai === "tam_khoa" ? "selected" : ""}>
+                                    Tạm khóa
+                                </option>
+
+                            </select>
+                        </div>
+
+                        <button
+                            id="btn-${id}"
+                            onclick="updateDriver(${id})"
+                            class="w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.99] transition p-3 rounded-xl font-bold">
+                            Lưu thay đổi
+                        </button>
+
+                    </div>
+
+                </div>
+            `;
+        });
+
+    } catch (error) {
+        console.error(error);
+
+        box.innerHTML = `
+            <div class="md:col-span-2 bg-red-500/10 p-6 rounded-3xl border border-red-500/30 text-red-300">
+                Không thể tải danh sách tài xế.
+            </div>
+        `;
+    }
+}
+
+/* ================================================= */
+/* CẬP NHẬT TÀI XẾ */
+/* ================================================= */
+async function updateDriver(id) {
+    const btn = document.getElementById(`btn-${id}`);
+
+    btn.innerText = "Đang lưu...";
+    btn.disabled = true;
+    btn.classList.add("opacity-70");
+
+    try {
+        const body = {
+            ho_ten: document.getElementById(`ho_ten-${id}`).value.trim(),
+            so_dien_thoai: document.getElementById(`sdt-${id}`).value.trim(),
+            so_gplx: document.getElementById(`gplx-${id}`).value.trim(),
+            dia_chi: document.getElementById(`dia_chi-${id}`).value.trim(),
+            trang_thai: document.getElementById(`trang_thai-${id}`).value,
+            quan_ly_id: 1
+        };
+
+        if (!body.ho_ten) {
+            alert("Họ tên không được để trống.");
+            return;
+        }
+
+        const res = await fetch(`/api/admin/drivers/${id}`, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(body)
+        });
+
+        const json = await res.json();
+
+        if (!res.ok || !json.success) {
+            throw new Error(json.message || "Cập nhật tài xế thất bại.");
+        }
+
+        alert(json.message || "Đã cập nhật tài xế.");
+
+        await loadDrivers();
+
+    } catch (error) {
+        console.error(error);
+
+        alert(error.message || "Không thể cập nhật tài xế.");
+
+    } finally {
+        btn.innerText = "Lưu thay đổi";
+        btn.disabled = false;
+        btn.classList.remove("opacity-70");
+    }
+}
+
+/* ================================================= */
+/* MODAL THÊM TÀI XẾ */
+/* ================================================= */
+function openCreateDriverModal() {
+    document
+        .getElementById("createDriverModal")
+        .classList
+        .remove("hidden");
+}
+
+function closeCreateDriverModal() {
+    document
+        .getElementById("createDriverModal")
+        .classList
+        .add("hidden");
+
+    document
+        .getElementById("createDriverForm")
+        .reset();
+}
+
+/* ================================================= */
+/* TẠO TÀI XẾ */
+/* ================================================= */
+async function createDriver(event) {
+    event.preventDefault();
+
+    const btn = document.getElementById("createDriverButton");
+
+    btn.innerText = "Đang thêm...";
+    btn.disabled = true;
+    btn.classList.add("opacity-70");
+
+    try {
+        const body = {
+            ten_dang_nhap: document
+                .getElementById("new_username")
+                .value
+                .trim(),
+
+            mat_khau: document
+                .getElementById("new_password")
+                .value
+                .trim(),
+
+            ho_ten: document
+                .getElementById("new_fullname")
+                .value
+                .trim(),
+
+            so_dien_thoai: document
+                .getElementById("new_phone")
+                .value
+                .trim(),
+
+            so_gplx: document
+                .getElementById("new_license")
+                .value
+                .trim(),
+
+            dia_chi: document
+                .getElementById("new_address")
+                .value
+                .trim(),
+
+            trang_thai: document
+                .getElementById("new_status")
+                .value,
+
+            quan_ly_id: 1
+        };
+
+        if (!body.ten_dang_nhap || !body.mat_khau || !body.ho_ten) {
+            alert("Vui lòng nhập tên đăng nhập, mật khẩu và họ tên.");
+            return;
+        }
+
+        const res = await fetch("/api/admin/drivers", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(body)
+        });
+
+        const json = await res.json();
+
+        if (!res.ok || !json.success) {
+            throw new Error(json.message || "Không thể thêm tài xế.");
+        }
+
+        alert(json.message || "Đã thêm tài xế.");
+
+        closeCreateDriverModal();
+
+        await loadDrivers();
+
+    } catch (error) {
+        console.error(error);
+
+        alert(error.message || "Không thể thêm tài xế.");
+
+    } finally {
+        btn.innerText = "Thêm tài xế";
+        btn.disabled = false;
+        btn.classList.remove("opacity-70");
+    }
+}
+
+/* ================================================= */
+/* TÌM KIẾM */
+/* ================================================= */
+function filterDrivers() {
+    const keyword = document
+        .getElementById("searchDriver")
+        .value
+        .toLowerCase();
+
+    document
+        .querySelectorAll(".driver-card")
+        .forEach(card => {
+            const text = card.innerText.toLowerCase();
+
+            card.style.display =
+                text.includes(keyword)
+                    ? "block"
+                    : "none";
+        });
+}
+
+/* ================================================= */
+/* ĐÓNG MODAL KHI CLICK NỀN NGOÀI */
+/* ================================================= */
+document
+    .getElementById("createDriverModal")
+    .addEventListener("click", event => {
+        if (event.target.id === "createDriverModal") {
+            closeCreateDriverModal();
+        }
+    });
+
+loadDrivers();
+</script>
+
+</body>
+</html>
+<!-- <!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản lý tài xế</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 
@@ -228,176 +991,6 @@ function filterDrivers() {
         const text = card.innerText.toLowerCase();
         card.style.display = text.includes(keyword) ? "block" : "none";
     });
-}
-
-loadDrivers();
-</script>
-
-</body>
-</html>
-<!-- <!DOCTYPE html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <title>Quản lý tài xế</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<nav class="sticky top-0 z-50 mb-6 bg-slate-950/90 backdrop-blur border-b border-slate-800">
-    <div class="max-w-7xl mx-auto px-4 py-4">
-        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-
-            <div>
-                <h1 class="text-xl font-bold text-white">DACN1 Admin</h1>
-                <p class="text-sm text-slate-400">Hệ thống giám sát tài xế bằng AI</p>
-            </div>
-
-            <div class="flex gap-2 overflow-x-auto pb-1">
-                <a href="/admin/dashboard"
-                   class="admin-link whitespace-nowrap px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm">
-                    Dashboard
-                </a>
-
-                <a href="/admin/drivers"
-                   class="admin-link whitespace-nowrap px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm">
-                    Tài xế
-                </a>
-
-                <a href="/admin/vehicles"
-                   class="admin-link whitespace-nowrap px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm">
-                    Xe
-                </a>
-
-                <a href="/admin/scheduler"
-                   class="admin-link whitespace-nowrap px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm">
-                    Lịch chạy
-                </a>
-
-                <a href="/admin/reports"
-                   class="admin-link whitespace-nowrap px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm">
-                    Báo cáo
-                </a>
-
-                <a href="/admin/analytics"
-                   class="admin-link whitespace-nowrap px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm">
-                    Thống kê
-                </a>
-
-                <a href="/logout"
-                   class="whitespace-nowrap px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-sm">
-                    Đăng xuất
-                </a>
-            </div>
-        </div>
-    </div>
-</nav>
-
-<script>
-const currentPath = window.location.pathname;
-
-document.querySelectorAll(".admin-link").forEach(link => {
-    if (link.getAttribute("href") === currentPath) {
-        link.classList.remove("bg-slate-800");
-        link.classList.add("bg-blue-600");
-    }
-});
-</script>
-<body class="bg-slate-950 text-white min-h-screen p-6">
-
-<div class="max-w-7xl mx-auto">
-
-    <div class="flex justify-between items-center mb-6">
-        <div>
-            <h1 class="text-3xl font-bold">Quản lý tài xế</h1>
-            <p class="text-slate-400">Cập nhật thông tin và gửi thông báo cho tài xế</p>
-        </div>
-
-        <a href="/admin/dashboard" class="bg-slate-800 px-4 py-2 rounded-xl">
-            Dashboard
-        </a>
-    </div>
-
-    <div id="drivers" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
-
-</div>
-
-<script>
-async function loadDrivers() {
-    const res = await fetch("/api/admin/drivers");
-    const json = await res.json();
-
-    const box = document.getElementById("drivers");
-    box.innerHTML = "";
-
-    json.data.forEach(item => {
-        box.innerHTML += `
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
-                <div class="flex justify-between items-start mb-4">
-                    <div>
-                        <h2 class="text-xl font-bold">${item.ho_ten}</h2>
-                        <p class="text-slate-400 text-sm">ID: ${item.id}</p>
-                    </div>
-
-                    <span class="px-3 py-1 rounded-full text-sm bg-blue-500/20 text-blue-300">
-                        ${item.trang_thai || "N/A"}
-                    </span>
-                </div>
-
-                <div class="space-y-3">
-                    <input id="ho_ten-${item.id}" value="${item.ho_ten || ""}"
-                        class="w-full p-3 rounded-xl bg-slate-800 border border-slate-700"
-                        placeholder="Họ tên">
-
-                    <input id="sdt-${item.id}" value="${item.so_dien_thoai || ""}"
-                        class="w-full p-3 rounded-xl bg-slate-800 border border-slate-700"
-                        placeholder="Số điện thoại">
-
-                    <input id="gplx-${item.id}" value="${item.so_gplx || ""}"
-                        class="w-full p-3 rounded-xl bg-slate-800 border border-slate-700"
-                        placeholder="Số GPLX">
-
-                    <input id="dia_chi-${item.id}" value="${item.dia_chi || ""}"
-                        class="w-full p-3 rounded-xl bg-slate-800 border border-slate-700"
-                        placeholder="Địa chỉ">
-
-                    <select id="trang_thai-${item.id}"
-                        class="w-full p-3 rounded-xl bg-slate-800 border border-slate-700">
-                        <option value="hoat_dong" ${item.trang_thai === "hoat_dong" ? "selected" : ""}>Hoạt động</option>
-                        <option value="tam_ngung" ${item.trang_thai === "tam_ngung" ? "selected" : ""}>Tạm ngưng</option>
-                    </select>
-
-                    <button onclick="updateDriver(${item.id})"
-                        class="w-full bg-blue-600 hover:bg-blue-700 p-3 rounded-xl font-semibold">
-                        Lưu thay đổi
-                    </button>
-                </div>
-            </div>
-        `;
-    });
-}
-
-async function updateDriver(id) {
-    const body = {
-        ho_ten: document.getElementById(`ho_ten-${id}`).value,
-        so_dien_thoai: document.getElementById(`sdt-${id}`).value,
-        so_gplx: document.getElementById(`gplx-${id}`).value,
-        dia_chi: document.getElementById(`dia_chi-${id}`).value,
-        trang_thai: document.getElementById(`trang_thai-${id}`).value,
-        quan_ly_id: 1
-    };
-
-    const res = await fetch(`/api/admin/drivers/${id}`, {
-        method: "PUT",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify(body)
-    });
-
-    const json = await res.json();
-
-    alert(json.message);
-
-    loadDrivers();
 }
 
 loadDrivers();
