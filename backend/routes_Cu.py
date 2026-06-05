@@ -8,9 +8,9 @@ import os
 
 def register_routes(app):
 
-    # ==========================
+    
     # REALTIME LOGS
-    # ==========================
+    
     @app.route("/api/logs")
     def get_logs():
 
@@ -29,9 +29,9 @@ def register_routes(app):
 
         return jsonify(logs)
 
-    # ==========================
+    
     # STATUS
-    # ==========================
+    
     @app.route("/api/status")
     def get_status():
 
@@ -59,9 +59,9 @@ def register_routes(app):
 
         return jsonify(status)
 
-    # ==========================
+    
     # THỐNG KÊ
-    # ==========================
+    
     @app.route("/api/stats")
     def get_stats():
 
@@ -88,9 +88,9 @@ def register_routes(app):
 
         return jsonify(stats)
 
-    # ==========================
+    
     # TÀI XẾ
-    # ==========================
+    
     @app.route("/api/drivers")
     def get_drivers():
 
@@ -107,9 +107,9 @@ def register_routes(app):
 
         return jsonify(drivers)
 
-    # ==========================
+    
     # XE
-    # ==========================
+    
     @app.route("/api/vehicles")
     def get_vehicles():
 
@@ -126,9 +126,9 @@ def register_routes(app):
 
         return jsonify(vehicles)
 
-    # ==========================
+    
     # SNAPSHOTS
-    # ==========================
+    
     @app.route("/api/snapshots")
     def get_snapshots():
 

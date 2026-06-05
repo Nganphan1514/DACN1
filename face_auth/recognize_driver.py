@@ -2,17 +2,17 @@ import cv2
 import mediapipe as mp
 import os
 
-# ==========================
+
 # PATH
-# ==========================
+
 MODEL_PATH = "model/face_model.yml"
 
 LABEL_PATH = "model/face_labels.txt"
 
 
-# ==========================
+
 # LOAD MODEL
-# ==========================
+
 recognizer = cv2.face.LBPHFaceRecognizer_create()
 
 recognizer.read(MODEL_PATH)
@@ -30,17 +30,17 @@ if os.path.exists(LABEL_PATH):
             label_map[int(key)] = value
 
 
-# ==========================
+
 # MEDIAPIPE
-# ==========================
+
 mp_face_detection = mp.solutions.face_detection
 
 face_detector = mp_face_detection.FaceDetection(min_detection_confidence=0.5)
 
 
-# ==========================
+
 # RECOGNIZE DRIVER
-# ==========================
+
 def recognize_driver(frame):
 
     try:
@@ -114,9 +114,9 @@ def recognize_driver(frame):
         return (None, 0)
 
 
-# ==========================
+
 # TEST
-# ==========================
+
 if __name__ == "__main__":
 
     cap = cv2.VideoCapture(0)

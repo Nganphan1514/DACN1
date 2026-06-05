@@ -17,9 +17,9 @@ from database.mysql_service import (
 )
 
 
-# ==========================
+
 # DRIVER DASHBOARD
-# ==========================
+
 @dashboard_bp.route("/driver/dashboard")
 def driver_dashboard():
 
@@ -34,18 +34,18 @@ def driver_dashboard():
     return render_template("driver/dashboard.html", data=data)
 
 
-# ==========================
+
 # ADMIN DASHBOARD
-# ==========================
+
 # @dashboard_bp.route("/admin/dashboard")
 # def admin_dashboard():
 
 #     return render_template("admin/dashboard.html")
 
 
-# ==========================
+
 # DRIVER SCHEDULES
-# ==========================
+
 @dashboard_bp.route("/driver/schedules")
 def driver_schedules():
 
@@ -57,9 +57,9 @@ def driver_schedules():
     return render_template(
         "driver/schedules.html", schedules=schedules, tai_xe_id=tai_xe_id
     )
-# ==========================
+
 # DRIVER NOTIFICATIONS
-# ==========================
+
 @dashboard_bp.route("/driver/notifications")
 def driver_notifications():
 
@@ -71,9 +71,9 @@ def driver_notifications():
     return render_template(
         "driver/notifications.html", notifications=notifications, tai_xe_id=tai_xe_id
     )
-# ==========================
+
 # DOC THONG BAO
-# ==========================
+
 @dashboard_bp.route("/driver/read-note/<int:note_id>", methods=["POST"])
 def read_note(note_id):
 
@@ -82,9 +82,9 @@ def read_note(note_id):
     return {"success": success}
 
 
-# ==========================
+
 # DRIVER PROFILE
-# ==========================
+
 @dashboard_bp.route("/driver/profile")
 def driver_profile():
 
@@ -94,9 +94,9 @@ def driver_profile():
 
 
     return render_template("driver/profile.html", profile=profile, tai_xe_id=tai_xe_id)
-# ==========================
+
 # UPDATE PROFILE
-# ==========================
+
 @dashboard_bp.route("/driver/update-profile", methods=["POST"])
 def update_profile():
 

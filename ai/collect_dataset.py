@@ -4,9 +4,9 @@ import numpy as np
 import csv
 import os
 
-# ======================
+
 # Khởi tạo MediaPipe
-# ======================
+
 mp_face_mesh = mp.solutions.face_mesh
 
 face_mesh = mp_face_mesh.FaceMesh(
@@ -16,16 +16,16 @@ face_mesh = mp_face_mesh.FaceMesh(
     min_tracking_confidence=0.5,
 )
 
-# ======================
+
 # Landmark mắt và miệng
-# ======================
+
 LEFT_EYE = [33, 160, 158, 133, 153, 144]
 RIGHT_EYE = [362, 385, 387, 263, 373, 380]
 MOUTH = [61, 13, 291, 14]
 
-# ======================
+
 # Path dataset
-# ======================
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 dataset_folder = os.path.join(BASE_DIR, "dataset")
@@ -34,9 +34,9 @@ os.makedirs(dataset_folder, exist_ok=True)
 
 file_name = os.path.join(dataset_folder, "drowsiness_dataset.csv")
 
-# ======================
+
 # Tạo file CSV nếu chưa có
-# ======================
+
 if not os.path.exists(file_name):
 
     with open(file_name, mode="w", newline="", encoding="utf-8") as file:
@@ -46,17 +46,17 @@ if not os.path.exists(file_name):
         writer.writerow(["EAR", "MAR", "Label"])
 
 
-# ======================
+
 # Hàm tính khoảng cách
-# ======================
+
 def distance(p1, p2):
 
     return np.linalg.norm(np.array(p1) - np.array(p2))
 
 
-# ======================
+
 # Hàm tính EAR
-# ======================
+
 def calculate_ear(points):
 
     A = distance(points[1], points[5])
@@ -71,9 +71,9 @@ def calculate_ear(points):
     return ear
 
 
-# ======================
+
 # Hàm tính MAR
-# ======================
+
 def calculate_mar(points):
 
     vertical = distance(points[1], points[3])
@@ -88,9 +88,9 @@ def calculate_mar(points):
     return mar
 
 
-# ======================
+
 # Hàm lưu dữ liệu
-# ======================
+
 def save_data(ear, mar, label):
 
     with open(file_name, mode="a", newline="", encoding="utf-8") as file:
@@ -100,9 +100,9 @@ def save_data(ear, mar, label):
         writer.writerow([round(ear, 4), round(mar, 4), label])
 
 
-# ======================
+
 # Mở camera
-# ======================
+
 cap = cv2.VideoCapture(0)
 
 if not cap.isOpened():
@@ -133,9 +133,9 @@ while True:
     mar = 0
     face_detected = False
 
-    # ======================
+    
     # Detect khuôn mặt
-    # ======================
+    
     if results.multi_face_landmarks:
 
         face_detected = True
@@ -182,23 +182,23 @@ while True:
 
                 cv2.circle(frame, (x, y), 3, (0, 0, 255), -1)
 
-            # ======================
+            
             # Tính EAR
-            # ======================
+            
             left_ear = calculate_ear(left_eye)
 
             right_ear = calculate_ear(right_eye)
 
             ear = (left_ear + right_ear) / 2
 
-            # ======================
+            
             # Tính MAR
-            # ======================
+            
             mar = calculate_mar(mouth)
 
-    # ======================
+    
     # Hiển thị thông số
-    # ======================
+    
     cv2.putText(
         frame,
         f"EAR: {ear:.2f}",
@@ -229,9 +229,9 @@ while True:
         2,
     )
 
-    # ======================
+    
     # Hướng dẫn
-    # ======================
+    
     cv2.putText(
         frame, "A = Tinh tao", (30, 190), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2
     )
@@ -254,9 +254,9 @@ while True:
         frame, "Q = Thoat", (30, 310), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2
     )
 
-    # ======================
+    
     # Không thấy mặt
-    # ======================
+    
     if not face_detected:
 
         cv2.putText(
@@ -273,17 +273,17 @@ while True:
 
     key = cv2.waitKey(1) & 0xFF
 
-    # ======================
+    
     # Không lưu dữ liệu rác
-    # ======================
+    
     if not face_detected:
         if key == ord("q"):
             break
         continue
 
-    # ======================
+    
     # Tỉnh táo
-    # ======================
+    
     if key == ord("a"):
 
         save_data(ear, mar, 0)
@@ -292,9 +292,9 @@ while True:
 
         print("Da luu: Tinh tao")
 
-    # ======================
+    
     # Ngáp / mệt
-    # ======================
+    
     elif key == ord("y"):
 
         save_data(ear, mar, 1)
@@ -303,9 +303,9 @@ while True:
 
         print("Da luu: Ngap / Met")
 
-    # ======================
+    
     # Buồn ngủ
-    # ======================
+    
     elif key == ord("d"):
 
         save_data(ear, mar, 2)
@@ -314,9 +314,9 @@ while True:
 
         print("Da luu: Buon ngu")
 
-    # ======================
+    
     # Thoát
-    # ======================
+    
     elif key == ord("q"):
         break
 

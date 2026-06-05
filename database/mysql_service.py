@@ -79,9 +79,9 @@ class MySQLService:
 # ==========================
 db = MySQLService()
 
-# ==================================================
+
 # CAC TRANG THAI HOP LE
-# ==================================================
+
 TRANG_THAI_TAI_XE_HOP_LE = {
     "dang_lam",
     "nghi",
@@ -113,9 +113,9 @@ def chuyen_int_hoac_none(gia_tri):
         return None
 
     return int(gia_tri)
-# ==================================================
+
 # AUTH / LOGIN
-# ==================================================
+
 def kiem_tra_dang_nhap(ten_dang_nhap, mat_khau):
 
     try:
@@ -165,9 +165,9 @@ def lay_tai_khoan_theo_id(tai_khoan_id):
         return None
 
 
-# ==================================================
+
 # TAI XE
-# ==================================================
+
 def tao_tai_xe_va_tai_khoan(
     ten_dang_nhap,
     mat_khau,
@@ -363,9 +363,9 @@ def cap_nhat_tai_xe(tai_xe_id, ho_ten, so_dien_thoai, so_gplx, dia_chi, trang_th
         return False
 
 
-# ==================================================
+
 # XE
-# ==================================================
+
 def tao_xe(
     bien_so,
     model=None,
@@ -524,9 +524,9 @@ def lay_danh_sach_xe():
         return []
 
 
-# ==================================================
+
 # PHIEN LAI XE
-# ==================================================
+
 def tao_phien_lai_xe(tai_xe_id, xe_id):
 
     try:
@@ -670,9 +670,9 @@ def dong_phien_lai_xe(phien_id):
         print("Dong phien error:", e)
 
 
-# ==================================================
+
 # AI DETECTION LOG
-# ==================================================
+
 def save_detection_log(
     tai_xe_id=None,
     xe_id=None,
@@ -741,9 +741,9 @@ def lay_detection_logs(limit=100):
         return []
 
 
-# ==================================================
+
 # ANH CANH BAO
-# ==================================================
+
 def luu_anh_canh_bao(
     tai_xe_id,
     xe_id,
@@ -812,9 +812,9 @@ def lay_anh_canh_bao(limit=50):
         return []
 
 
-# ==================================================
+
 # UNKNOWN DRIVER
-# ==================================================
+
 def luu_nguoi_la(xe_id, duong_dan_anh=None, ghi_chu=None):
 
     try:
@@ -867,9 +867,9 @@ def lay_nguoi_la(limit=100):
         return []
 
 
-# ==================================================
+
 # GHI CHU
-# ==================================================
+
 def them_ghi_chu(tai_xe_id, quan_ly_id, noi_dung):
 
     try:
@@ -944,9 +944,9 @@ def danh_dau_da_doc(ghi_chu_id):
         return False
 
 
-# ==================================================
+
 # AUDIT LOG
-# ==================================================
+
 def ghi_lich_su_thao_tac(
     nguoi_thuc_hien_id,
     vai_tro,
@@ -994,9 +994,9 @@ def ghi_lich_su_thao_tac(
         return False
 
 
-# ==================================================
+
 # REALTIME MONITOR
-# ==================================================
+
 def lay_xe_dang_hoat_dong():
 
     try:
@@ -1053,9 +1053,9 @@ def lay_xe_dang_hoat_dong():
         return []
 
 
-# ==================================================
+
 # ANALYTICS
-# ==================================================
+
 def thong_ke_buon_ngu():
 
     try:
@@ -1457,9 +1457,9 @@ def da_dang_ky_khuon_mat(tai_xe_id):
 
         return False
 
-        # ==================================================
+        
 # BAO CAO SU CO
-# ==================================================
+
 def tao_bao_cao_su_co(
     tai_xe_id,
     xe_id,
@@ -1573,9 +1573,9 @@ def cap_nhat_trang_thai_bao_cao(
         return False
 
 
-# ==================================================
+
 # DRIVER HISTORY / VIOLATIONS
-# ==================================================
+
 def lay_lich_su_vi_pham_tai_xe(tai_xe_id):
     try:
         sql = """
@@ -1617,9 +1617,9 @@ def lay_lich_su_chay_tai_xe(tai_xe_id):
         return []
 
 
-# ==================================================
+
 # ADMIN DASHBOARD
-# ==================================================
+
 def lay_admin_dashboard():
     try:
         tong_tai_xe = db.fetch_one("""
@@ -1726,9 +1726,9 @@ def lay_admin_dashboard():
             "canh_bao_moi": [],
             "bao_cao_moi": [],
         }
-    # ==================================================
+    
 # ADMIN - QUAN LY TAI XE
-# ==================================================
+
 def cap_nhat_tai_xe_va_thong_bao(
     tai_xe_id,
     ho_ten,
@@ -1804,9 +1804,9 @@ def cap_nhat_tai_xe_va_thong_bao(
     except Exception as e:
         print("Cap nhat tai xe va thong bao error:", e)
         return False
-    # ==================================================
+    
 # ADMIN - QUAN LY XE
-# ==================================================
+
 def cap_nhat_xe(
     xe_id,
     bien_so,
@@ -1952,12 +1952,12 @@ def lay_danh_sach_xe_admin():
     except Exception as e:
         print("Lay danh sach xe admin error:", e)
         return []
-    # ==================================================
+    
 # ADMIN - QUAN LY LICH CHAY
-# ==================================================
-# ==================================================
+
+
 # ADMIN - QUAN LY LICH CHAY
-# ==================================================
+
 def tao_lich_chay(
     tai_xe_id,
     xe_id,
@@ -2299,9 +2299,9 @@ def xoa_lich_chay(lich_id, quan_ly_id=1):
     except Exception as e:
         print("Xoa lich chay error:", e)
         return False
-    # ==================================================
+    
 # ADMIN - ANALYTICS
-# ==================================================
+
 def lay_admin_analytics():
     try:
         tong_canh_bao = db.fetch_one("""
@@ -2396,9 +2396,9 @@ def lay_admin_analytics():
         }
 
 
-# ==================================================
+
 # KIEM TRA TAI XE CO DUOC PHAN CONG DUNG XE KHONG
-# ==================================================
+
 def kiem_tra_tai_xe_duoc_phan_cong_xe(tai_xe_id, xe_id):
     try:
         # Cách 1: Kiểm tra tài xế mặc định của xe

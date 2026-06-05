@@ -2,9 +2,9 @@ import cv2
 import os
 import numpy as np
 
-# ==========================
+
 # PATH
-# ==========================
+
 DATASET_PATH = "dataset_faces"
 
 MODEL_FOLDER = "model"
@@ -16,9 +16,9 @@ LABEL_PATH = "model/face_labels.txt"
 os.makedirs(MODEL_FOLDER, exist_ok=True)
 
 
-# ==========================
+
 # TRAIN MODEL
-# ==========================
+
 def train_model():
 
     recognizer = cv2.face.LBPHFaceRecognizer_create()
@@ -83,9 +83,9 @@ def train_model():
 
     recognizer.save(MODEL_PATH)
 
-    # ==========================
+    
     # SAVE LABEL MAP
-    # ==========================
+    
     with open(LABEL_PATH, "w", encoding="utf-8") as file:
 
         for key, value in label_map.items():
@@ -103,9 +103,9 @@ def train_model():
     print(f"So anh: {len(faces)}")
 
 
-# ==========================
+
 # RUN
-# ==========================
+
 if __name__ == "__main__":
 
     train_model()

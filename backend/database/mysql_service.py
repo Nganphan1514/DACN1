@@ -10,9 +10,9 @@ class MySQLService:
 
         self.connect()
 
-    # ==========================
+    
     # CONNECT
-    # ==========================
+    
     def connect(self):
 
         try:
@@ -27,9 +27,9 @@ class MySQLService:
 
             print("Database Error:", e)
 
-    # ==========================
+    
     # GET CURSOR
-    # ==========================
+    
     def get_cursor(self):
 
         if self.connection is None or not self.connection.is_connected():
@@ -38,9 +38,9 @@ class MySQLService:
 
         return self.connection.cursor(dictionary=True)
 
-    # ==========================
+    
     # EXECUTE
-    # ==========================
+    
     def execute(self, query, values=None):
 
         cursor = self.get_cursor()
@@ -51,9 +51,9 @@ class MySQLService:
 
         return cursor
 
-    # ==========================
+    
     # FETCH ONE
-    # ==========================
+    
     def fetch_one(self, query, values=None):
 
         cursor = self.get_cursor()
@@ -62,9 +62,9 @@ class MySQLService:
 
         return cursor.fetchone()
 
-    # ==========================
+    
     # FETCH ALL
-    # ==========================
+    
     def fetch_all(self, query, values=None):
 
         cursor = self.get_cursor()
@@ -73,9 +73,9 @@ class MySQLService:
 
         return cursor.fetchall()
 
-    # ==========================
+    
     # AUDIT LOG
-    # ==========================
+    
     def ghi_lich_su_thao_tac(
         self,
         nguoi_thuc_hien_id,
@@ -112,9 +112,9 @@ class MySQLService:
 
         self.execute(query, values)
 
-    # ==========================
+    
     # THEM GHI CHU
-    # ==========================
+    
     def them_ghi_chu(self, tai_xe_id, quan_ly_id, noi_dung):
 
         query = """
@@ -133,9 +133,9 @@ class MySQLService:
 
         self.execute(query, values)
 
-    # ==========================
+    
     # GET GHI CHU
-    # ==========================
+    
     def lay_ghi_chu(self, tai_xe_id):
 
         query = """
@@ -148,15 +148,15 @@ class MySQLService:
         return self.fetch_all(query, (tai_xe_id,))
 
 
-# ==========================
+
 # INIT DB
-# ==========================
+
 db = MySQLService()
 
 
-# ==========================
+
 # SAVE DETECTION LOG
-# ==========================
+
 def save_detection_log(
     driver_id=None,
     vehicle_id=None,

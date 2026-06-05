@@ -2,18 +2,18 @@ import cv2
 import mediapipe as mp
 import os
 
-# ==========================
+
 # MEDIAPIPE FACE DETECTOR
-# ==========================
+
 mp_face_detection = mp.solutions.face_detection
 
 face_detector = mp_face_detection.FaceDetection(min_detection_confidence=0.5)
 
 
-# ==========================
+
 # ĐĂNG KÝ KHUÔN MẶT
-# ==========================
-def dang_ky_khuon_mat(tai_xe_id, so_anh=20):
+
+def dang_ky_khuon_mat(tai_xe_id, so_anh=60):
 
     BASE_DIR = os.path.dirname(
     os.path.dirname(
@@ -117,9 +117,9 @@ def dang_ky_khuon_mat(tai_xe_id, so_anh=20):
 
         key = cv2.waitKey(1)
 
-        # ==========================
+        
         # CHỤP ẢNH
-        # ==========================
+        
         if key == ord("s") and co_mat:
 
             gray_face = cv2.cvtColor(face_crop, cv2.COLOR_BGR2GRAY)
@@ -147,9 +147,9 @@ def dang_ky_khuon_mat(tai_xe_id, so_anh=20):
     print("Dang ky thanh cong!")
 
 
-# ==========================
+
 # TEST
-# ==========================
+
 if __name__ == "__main__":
 
     tai_xe_id = int(input("Nhap ID tai xe: "))

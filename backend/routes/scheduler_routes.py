@@ -12,17 +12,17 @@ from database.mysql_service import (
 scheduler_bp = Blueprint("scheduler_bp", __name__)
 
 
-# ==================================================
+
 # TRANG QUAN LY LICH CHAY
-# ==================================================
+
 @scheduler_bp.route("/admin/scheduler")
 def admin_scheduler_page():
     return render_template("admin/scheduler.html")
 
 
-# ==================================================
+
 # DANH SACH LICH CHAY
-# ==================================================
+
 @scheduler_bp.route("/api/admin/schedules", methods=["GET"])
 def api_admin_schedules():
     data = lay_tat_ca_lich_chay()
@@ -33,10 +33,10 @@ def api_admin_schedules():
     })
 
 
-# ==================================================
+
 # OPTION TAO LICH
 # Chi hien tai xe dang lam va xe dang hoat dong
-# ==================================================
+
 @scheduler_bp.route("/api/admin/schedules/options", methods=["GET"])
 def api_schedule_options():
     drivers = lay_danh_sach_tai_xe()
@@ -61,9 +61,9 @@ def api_schedule_options():
     })
 
 
-# ==================================================
+
 # TAO LICH MOI
-# ==================================================
+
 @scheduler_bp.route("/api/admin/schedules", methods=["POST"])
 def api_create_schedule():
     data = request.get_json(silent=True) or {}
@@ -116,9 +116,9 @@ def api_create_schedule():
     }), 201
 
 
-# ==================================================
+
 # CAP NHAT LICH
-# ==================================================
+
 @scheduler_bp.route(
     "/api/admin/schedules/<int:lich_id>",
     methods=["PUT"]
@@ -151,10 +151,10 @@ def api_update_schedule(lich_id):
     }), 200 if ok else 400
 
 
-# ==================================================
+
 # HUY LICH
 # Chi cap nhat thanh da_huy, khong xoa ban ghi
-# ==================================================
+
 @scheduler_bp.route(
     "/api/admin/schedules/<int:lich_id>",
     methods=["DELETE"]

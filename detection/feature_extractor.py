@@ -1,8 +1,8 @@
 import numpy as np
 
-# ==========================
+
 # LANDMARK
-# ==========================
+
 LEFT_EYE = [33, 160, 158, 133, 153, 144]
 
 RIGHT_EYE = [362, 385, 387, 263, 373, 380]
@@ -10,17 +10,17 @@ RIGHT_EYE = [362, 385, 387, 263, 373, 380]
 MOUTH = [61, 13, 291, 14]
 
 
-# ==========================
+
 # DISTANCE
-# ==========================
+
 def distance(p1, p2):
 
     return np.linalg.norm(np.array(p1) - np.array(p2))
 
 
-# ==========================
+
 # EAR
-# ==========================
+
 def calculate_ear(points):
 
     A = distance(points[1], points[5])
@@ -38,9 +38,9 @@ def calculate_ear(points):
     return round(ear, 4)
 
 
-# ==========================
+
 # MAR
-# ==========================
+
 def calculate_mar(points):
 
     vertical = distance(points[1], points[3])

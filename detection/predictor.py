@@ -2,9 +2,9 @@ import joblib
 import numpy as np
 import os
 
-# ==========================
+
 # PATH
-# ==========================
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 model_path = os.path.join(BASE_DIR, "model", "drowsy_model.pkl")
@@ -12,9 +12,9 @@ model_path = os.path.join(BASE_DIR, "model", "drowsy_model.pkl")
 scaler_path = os.path.join(BASE_DIR, "model", "scaler.pkl")
 
 
-# ==========================
+
 # LOAD MODEL
-# ==========================
+
 model = None
 scaler = None
 
@@ -49,9 +49,9 @@ except Exception as e:
     print("Loi load model:", e)
 
 
-# ==========================
+
 # DỰ ĐOÁN
-# ==========================
+
 def predict_state(ear, mar):
 
     try:

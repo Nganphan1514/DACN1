@@ -2,9 +2,9 @@ CREATE DATABASE IF NOT EXISTS he_thong_tai_xe;
 
 USE he_thong_tai_xe;
 
--- ==========================
+
 -- TAI KHOAN
--- ==========================
+
 CREATE TABLE tai_khoan (
 
     id INT AUTO_INCREMENT
@@ -38,9 +38,9 @@ CREATE TABLE tai_khoan (
     DEFAULT CURRENT_TIMESTAMP
 );
 
--- ==========================
+
 -- TAI XE
--- ==========================
+
 CREATE TABLE tai_xe (
 
     id INT AUTO_INCREMENT
@@ -82,9 +82,9 @@ CREATE TABLE tai_xe (
     REFERENCES tai_khoan(id)
 );
 
--- ==========================
+
 -- XE
--- ==========================
+
 CREATE TABLE xe (
 
     id INT AUTO_INCREMENT
@@ -116,9 +116,9 @@ CREATE TABLE xe (
     DEFAULT CURRENT_TIMESTAMP
 );
 
--- ==========================
+
 -- LICH CHAY
--- ==========================
+
 CREATE TABLE lich_chay (
 
     id INT AUTO_INCREMENT
@@ -164,9 +164,9 @@ CREATE TABLE lich_chay (
     REFERENCES xe(id)
 );
 
--- ==========================
+
 -- NHAT KY PHAT HIEN AI
--- ==========================
+
 CREATE TABLE nhat_ky_phat_hien (
 
     id INT AUTO_INCREMENT
@@ -207,9 +207,9 @@ CREATE TABLE nhat_ky_phat_hien (
     REFERENCES lich_chay(id)
 );
 
--- ==========================
+
 -- ANH CANH BAO
--- ==========================
+
 CREATE TABLE anh_canh_bao (
 
     id INT AUTO_INCREMENT
@@ -229,9 +229,9 @@ CREATE TABLE anh_canh_bao (
     DEFAULT CURRENT_TIMESTAMP
 );
 
--- ==========================
+
 -- GHI CHU QUAN LY
--- ==========================
+
 CREATE TABLE ghi_chu (
 
     id INT AUTO_INCREMENT
@@ -253,9 +253,9 @@ CREATE TABLE ghi_chu (
     DEFAULT CURRENT_TIMESTAMP
 );
 
--- ==========================
+
 -- AUDIT LOG
--- ==========================
+
 CREATE TABLE lich_su_thao_tac (
 
     id INT AUTO_INCREMENT
@@ -282,9 +282,9 @@ CREATE TABLE lich_su_thao_tac (
     DEFAULT CURRENT_TIMESTAMP
 );
 
--- ==========================
+
 -- PHIEN DANG NHAP HIEN TAI
--- ==========================
+
 CREATE TABLE phien_dang_nhap (
 
     id INT AUTO_INCREMENT

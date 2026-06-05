@@ -5,21 +5,21 @@ import threading
 import time
 import os
 
-# ==========================
+
 # COOLDOWN
-# ==========================
+
 last_warning_time = 0
 warning_delay = 8
 
-# ==========================
+
 # TEMP FILE
-# ==========================
+
 TEMP_AUDIO = "temp_warning.mp3"
 
 
-# ==========================
+
 # PLAY VOICE
-# ==========================
+
 def play_voice(text):
 
     try:
@@ -49,9 +49,9 @@ def play_voice(text):
         print("Voice Error:", e)
 
 
-# ==========================
+
 # SPEAK WARNING
-# ==========================
+
 def speak_warning(text):
 
     global last_warning_time
