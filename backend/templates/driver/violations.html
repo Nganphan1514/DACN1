@@ -125,7 +125,7 @@
 const params = new URLSearchParams(window.location.search);
 const user = JSON.parse(localStorage.getItem("user") || "{}");
 
-let taiXeId = params.get("tai_xe_id") || user.id || 1;
+let taiXeId = params.get("tai_xe_id") || user.tai_xe_id || user.id || 1;
 let violations = [];
 
 function withDriverId(path) {
@@ -318,7 +318,7 @@ loadViolations();
 
 <script>
 const user = JSON.parse(localStorage.getItem("user") || "{}");
-const taiXeId = user.id || 1;
+const taiXeId = user.tai_xe_id || user.id || 1;
 
 function statusColor(status) {
     if (status === "BUON NGU") return "bg-red-500/20 text-red-300";

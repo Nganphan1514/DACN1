@@ -1,324 +1,175 @@
+CREATE DATABASE IF NOT EXISTS he_thong_tai_xe
+    CHARACTER SET utf8mb4
+    COLLATE utf8mb4_unicode_ci;
+
 USE he_thong_tai_xe;
 
-
--- RESET DATA + RESET AUTO_INCREMENT
-
-SET FOREIGN_KEY_CHECKS = 0;
-
-TRUNCATE TABLE khuon_mat_tai_xe;
-TRUNCATE TABLE lich_su_thao_tac;
-TRUNCATE TABLE ghi_chu;
-TRUNCATE TABLE anh_canh_bao;
-TRUNCATE TABLE nhat_ky_phat_hien;
-TRUNCATE TABLE phien_lai_xe;
-TRUNCATE TABLE lich_chay;
-TRUNCATE TABLE xe;
-TRUNCATE TABLE tai_xe;
-TRUNCATE TABLE tai_khoan;
-
-SET FOREIGN_KEY_CHECKS = 1;
-
-
-
--- TAI KHOAN
-
-INSERT INTO tai_khoan
-(
-    ten_dang_nhap,
-    mat_khau,
-    vai_tro,
-    trang_thai
-)
-VALUES
-('admin', '123456', 'quan_ly', 'hoat_dong'),
-('manager01', '123456', 'quan_ly', 'hoat_dong'),
-
-('taixe01', '123456', 'tai_xe', 'hoat_dong'),
-('taixe02', '123456', 'tai_xe', 'hoat_dong'),
-('taixe03', '123456', 'tai_xe', 'hoat_dong'),
-('taixe04', '123456', 'tai_xe', 'hoat_dong'),
-('taixe05', '123456', 'tai_xe', 'hoat_dong');
-
-
-
--- TAI XE
-
-INSERT INTO tai_xe
-(
-    tai_khoan_id,
-    ho_ten,
-    so_dien_thoai,
-    so_gplx,
-    dia_chi,
-    avatar,
-    trang_thai
-)
-VALUES
-(3, 'Nguyễn Văn An', '0905111111', 'GPLX001', 'Đà Nẵng', 'avatars/an.jpg', 'dang_lam'),
-
-(4, 'Trần Văn Bình', '0905222222', 'GPLX002', 'Quảng Nam', 'avatars/binh.jpg', 'dang_lam'),
-
-(5, 'Lê Quốc Huy', '0905333333', 'GPLX003', 'Huế', 'avatars/huy.jpg', 'nghi'),
-
-(6, 'Phạm Minh Khang', '0905444444', 'GPLX004', 'Đà Nẵng', 'avatars/khang.jpg', 'dang_lam'),
-
-(7, 'Hoàng Gia Bảo', '0905555555', 'GPLX005', 'Quảng Ngãi', 'avatars/bao.jpg', 'nghi');
-
-
-
--- XE
-
-INSERT INTO xe
-(
-    bien_so,
-    model,
-    loai_xe,
-    trang_thai,
-    ghi_chu
-)
-VALUES
-(
-    '43A-12345',
-    'Hyundai Universe',
-    'Xe khách',
-    'hoat_dong',
-    'Xe tuyến Bắc Nam'
-),
-(
-    '43B-56789',
-    'Ford Transit',
-    'Xe trung chuyển',
-    'hoat_dong',
-    'Xe nội thành'
-),
-(
-    '92A-88888',
-    'Thaco Town',
-    'Xe buýt',
-    'bao_tri',
-    'Đang thay lốp'
-),
-(
-    '92B-99999',
-    'Mercedes Sprinter',
-    'Xe khách',
-    'hoat_dong',
-    'Xe VIP'
-),
-(
-    '75A-45678',
-    'Toyota Hiace',
-    'Xe dịch vụ',
-    'ngung',
-    'Tạm ngừng hoạt động'
+-- 1. TAI KHOAN
+CREATE TABLE IF NOT EXISTS tai_khoan (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    ten_dang_nhap VARCHAR(100) UNIQUE NOT NULL,
+    mat_khau VARCHAR(255) NOT NULL,
+    vai_tro ENUM('quan_ly', 'tai_xe') NOT NULL,
+    trang_thai ENUM('hoat_dong', 'khoa') DEFAULT 'hoat_dong',
+    ngay_tao DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-
-
--- LICH CHAY
-
-INSERT INTO lich_chay
-(
-    tai_xe_id,
-    xe_id,
-    tuyen_duong,
-    gio_bat_dau,
-    gio_ket_thuc,
-    trang_thai,
-    ghi_chu
-)
-VALUES
-(
-    1,
-    1,
-    'Đà Nẵng → Huế',
-    DATE_SUB(NOW(), INTERVAL 2 HOUR),
-    DATE_ADD(NOW(), INTERVAL 2 HOUR),
-    'dang_chay',
-    'Chuyến sáng'
-),
-
-(
-    2,
-    2,
-    'Đà Nẵng → Hội An',
-    DATE_ADD(NOW(), INTERVAL 1 HOUR),
-    DATE_ADD(NOW(), INTERVAL 3 HOUR),
-    'sap_chay',
-    'Ca chiều'
-),
-
-(
-    3,
-    3,
-    'Huế → Đà Nẵng',
-    DATE_SUB(NOW(), INTERVAL 5 HOUR),
-    DATE_SUB(NOW(), INTERVAL 1 HOUR),
-    'hoan_thanh',
-    'Đã hoàn tất'
-),
-
-(
-    4,
-    4,
-    'Đà Nẵng → Quảng Ngãi',
-    DATE_SUB(NOW(), INTERVAL 3 HOUR),
-    DATE_ADD(NOW(), INTERVAL 4 HOUR),
-    'dang_chay',
-    'Chuyến dài'
-),
-
-(
-    5,
-    5,
-    'Tam Kỳ → Đà Nẵng',
-    DATE_ADD(NOW(), INTERVAL 4 HOUR),
-    DATE_ADD(NOW(), INTERVAL 8 HOUR),
-    'sap_chay',
-    'Ca tối'
+-- 2. TAI XE
+CREATE TABLE IF NOT EXISTS tai_xe (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tai_khoan_id INT,
+    ho_ten VARCHAR(255) NOT NULL,
+    so_dien_thoai VARCHAR(20),
+    so_gplx VARCHAR(100) UNIQUE,
+    dia_chi TEXT,
+    avatar VARCHAR(255),
+    trang_thai ENUM('dang_lam', 'nghi', 'tam_khoa') DEFAULT 'nghi',
+    ngay_tao DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (tai_khoan_id) REFERENCES tai_khoan(id)
 );
 
-
-
--- PHIEN LAI XE
-
-INSERT INTO phien_lai_xe
-(
-    tai_xe_id,
-    xe_id,
-    lich_chay_id,
-    bat_dau,
-    ket_thuc,
-    tong_phut,
-    tong_lan_buon_ngu,
-    trang_thai
-)
-VALUES
-(
-    1,
-    1,
-    1,
-    DATE_SUB(NOW(), INTERVAL 2 HOUR),
-    NULL,
-    125.5,
-    2,
-    'DANG_LAI'
-),
-
-(
-    2,
-    2,
-    2,
-    DATE_SUB(NOW(), INTERVAL 1 HOUR),
-    NULL,
-    65,
-    1,
-    'DANG_LAI'
-),
-
-(
-    3,
-    3,
-    3,
-    DATE_SUB(NOW(), INTERVAL 6 HOUR),
-    DATE_SUB(NOW(), INTERVAL 1 HOUR),
-    300,
-    0,
-    'DA_KET_THUC'
+-- 3. XE
+CREATE TABLE IF NOT EXISTS xe (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    bien_so VARCHAR(50) UNIQUE NOT NULL,
+    model VARCHAR(255),
+    loai_xe VARCHAR(255),
+    trang_thai ENUM('hoat_dong', 'bao_tri', 'ngung') DEFAULT 'hoat_dong',
+    ghi_chu TEXT,
+    tai_xe_mac_dinh_id INT NULL,
+    ngay_tao DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (tai_xe_mac_dinh_id) REFERENCES tai_xe(id)
 );
 
+-- 4. LICH CHAY
+CREATE TABLE IF NOT EXISTS lich_chay (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tai_xe_id INT,
+    xe_id INT,
+    tuyen_duong VARCHAR(255),
+    gio_bat_dau DATETIME,
+    gio_ket_thuc DATETIME,
+    trang_thai ENUM('sap_chay', 'dang_chay', 'tam_ngung', 'hoan_thanh', 'da_huy') DEFAULT 'sap_chay',
+    ghi_chu TEXT,
+    ngay_tao DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (tai_xe_id) REFERENCES tai_xe(id),
+    FOREIGN KEY (xe_id) REFERENCES xe(id)
+);
 
+-- 5. PHIEN LAI XE
+CREATE TABLE IF NOT EXISTS phien_lai_xe (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tai_xe_id INT,
+    xe_id INT,
+    lich_chay_id INT NULL,
+    bat_dau DATETIME DEFAULT CURRENT_TIMESTAMP,
+    ket_thuc DATETIME NULL,
+    thoi_diem_mat_dau DATETIME NULL,
+    tong_phut FLOAT DEFAULT 0,
+    tong_lan_buon_ngu INT DEFAULT 0,
+    trang_thai ENUM('DANG_LAI', 'TAM_MAT_DAU', 'DA_KET_THUC') DEFAULT 'DANG_LAI',
+    FOREIGN KEY (tai_xe_id) REFERENCES tai_xe(id),
+    FOREIGN KEY (xe_id) REFERENCES xe(id),
+    FOREIGN KEY (lich_chay_id) REFERENCES lich_chay(id)
+);
 
--- NHAT KY PHAT HIEN
+-- 6. NHAT KY PHAT HIEN AI
+CREATE TABLE IF NOT EXISTS nhat_ky_phat_hien (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tai_xe_id INT,
+    xe_id INT,
+    lich_chay_id INT NULL,
+    ear FLOAT,
+    mar FLOAT,
+    risk_score INT,
+    trang_thai VARCHAR(100),
+    thoi_gian DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (tai_xe_id) REFERENCES tai_xe(id),
+    FOREIGN KEY (xe_id) REFERENCES xe(id),
+    FOREIGN KEY (lich_chay_id) REFERENCES lich_chay(id)
+);
 
-INSERT INTO nhat_ky_phat_hien
-(
-    tai_xe_id,
-    xe_id,
-    lich_chay_id,
-    ear,
-    mar,
-    risk_score,
-    trang_thai,
-    thoi_gian
-)
-VALUES
-(1,1,1,0.24,0.11,1,'TINH TAO',NOW()),
-(1,1,1,0.21,0.15,3,'MET MOI',DATE_SUB(NOW(),INTERVAL 30 MINUTE)),
-(1,1,1,0.18,0.32,5,'BUON NGU',DATE_SUB(NOW(),INTERVAL 10 MINUTE)),
+-- 7. ANH CANH BAO
+CREATE TABLE IF NOT EXISTS anh_canh_bao (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tai_xe_id INT,
+    xe_id INT,
+    lich_chay_id INT NULL,
+    duong_dan_anh VARCHAR(255),
+    thoi_gian DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (tai_xe_id) REFERENCES tai_xe(id),
+    FOREIGN KEY (xe_id) REFERENCES xe(id)
+);
 
-(2,2,2,0.23,0.10,2,'TINH TAO',NOW()),
-(2,2,2,0.20,0.18,4,'MET MOI',DATE_SUB(NOW(),INTERVAL 25 MINUTE)),
+-- 8. NGUOI LA / TAI XE SAI XE
+CREATE TABLE IF NOT EXISTS nguoi_la (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    xe_id INT,
+    duong_dan_anh VARCHAR(255),
+    ghi_chu TEXT,
+    thoi_gian DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (xe_id) REFERENCES xe(id)
+);
 
-(4,4,4,0.19,0.31,6,'BUON NGU',DATE_SUB(NOW(),INTERVAL 5 MINUTE));
+-- 9. GHI CHU / THONG BAO QUAN LY
+CREATE TABLE IF NOT EXISTS ghi_chu (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tai_xe_id INT,
+    quan_ly_id INT,
+    noi_dung TEXT,
+    da_doc BOOLEAN DEFAULT FALSE,
+    thoi_gian DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (tai_xe_id) REFERENCES tai_xe(id),
+    FOREIGN KEY (quan_ly_id) REFERENCES tai_khoan(id)
+);
 
+-- 10. BAO CAO SU CO
+CREATE TABLE IF NOT EXISTS bao_cao_su_co (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tai_xe_id INT,
+    xe_id INT NULL,
+    lich_chay_id INT NULL,
+    tieu_de VARCHAR(255) NOT NULL,
+    loai_su_co VARCHAR(100) DEFAULT 'KHAC',
+    noi_dung TEXT,
+    hinh_anh VARCHAR(255) NULL,
+    trang_thai VARCHAR(50) DEFAULT 'CHO_XU_LY',
+    phan_hoi_quan_ly TEXT NULL,
+    thoi_gian DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (tai_xe_id) REFERENCES tai_xe(id),
+    FOREIGN KEY (xe_id) REFERENCES xe(id),
+    FOREIGN KEY (lich_chay_id) REFERENCES lich_chay(id)
+);
 
+-- 11. AUDIT LOG
+CREATE TABLE IF NOT EXISTS lich_su_thao_tac (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nguoi_thuc_hien_id INT,
+    vai_tro VARCHAR(100),
+    hanh_dong VARCHAR(255),
+    bang_du_lieu VARCHAR(255),
+    doi_tuong_id INT NULL,
+    ghi_chu TEXT,
+    thoi_gian DATETIME DEFAULT CURRENT_TIMESTAMP
+);
 
--- ANH CANH BAO
+-- 12. DU LIEU VECTOR KHUON MAT
+CREATE TABLE IF NOT EXISTS du_lieu_khuon_mat (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tai_xe_id INT NOT NULL,
+    vector_khuon_mat LONGTEXT NOT NULL,
+    do_tin_cay FLOAT DEFAULT 1.0,
+    trang_thai ENUM('hoat_dong', 'vo_hieu') DEFAULT 'hoat_dong',
+    mo_ta VARCHAR(255) NULL,
+    ngay_tao DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (tai_xe_id) REFERENCES tai_xe(id)
+);
 
-INSERT INTO anh_canh_bao
-(
-    tai_xe_id,
-    xe_id,
-    lich_chay_id,
-    duong_dan_anh,
-    thoi_gian
-)
-VALUES
-(1,1,1,'snapshots/vi_pham_001.jpg',NOW()),
-(1,1,1,'snapshots/vi_pham_002.jpg',DATE_SUB(NOW(), INTERVAL 10 MINUTE)),
-(4,4,4,'snapshots/vi_pham_003.jpg',DATE_SUB(NOW(), INTERVAL 5 MINUTE));
-
-
-
--- GHI CHU
-
-INSERT INTO ghi_chu
-(
-    tai_xe_id,
-    quan_ly_id,
-    noi_dung,
-    da_doc
-)
-VALUES
-(1,1,'Kiểm tra sức khỏe trước chuyến đi.',TRUE),
-(2,1,'Không chạy quá tốc độ quy định.',FALSE),
-(3,2,'Nộp báo cáo cuối ngày.',TRUE),
-(4,1,'Cần nghỉ ngơi đầy đủ.',FALSE),
-(5,2,'Đã hoàn thành KPI tuần.',TRUE);
-
-
-
--- AUDIT LOG
-
-INSERT INTO lich_su_thao_tac
-(
-    nguoi_thuc_hien_id,
-    vai_tro,
-    hanh_dong,
-    bang_du_lieu,
-    doi_tuong_id,
-    ghi_chu
-)
-VALUES
-(1,'quan_ly','THEM','tai_xe',1,'Thêm tài xế Nguyễn Văn An'),
-(1,'quan_ly','SUA','xe',2,'Cập nhật xe Ford Transit'),
-(2,'quan_ly','XOA','lich_chay',3,'Hủy lịch chạy lỗi'),
-(1,'quan_ly','CAP_NHAT','ghi_chu',4,'Cập nhật ghi chú tài xế');
-
-
-
--- KHUON MAT
-
-INSERT INTO khuon_mat_tai_xe
-(
-    tai_xe_id,
-    ma_hoa_khuon_mat,
-    mo_ta
-)
-VALUES
-(1,'[0.12,0.55,0.88,0.44]','Anh chân dung 1'),
-(2,'[0.22,0.35,0.18,0.74]','Ảnh cabin xe'),
-(3,'[0.99,0.15,0.28,0.14]','Ảnh nhận diện'),
-(4,'[0.77,0.63,0.48,0.20]','Ảnh profile'),
-(5,'[0.61,0.32,0.78,0.54]','Ảnh khuôn mặt');
+-- 13. ANH KHUON MAT DANG KY
+CREATE TABLE IF NOT EXISTS anh_khuon_mat (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tai_xe_id INT NOT NULL,
+    du_lieu_anh LONGBLOB NOT NULL,
+    ngay_tao DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (tai_xe_id) REFERENCES tai_xe(id)
+);

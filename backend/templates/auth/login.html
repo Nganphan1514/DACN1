@@ -144,7 +144,8 @@ async function login() {
         if (data.user.vai_tro === "quan_ly") {
             window.location.href = "/admin/dashboard";
         } else {
-            window.location.href = `/driver/dashboard?tai_xe_id=${data.user.id}`;
+            const driverId = data.user.tai_xe_id || data.user.id;
+            window.location.href = `/driver/dashboard?tai_xe_id=${driverId}`;
         }
 
     } catch (error) {

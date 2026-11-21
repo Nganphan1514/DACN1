@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "DACN1 Driver",
+    "slug": "dacn1-driver",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#020617"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Ứng dụng cần quyền camera để đăng ký khuôn mặt tài xế."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#020617"
+      },
+      "permissions": [
+        "CAMERA"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Cho phép DACN1 sử dụng camera để đăng ký khuôn mặt tài xế."
+        }
+      ]
+    ]
+  }
+}

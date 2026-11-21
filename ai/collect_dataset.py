@@ -1,324 +1,232 @@
-import cv2
-import mediapipe as mp
-import numpy as np
 import csv
 import os
+import sys
+import time
+from collections import deque
 
+import cv2
 
-# Khởi tạo MediaPipe
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-mp_face_mesh = mp.solutions.face_mesh
+from config.ai_config import CAMERA_INDEX, EAR_THRESHOLD, FRAME_HEIGHT, FRAME_WIDTH
+from detection.eye_calibration import EyeCalibration
+from detection.head_pose import get_head_pose
+from detection.mediapipe_detector import detect_face_features
 
-face_mesh = mp_face_mesh.FaceMesh(
-    refine_landmarks=True,
-    max_num_faces=1,
-    min_detection_confidence=0.5,
-    min_tracking_confidence=0.5,
-)
-
-
-# Landmark mắt và miệng
-
-LEFT_EYE = [33, 160, 158, 133, 153, 144]
-RIGHT_EYE = [362, 385, 387, 263, 373, 380]
-MOUTH = [61, 13, 291, 14]
-
-
-# Path dataset
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-dataset_folder = os.path.join(BASE_DIR, "dataset")
-
-os.makedirs(dataset_folder, exist_ok=True)
-
-file_name = os.path.join(dataset_folder, "drowsiness_dataset.csv")
-
-
-# Tạo file CSV nếu chưa có
-
-if not os.path.exists(file_name):
-
-    with open(file_name, mode="w", newline="", encoding="utf-8") as file:
-
-        writer = csv.writer(file)
-
-        writer.writerow(["EAR", "MAR", "Label"])
-
-
-
-# Hàm tính khoảng cách
-
-def distance(p1, p2):
-
-    return np.linalg.norm(np.array(p1) - np.array(p2))
-
-
-
-# Hàm tính EAR
-
-def calculate_ear(points):
-
-    A = distance(points[1], points[5])
-    B = distance(points[2], points[4])
-    C = distance(points[0], points[3])
-
-    if C == 0:
-        return 0
-
-    ear = (A + B) / (2 * C)
-
-    return ear
-
-
-
-# Hàm tính MAR
-
-def calculate_mar(points):
-
-    vertical = distance(points[1], points[3])
-
-    horizontal = distance(points[0], points[2])
-
-    if horizontal == 0:
-        return 0
-
-    mar = vertical / horizontal
-
-    return mar
-
-
-
-# Hàm lưu dữ liệu
-
-def save_data(ear, mar, label):
-
-    with open(file_name, mode="a", newline="", encoding="utf-8") as file:
-
-        writer = csv.writer(file)
-
-        writer.writerow([round(ear, 4), round(mar, 4), label])
-
-
-
-# Mở camera
-
-cap = cv2.VideoCapture(0)
-
-if not cap.isOpened():
-
-    print("Khong mo duoc camera!")
-
-    exit()
-
-sample_count = 0
-
-while True:
-
-    success, frame = cap.read()
-
-    if not success:
-        print("Khong doc duoc frame!")
-        break
-
-    frame = cv2.flip(frame, 1)
-
-    h, w, _ = frame.shape
-
-    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-    results = face_mesh.process(rgb)
-
-    ear = 0
-    mar = 0
-    face_detected = False
-
-    
-    # Detect khuôn mặt
-    
-    if results.multi_face_landmarks:
-
-        face_detected = True
-
-        for face_landmarks in results.multi_face_landmarks:
-
-            left_eye = []
-            right_eye = []
-            mouth = []
-
-            # ===== Mắt trái =====
-            for idx in LEFT_EYE:
-
-                point = face_landmarks.landmark[idx]
-
-                x = int(point.x * w)
-                y = int(point.y * h)
-
-                left_eye.append((x, y))
-
-                cv2.circle(frame, (x, y), 2, (0, 255, 0), -1)
-
-            # ===== Mắt phải =====
-            for idx in RIGHT_EYE:
-
-                point = face_landmarks.landmark[idx]
-
-                x = int(point.x * w)
-                y = int(point.y * h)
-
-                right_eye.append((x, y))
-
-                cv2.circle(frame, (x, y), 2, (0, 255, 0), -1)
-
-            # ===== Miệng =====
-            for idx in MOUTH:
-
-                point = face_landmarks.landmark[idx]
-
-                x = int(point.x * w)
-                y = int(point.y * h)
-
-                mouth.append((x, y))
-
-                cv2.circle(frame, (x, y), 3, (0, 0, 255), -1)
-
-            
-            # Tính EAR
-            
-            left_ear = calculate_ear(left_eye)
-
-            right_ear = calculate_ear(right_eye)
-
-            ear = (left_ear + right_ear) / 2
-
-            
-            # Tính MAR
-            
-            mar = calculate_mar(mouth)
-
-    
-    # Hiển thị thông số
-    
-    cv2.putText(
-        frame,
-        f"EAR: {ear:.2f}",
-        (30, 50),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        0.8,
-        (0, 255, 0),
-        2,
-    )
-
-    cv2.putText(
-        frame,
-        f"MAR: {mar:.2f}",
-        (30, 90),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        0.8,
-        (0, 0, 255),
-        2,
-    )
-
-    cv2.putText(
-        frame,
-        f"Samples: {sample_count}",
-        (30, 130),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        0.8,
-        (255, 255, 0),
-        2,
-    )
-
-    
-    # Hướng dẫn
-    
-    cv2.putText(
-        frame, "A = Tinh tao", (30, 190), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2
-    )
-
-    cv2.putText(
-        frame,
-        "Y = Ngap / Met",
-        (30, 230),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        0.7,
-        (0, 165, 255),
-        2,
-    )
-
-    cv2.putText(
-        frame, "D = Buon ngu", (30, 270), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2
-    )
-
-    cv2.putText(
-        frame, "Q = Thoat", (30, 310), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2
-    )
-
-    
-    # Không thấy mặt
-    
-    if not face_detected:
-
-        cv2.putText(
-            frame,
-            "Khong tim thay khuon mat",
-            (30, 350),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.8,
-            (0, 0, 255),
-            2,
+DATASET_DIR = os.path.join(BASE_DIR, "dataset")
+os.makedirs(DATASET_DIR, exist_ok=True)
+
+V2_CSV_PATH = os.path.join(DATASET_DIR, "drowsiness_dataset_v2.csv")
+LEGACY_CSV_PATH = os.path.join(DATASET_DIR, "drowsiness_dataset.csv")
+
+LABEL_INFO = {
+    0: ("TINH TAO", (0, 255, 0)),
+    1: ("MET MOI / NGAP", (0, 165, 255)),
+    2: ("BUON NGU", (0, 0, 255)),
+}
+
+AUTO_SAVE_INTERVAL = 0.15  # ~6-7 mau sach moi giay khi bat che do thu thap tu dong
+
+
+def ensure_csv_files():
+    if not os.path.exists(V2_CSV_PATH):
+        with open(V2_CSV_PATH, mode="w", newline="", encoding="utf-8") as f:
+            csv.writer(f).writerow(["EAR", "MAR", "Pitch", "Yaw", "PERCLOS", "Label"])
+
+    if not os.path.exists(LEGACY_CSV_PATH):
+        with open(LEGACY_CSV_PATH, mode="w", newline="", encoding="utf-8") as f:
+            csv.writer(f).writerow(["EAR", "MAR", "Label"])
+
+
+def count_existing_labels(csv_path):
+    counts = {0: 0, 1: 0, 2: 0}
+    if not os.path.exists(csv_path):
+        return counts
+    try:
+        with open(csv_path, mode="r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                lbl = int(row["Label"])
+                if lbl in counts:
+                    counts[lbl] += 1
+    except Exception:
+        pass
+    return counts
+
+
+def save_sample(ear, mar, pitch, yaw, perclos, label):
+    with open(V2_CSV_PATH, mode="a", newline="", encoding="utf-8") as f:
+        csv.writer(f).writerow([
+            round(ear, 4),
+            round(mar, 4),
+            round(pitch, 2),
+            round(yaw, 2),
+            round(perclos, 4),
+            int(label),
+        ])
+
+    with open(LEGACY_CSV_PATH, mode="a", newline="", encoding="utf-8") as f:
+        csv.writer(f).writerow([round(ear, 4), round(mar, 4), int(label)])
+
+
+def open_camera():
+    if os.name == "nt":
+        cap = cv2.VideoCapture(CAMERA_INDEX, cv2.CAP_DSHOW)
+        if not cap.isOpened():
+            cap = cv2.VideoCapture(CAMERA_INDEX)
+    else:
+        cap = cv2.VideoCapture(CAMERA_INDEX)
+
+    if not cap.isOpened():
+        print("Khong mo duoc camera!", flush=True)
+        sys.exit(1)
+
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
+    return cap
+
+
+def main():
+    ensure_csv_files()
+    counts = count_existing_labels(V2_CSV_PATH)
+    calibrator = EyeCalibration(duration=3.0, reference_ear=0.30, min_samples=20)
+    eye_window = deque(maxlen=150)
+
+    cap = open_camera()
+    window_name = "DACN1 - Thu thap Du lieu AI (v2)"
+    cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+
+    active_label = None  # None = dang tam dung ghi
+    last_save_time = 0.0
+    session_saved = 0
+
+    print("Da mo cong cu thu thap du lieu v2!", flush=True)
+    print("Phim 0/A: Ghi TINH TAO | 1/Y: Ghi MET MOI | 2/D: Ghi BUON NGU | SPACE: Dung | R: Calib lai | Q: Thoat", flush=True)
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        frame = cv2.flip(frame, 1)
+        h, w, _ = frame.shape
+
+        face_landmarks, raw_ear, mar, frame, left_ear, right_ear = detect_face_features(
+            frame, return_eye_detail=True
         )
 
-    cv2.imshow("Thu thap du lieu", frame)
+        ear = raw_ear
+        pitch = 0.0
+        yaw = 0.0
+        perclos = 0.0
 
-    key = cv2.waitKey(1) & 0xFF
+        if face_landmarks is not None:
+            if not calibrator.ready:
+                calibrator.update(left_ear, right_ear)
+            else:
+                ear = calibrator.normalize_ear(left_ear, right_ear)
 
-    
-    # Không lưu dữ liệu rác
-    
-    if not face_detected:
+            pitch, yaw = get_head_pose(face_landmarks, w, h)
+            eye_window.append(1 if ear < EAR_THRESHOLD else 0)
+            perclos = sum(eye_window) / len(eye_window) if eye_window else 0.0
+
+            # Tu dong luu mau khi dang bat che do ghi va da calibrate xong
+            now = time.time()
+            if (
+                calibrator.ready
+                and active_label is not None
+                and ear > 0
+                and (now - last_save_time) >= AUTO_SAVE_INTERVAL
+            ):
+                save_sample(ear, mar, pitch, yaw, perclos, active_label)
+                counts[active_label] += 1
+                session_saved += 1
+                last_save_time = now
+
+        # VE GIAO DIEN HUONG DAN
+        if not calibrator.ready:
+            prog = calibrator.progress_percent()
+            cv2.putText(
+                frame,
+                f"CALIBRATING EYES: {prog}% (Nhin thang, mo mat binh thuong)",
+                (20, 35),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (0, 255, 255),
+                2,
+            )
+        else:
+            if active_label is not None:
+                lbl_name, lbl_color = LABEL_INFO[active_label]
+                cv2.putText(
+                    frame,
+                    f"DANG TU DONG GHI: [{active_label}] {lbl_name}",
+                    (20, 35),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.8,
+                    lbl_color,
+                    2,
+                )
+            else:
+                cv2.putText(
+                    frame,
+                    "TRANG THAI: TAM DUNG (Bam 0/1/2 de bat ghi tu dong)",
+                    (20, 35),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.7,
+                    (200, 200, 200),
+                    2,
+                )
+
+        hud_lines = [
+            f"EAR(norm): {ear:.3f} | MAR: {mar:.3f} | PERCLOS: {perclos:.2f}",
+            f"Pitch: {pitch:.1f} | Yaw: {yaw:.1f}",
+            f"Tong v2 -> [0] Tinh tao: {counts[0]} | [1] Met/Ngap: {counts[1]} | [2] Buon ngu: {counts[2]}",
+            f"Da thu phien nay: +{session_saved} mau",
+            "0/A: Tinh tao | 1/Y: Met/Ngap | 2/D: Buon ngu | SPACE: Dung | R: Calib lai | Q: Thoat",
+        ]
+
+        y = 75
+        for line in hud_lines:
+            cv2.putText(frame, line, (20, y), cv2.FONT_HERSHEY_SIMPLEX, 0.58, (255, 255, 255), 2)
+            y += 28
+
+        if face_landmarks is None:
+            cv2.putText(
+                frame,
+                "KHONG TIM THAY KHUON MAT - KHONG LUU MAU RAC",
+                (20, y + 10),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (0, 0, 255),
+                2,
+            )
+
+        cv2.imshow(window_name, frame)
+        key = cv2.waitKey(1) & 0xFF
+
         if key == ord("q"):
             break
-        continue
+        elif key in (ord("0"), ord("a")):
+            active_label = None if active_label == 0 else 0
+        elif key in (ord("1"), ord("y")):
+            active_label = None if active_label == 1 else 1
+        elif key in (ord("2"), ord("d")):
+            active_label = None if active_label == 2 else 2
+        elif key == ord(" "):
+            active_label = None
+        elif key == ord("r"):
+            active_label = None
+            calibrator.reset()
+            eye_window.clear()
+            print("Da reset Eye Calibration cho nguoi moi!", flush=True)
 
-    
-    # Tỉnh táo
-    
-    if key == ord("a"):
+    cap.release()
+    cv2.destroyAllWindows()
+    print(f"Hoan tat! Phien nay thu them {session_saved} mau. Tong v2: {counts}", flush=True)
 
-        save_data(ear, mar, 0)
 
-        sample_count += 1
-
-        print("Da luu: Tinh tao")
-
-    
-    # Ngáp / mệt
-    
-    elif key == ord("y"):
-
-        save_data(ear, mar, 1)
-
-        sample_count += 1
-
-        print("Da luu: Ngap / Met")
-
-    
-    # Buồn ngủ
-    
-    elif key == ord("d"):
-
-        save_data(ear, mar, 2)
-
-        sample_count += 1
-
-        print("Da luu: Buon ngu")
-
-    
-    # Thoát
-    
-    elif key == ord("q"):
-        break
-
-cap.release()
-cv2.destroyAllWindows()
+if __name__ == "__main__":
+    main()

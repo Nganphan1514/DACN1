@@ -1,0 +1,15 @@
+{
+  "dataset_mode": "legacy_2features",
+  "features": [
+    "EAR",
+    "MAR"
+  ],
+  "num_samples": 774,
+  "label_counts": {
+    "0": 351,
+    "1": 360,
+    "2": 63
+  },
+  "test_accuracy": 85.16,
+  "cv_macro_f1": 80.77
+}

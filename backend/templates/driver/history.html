@@ -126,7 +126,7 @@
 const params = new URLSearchParams(window.location.search);
 const user = JSON.parse(localStorage.getItem("user") || "{}");
 
-let taiXeId = params.get("tai_xe_id") || user.id || 1;
+let taiXeId = params.get("tai_xe_id") || user.tai_xe_id || user.id || 1;
 let histories = [];
 
 function withDriverId(path) {
@@ -332,7 +332,7 @@ loadHistory();
 
 <script>
 const user = JSON.parse(localStorage.getItem("user") || "{}");
-const taiXeId = user.id || 1;
+const taiXeId = user.tai_xe_id || user.id || 1;
 
 function statusColor(status) {
     if (status === "DANG_LAI") return "bg-green-500/20 text-green-300";

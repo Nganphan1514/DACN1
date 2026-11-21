@@ -273,6 +273,53 @@ function renderReports(rows) {
 
 loadDashboard();
 setInterval(loadDashboard, 5000);
+
+// REALTIME SSE CANH BAO TU AI (main.py)
+const toastContainer = document.createElement("div");
+toastContainer.id = "realtimeToastContainer";
+toastContainer.className = "fixed bottom-5 right-5 z-50 flex flex-col gap-3 max-w-sm w-full pointer-events-none";
+document.body.appendChild(toastContainer);
+
+function showRealtimeAlertToast(eventData) {
+    const isCritical = ["BUON_NGU", "NGUOI_LA", "SAI_XE"].includes(eventData.type);
+    const borderClass = isCritical ? "border-rose-500/70 bg-slate-900/95" : "border-amber-500/70 bg-slate-900/95";
+    const badgeClass = isCritical ? "bg-rose-600 text-white" : "bg-amber-500 text-slate-950";
+
+    const toast = document.createElement("div");
+    toast.className = `pointer-events-auto rounded-2xl border ${borderClass} p-4 shadow-2xl backdrop-blur text-white transition-all`;
+
+    const imgHtml = eventData.snapshot_url
+        ? `<img src="${eventData.snapshot_url}" alt="Snapshot" class="mt-2 w-full h-32 object-cover rounded-xl border border-slate-700" />`
+        : "";
+
+    toast.innerHTML = `
+        <div class="flex items-center justify-between gap-2">
+            <span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${badgeClass}">${eventData.type}</span>
+            <span class="text-xs text-slate-400">${eventData.timestamp || ""}</span>
+        </div>
+        <p class="font-bold text-sm mt-2">${eventData.driver_name || "Chưa xác định"} • ${eventData.vehicle_name || "N/A"}</p>
+        <p class="text-xs text-slate-300 mt-1">${eventData.message || ""}</p>
+        ${imgHtml}
+    `;
+
+    toastContainer.prepend(toast);
+    setTimeout(() => toast.remove(), 12000);
+}
+
+try {
+    const sse = new EventSource("/api/admin/events");
+    sse.addEventListener("alert", (e) => {
+        try {
+            const eventData = JSON.parse(e.data);
+            showRealtimeAlertToast(eventData);
+            loadDashboard();
+        } catch (err) {
+            console.error("Parse SSE alert error:", err);
+        }
+    });
+} catch (err) {
+    console.warn("SSE khong kha dung:", err);
+}
 </script>
 
 </body>

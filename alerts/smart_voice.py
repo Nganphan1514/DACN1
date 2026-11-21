@@ -251,3 +251,20 @@ def wrong_vehicle_driver_warning(driver_name=None):
         safe_speak("Cảnh báo. Tài xế không được phân công cho xe này.")
 
     last_wrong_vehicle_warning = current
+
+
+# DISTRACTION WARNING
+
+last_distraction_warning = 0
+DISTRACTION_COOLDOWN = 15
+
+
+def distraction_warning():
+    global last_distraction_warning
+
+    current = time.time()
+    if current - last_distraction_warning < DISTRACTION_COOLDOWN:
+        return
+
+    safe_speak("Cảnh báo. Bạn đang mất tập trung. Hãy chú ý quan sát phía trước.")
+    last_distraction_warning = current

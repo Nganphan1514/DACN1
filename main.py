@@ -2,16 +2,54 @@ import cv2
 import time
 import csv
 import os
+import queue
+import threading
 
 from datetime import datetime
 from collections import deque
 
+from config.ai_config import (
+    AUTH_CHECK_INTERVAL,
+    AUTH_MIN_HITS,
+    AUTH_SCAN_SECONDS,
+    CAMERA_INDEX,
+    DANGEROUS_TIME_WARNING_INTERVAL,
+    DROWSY_CONFIRM_TIME,
+    DROWSY_THRESHOLD,
+    DROWSY_WARNING_INTERVAL,
+    EAR_THRESHOLD,
+    FACE_MISSING_REAUTH_TIME,
+    FATIGUE_WARNING_INTERVAL,
+    FRAME_HEIGHT,
+    FRAME_WIDTH,
+    HEAD_DOWN_CONFIRM_TIME,
+    HEAD_DOWN_THRESHOLD,
+    LONG_DRIVE_WARNING_INTERVAL,
+    LOST_TIMEOUT,
+    MAR_THRESHOLD,
+    MIN_PERCLOS_FRAMES,
+    PERCLOS_THRESHOLD,
+    PITCH_LIMIT,
+    REST_WARNING_INTERVAL,
+    SAVE_INTERVAL,
+    SNAPSHOT_INTERVAL,
+    UNKNOWN_LOG_INTERVAL,
+    UNKNOWN_TIMEOUT,
+    WARNING_BEFORE_CLOSE,
+    WINDOW_TITLE,
+)
+from core.drowsiness_analyzer import DrowsinessAnalyzer
+from core.hud_renderer import render_hud
 from detection.mediapipe_detector import detect_face_features
-from detection.predictor import predict_state
+from detection.predictor import predict_proba_dict
 from detection.head_pose import get_head_pose
 from detection.eye_calibration import eye_calibrator
 from config.vehicle_config import VEHICLE_ID, VEHICLE_NAME
-from services.location_service import find_nearest_rest_stop
+from services.location_service import (
+    get_cached_rest_stop,
+    prefetch_nearest_rest_stop_async,
+)
+from services.realtime_client import push_realtime_alert
 
 from database.mysql_service import (
     db,
@@ -40,6 +78,7 @@ from alerts.smart_voice import (
     session_close_warning,
     unknown_driver_warning,
     wrong_vehicle_driver_warning,
+    distraction_warning,
 )
 
 
@@ -85,15 +124,42 @@ def save_log_csv(ear, mar, blink, perclos, pitch, risk_score, status):
 
 
 
-# GỢI Ý ĐIỂM DỪNG
+# HANG DOI GHI DB NEN (CHONG LAG CAMERA)
+
+_db_queue = queue.Queue(maxsize=100)
+
+
+def _db_worker():
+    while True:
+        task = _db_queue.get()
+        try:
+            fn, args, kwargs = task
+            fn(*args, **kwargs)
+        except Exception as e:
+            print("Async DB task error:", e)
+        finally:
+            _db_queue.task_done()
+
+
+_db_worker_thread = threading.Thread(target=_db_worker, daemon=True)
+_db_worker_thread.start()
+
+
+def enqueue_db_task(fn, *args, **kwargs):
+    try:
+        _db_queue.put_nowait((fn, args, kwargs))
+    except queue.Full:
+        print("DB queue full, bo qua task de giu FPS")
+
+
+# GỢI Ý ĐIỂM DỪNG (KHONG BLOCK CAMERA)
+
+prefetch_nearest_rest_stop_async()
+
 
 def lay_text_diem_dung():
     try:
-        print("Dang tim diem dung gan nhat...")
-
-        rest_stop = find_nearest_rest_stop()
-
-        print("REST STOP:", rest_stop)
+        rest_stop = get_cached_rest_stop()
 
         if rest_stop:
             place_name = rest_stop["name"].split(",")[0]
@@ -110,21 +176,11 @@ def lay_text_diem_dung():
 
 # RESET BỘ ĐẾM BUỒN NGỦ
 
-def reset_bo_dem_buon_ngu():
-    global drowsy_frames
-    global head_down_frames
-    global yawn_frames
-    global drowsy_start_time
-    global head_down_start_time
-    global eye_closed
+analyzer = DrowsinessAnalyzer()
 
-    drowsy_frames = 0
-    head_down_frames = 0
-    yawn_frames = 0
-    drowsy_start_time = None
-    head_down_start_time = None
-    eye_closed = False
-    eye_window.clear()
+
+def reset_bo_dem_buon_ngu():
+    analyzer.reset_counters()
 
 
 def reset_calibration_va_nhan_dien():
@@ -235,10 +291,20 @@ def khoa_nguoi_lai_khong_hop_le(frame=None, ghi_chu="Nguoi lai chua xac thuc hoa
         if frame is not None and current_time - last_unknown_log > UNKNOWN_LOG_INTERVAL:
             duong_dan_anh = save_snapshot(frame)
 
-            luu_nguoi_la(
+            enqueue_db_task(
+                luu_nguoi_la,
                 xe_id=VEHICLE_ID,
                 duong_dan_anh=duong_dan_anh,
                 ghi_chu=ghi_chu,
+            )
+            enqueue_db_task(
+                push_realtime_alert,
+                event_type="NGUOI_LA",
+                driver_name=ten_tai_xe,
+                vehicle_name=VEHICLE_NAME,
+                message=ghi_chu,
+                snapshot_path=duong_dan_anh,
+                risk_score=10,
             )
 
             last_unknown_log = current_time
@@ -279,13 +345,23 @@ def khoa_tai_xe_sai_xe(tai_xe_id, ten_nhan_dien, frame=None):
         if frame is not None and current_time - last_unknown_log > UNKNOWN_LOG_INTERVAL:
             duong_dan_anh = save_snapshot(frame)
 
-            luu_nguoi_la(
+            enqueue_db_task(
+                luu_nguoi_la,
                 xe_id=VEHICLE_ID,
                 duong_dan_anh=duong_dan_anh,
                 ghi_chu=(
                     f"Nhan dien duoc {ten_nhan_dien} "
                     f"nhung tai xe nay khong duoc phan cong xe {VEHICLE_NAME}"
                 ),
+            )
+            enqueue_db_task(
+                push_realtime_alert,
+                event_type="SAI_XE",
+                driver_name=ten_nhan_dien,
+                vehicle_name=VEHICLE_NAME,
+                message=f"Tài xế {ten_nhan_dien} không được phân công xe {VEHICLE_NAME}",
+                snapshot_path=duong_dan_anh,
+                risk_score=10,
             )
 
             last_unknown_log = current_time
@@ -296,30 +372,24 @@ def khoa_tai_xe_sai_xe(tai_xe_id, ten_nhan_dien, frame=None):
 
 # CAMERA
 
-cap = cv2.VideoCapture(0)
+print("Dang mo camera...", flush=True)
+
+if os.name == "nt":
+    cap = cv2.VideoCapture(CAMERA_INDEX, cv2.CAP_DSHOW)
+    if not cap.isOpened():
+        cap = cv2.VideoCapture(CAMERA_INDEX)
+else:
+    cap = cv2.VideoCapture(CAMERA_INDEX)
 
 if not cap.isOpened():
-    print("Khong mo duoc camera")
+    print("Khong mo duoc camera! Hay kiem tra quyen webcam hoac dong ung dung khac dang dung camera.", flush=True)
     exit()
 
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 960)
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 540)
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
 
-
-# NGƯỠNG AI
-
-EAR_THRESHOLD = 0.20
-MAR_THRESHOLD = 0.65
-
-# Demo bảo vệ: tránh chớp mắt là báo
-DROWSY_THRESHOLD = 25
-HEAD_DOWN_THRESHOLD = 18
-
-PERCLOS_THRESHOLD = 0.45
-MIN_PERCLOS_FRAMES = 120
-
-DROWSY_CONFIRM_TIME = 1.2
-HEAD_DOWN_CONFIRM_TIME = 1.0
+cv2.namedWindow(WINDOW_TITLE, cv2.WINDOW_NORMAL)
+print("Da mo camera thanh cong! Nhan 1 (Dung), 2 (Chay), Q (Thoat).", flush=True)
 
 
 # NGƯỠNG CÁ NHÂN SAU CALIBRATION
@@ -328,7 +398,7 @@ HEAD_DOWN_CONFIRM_TIME = 1.0
 # Sau khi chuẩn hoá, vẫn dùng ngưỡng 0.20 để xét mắt nhắm.
 personal_ear_threshold = EAR_THRESHOLD
 personal_mar_threshold = MAR_THRESHOLD
-personal_pitch_limit = 15
+personal_pitch_limit = PITCH_LIMIT
 
 
 # TIME
@@ -357,19 +427,7 @@ close_warning_spoken = False
 unknown_start_time = None
 last_unknown_log = 0
 
-LOST_TIMEOUT = 1800
-WARNING_BEFORE_CLOSE = 60
-
-UNKNOWN_TIMEOUT = 5
-UNKNOWN_LOG_INTERVAL = 60
-
 last_auth_check_time = 0
-
-# Nhận diện tài xế trong vài giây rồi khóa người đó cho tới khi xe tạm dừng.
-# Khi bấm phím 2 chạy lại, hệ thống sẽ reset và nhận diện lại từ đầu.
-AUTH_SCAN_SECONDS = 3
-AUTH_CHECK_INTERVAL = 0.7
-AUTH_MIN_HITS = 2
 
 auth_scan_start_time = None
 auth_hits = {}
@@ -383,9 +441,6 @@ auth_failed_logged = False
 
 face_missing_start_time = None
 
-# Chống chập chờn: mất mặt 3 giây mới mở khóa nhận diện lại
-FACE_MISSING_REAUTH_TIME = 3
-
 
 # COUNTER
 
@@ -398,7 +453,6 @@ head_down_frames = 0
 yawn_frames = 0
 
 last_snapshot_time = 0
-SNAPSHOT_INTERVAL = 20
 
 eye_closed = False
 drowsy_start_time = None
@@ -406,7 +460,6 @@ head_down_start_time = None
 
 last_saved_status = None
 last_save_time = 0
-SAVE_INTERVAL = 10
 
 
 # COOLDOWN CẢNH BÁO
@@ -416,12 +469,6 @@ last_drowsy_warning_time = 0
 last_rest_warning_time = 0
 last_dangerous_time_warning_time = 0
 last_long_drive_warning_time = 0
-
-FATIGUE_WARNING_INTERVAL = 20
-DROWSY_WARNING_INTERVAL = 3
-REST_WARNING_INTERVAL = 5
-DANGEROUS_TIME_WARNING_INTERVAL = 600
-LONG_DRIVE_WARNING_INTERVAL = 600
 
 
 # PERCLOS
@@ -451,6 +498,11 @@ while True:
     color = (255, 255, 255)
 
     risk_score = 0
+    fatigue_score = analyzer.fatigue_score
+    reasons = []
+    ai_probs = {"awake": 100.0, "fatigue": 0.0, "drowsy": 0.0}
+    blink_rate_per_min = 0
+    yawn_count_3m = 0
     ear = 0
     mar = 0
     pitch = 0
@@ -521,7 +573,7 @@ while True:
             2,
         )
 
-        cv2.imshow("Driver Monitoring", frame)
+        cv2.imshow(WINDOW_TITLE, frame)
 
         key_calibration = cv2.waitKey(1) & 0xFF
 
@@ -723,7 +775,7 @@ while True:
                     2,
                 )
 
-                cv2.imshow("AI Drowsiness Detection - DEMO BAO VE", frame)
+                cv2.imshow(WINDOW_TITLE, frame)
 
                 key_auth = cv2.waitKey(1) & 0xFF
 
@@ -747,213 +799,115 @@ while True:
         # Hệ thống chỉ nhận diện lại khi bấm 1 tạm dừng rồi bấm 2 chạy lại.
         
         # HEAD POSE
-        
+
         pitch, yaw = get_head_pose(face_landmarks, w, h)
 
-        
-        # HEAD DOWN
-        
-        if pitch > personal_pitch_limit:
-
-            head_down_frames += 1
-
-            if head_down_start_time is None:
-                head_down_start_time = time.time()
-
-        else:
-
-            head_down_frames = 0
-            head_down_start_time = None
-
-        
-        # BLINK + DROWSY FRAME
-        
-        if ear < personal_ear_threshold:
-
-            eye_window.append(1)
-
-            if not eye_closed:
-
-                eye_closed = True
-                blink_count += 1
-
-            drowsy_frames += 1
-
-            if drowsy_start_time is None:
-                drowsy_start_time = time.time()
-
-        else:
-
-            eye_window.append(0)
-            eye_closed = False
-            drowsy_frames = 0
-            drowsy_start_time = None
-
-        
-        # PERCLOS
-        
-        if len(eye_window) >= MIN_PERCLOS_FRAMES:
-
-            perclos = sum(eye_window) / len(eye_window)
-
-        else:
-
-            perclos = 0
-
-        
-        # YAWN
-        
-        if mar > personal_mar_threshold:
-
-            yawn_frames += 1
-
-        else:
-
-            yawn_frames = 0
-
-        
-        # AI PREDICT
-        
-        prediction, confidence = predict_state(ear, mar)
-
-        
-        # RISK SCORE
-        
-        if drowsy_frames >= DROWSY_THRESHOLD:
-            risk_score += 2
-
-        if len(eye_window) >= MIN_PERCLOS_FRAMES and perclos > PERCLOS_THRESHOLD:
-            risk_score += 2
-
-        if head_down_frames >= HEAD_DOWN_THRESHOLD:
-            risk_score += 2
-
-        if yawn_frames > 10:
-            risk_score += 1
-
-        # Model đang có nhãn 1 = mệt/ngáp, 2 = buồn ngủ.
-        # Trước đây chỉ cộng điểm cho prediction == 2 nên trạng thái MỆT MỎI khó xuất hiện.
-        if prediction == 1 and confidence >= 60:
-            risk_score += 2
-
-        if prediction == 2 and confidence >= 75:
-            risk_score += 1
-
-        
-        # ĐIỀU KIỆN BUỒN NGỦ THẬT SỰ
-        
-        eye_closed_long_enough = (
-            drowsy_start_time is not None
-            and time.time() - drowsy_start_time >= DROWSY_CONFIRM_TIME
-            and drowsy_frames >= DROWSY_THRESHOLD
-        )
-
-        head_down_long_enough = (
-            head_down_start_time is not None
-            and time.time() - head_down_start_time >= HEAD_DOWN_CONFIRM_TIME
-            and head_down_frames >= HEAD_DOWN_THRESHOLD
-        )
-
-        perclos_danger = (
-            len(eye_window) >= MIN_PERCLOS_FRAMES
-            and perclos >= PERCLOS_THRESHOLD
-            and drowsy_frames >= 10
-        )
-
-        ai_drowsy_confirmed = (
-            prediction == 2 and confidence >= 80 and drowsy_frames >= 12
-        )
-
-        if (
-            eye_closed_long_enough
-            or head_down_long_enough
-            or perclos_danger
-            or ai_drowsy_confirmed
-        ):
-            is_real_drowsy = True
-
-        
         # TIME FACTOR
-        
+
         now = time.time()
-
         current_hour = datetime.now().hour
+        is_dangerous_hour = (0 <= current_hour <= 5) or (13 <= current_hour <= 15)
+        drive_hours = (now - drive_start_time) / 3600.0
+        is_long_drive = drive_hours > 2.0
 
-        if 0 <= current_hour <= 5:
+        if is_dangerous_hour and (
+            now - last_dangerous_time_warning_time >= DANGEROUS_TIME_WARNING_INTERVAL
+        ):
+            dangerous_time_warning()
+            last_dangerous_time_warning_time = now
 
-            risk_score += 1
+        if is_long_drive and (
+            now - last_long_drive_warning_time >= LONG_DRIVE_WARNING_INTERVAL
+        ):
+            long_drive_warning()
+            last_long_drive_warning_time = now
 
-            if (
-                now - last_dangerous_time_warning_time
-                >= DANGEROUS_TIME_WARNING_INTERVAL
-            ):
+        # AI PREDICT (3-CLASS PROBABILITIES, TU DONG HO TRO 2 HOAC 5 DAC TRUNG)
 
-                dangerous_time_warning()
-                last_dangerous_time_warning_time = now
+        current_perclos = (
+            sum(analyzer.eye_window) / len(analyzer.eye_window)
+            if len(analyzer.eye_window) >= MIN_PERCLOS_FRAMES
+            else 0.0
+        )
+        ai_out = predict_proba_dict(
+            ear=ear,
+            mar=mar,
+            pitch=pitch,
+            yaw=yaw,
+            perclos=current_perclos,
+        )
+        prediction = ai_out["prediction"]
+        confidence = ai_out["confidence"]
 
-        if 13 <= current_hour <= 15:
+        # MULTI-FACTOR DRIVER STATE ENGINE
 
-            risk_score += 1
+        analysis = analyzer.update(
+            ear=ear,
+            mar=mar,
+            pitch=pitch,
+            yaw=yaw,
+            prediction=prediction,
+            confidence=confidence,
+            probs=ai_out["probs"],
+            is_dangerous_hour=is_dangerous_hour,
+            is_long_drive=is_long_drive,
+            now=now,
+        )
 
-            if (
-                now - last_dangerous_time_warning_time
-                >= DANGEROUS_TIME_WARNING_INTERVAL
-            ):
+        status = analysis["status"]
+        color = analysis["status_color"]
+        fatigue_score = analysis["fatigue_score"]
+        risk_score = analysis["risk_score"]
+        is_real_drowsy = analysis["is_real_drowsy"]
+        reasons = analysis["reasons"]
+        perclos = analysis["perclos"]
+        ai_probs = analysis["ai_probs"]
+        blink_count = analysis["blink_count"]
+        blink_rate_per_min = analysis["blink_rate_per_min"]
+        yawn_count_3m = analysis["yawn_count_3m"]
+        drowsy_count = analysis["drowsy_count"]
 
-                dangerous_time_warning()
-                last_dangerous_time_warning_time = now
+        # FINAL DECISION & ALERTS
 
-        drive_hours = (time.time() - drive_start_time) / 3600
-
-        if drive_hours > 2:
-
-            risk_score += 1
-
-            if now - last_long_drive_warning_time >= LONG_DRIVE_WARNING_INTERVAL:
-                long_drive_warning()
-                last_long_drive_warning_time = now
-
-        
-        # FINAL DECISION
-        
-        if is_real_drowsy:
-
-            status = "BUON NGU"
-            color = (0, 0, 255)
+        if status == "BUON NGU":
 
             if now - last_drowsy_warning_time >= DROWSY_WARNING_INTERVAL:
 
                 rest_text = lay_text_diem_dung()
-
                 drowsy_with_rest_warning(rest_text)
+
+                reason_str = ", ".join(reasons) if reasons else "BUON NGU"
+                enqueue_db_task(
+                    push_realtime_alert,
+                    event_type="BUON_NGU",
+                    driver_name=ten_tai_xe,
+                    vehicle_name=VEHICLE_NAME,
+                    message=f"Tài xế {ten_tai_xe} buồn ngủ ({reason_str} | Fatigue {fatigue_score:.0f}%)",
+                    snapshot_path=None,
+                    risk_score=risk_score,
+                )
 
                 last_drowsy_warning_time = now
                 last_rest_warning_time = now
 
             current_snapshot_time = time.time()
-
             duong_dan_anh = None
 
-            time_since_snapshot = current_snapshot_time - last_snapshot_time
-
-            if time_since_snapshot > SNAPSHOT_INTERVAL:
-
+            if current_snapshot_time - last_snapshot_time > SNAPSHOT_INTERVAL:
                 duong_dan_anh = save_snapshot(frame)
                 last_snapshot_time = current_snapshot_time
 
             if duong_dan_anh:
-
                 if nguoi_lai_hop_le and tai_xe_hien_tai:
-
-                    luu_anh_canh_bao(
+                    enqueue_db_task(
+                        luu_anh_canh_bao,
                         tai_xe_id=tai_xe_hien_tai,
                         xe_id=VEHICLE_ID,
                         duong_dan_anh=duong_dan_anh,
                     )
-
                 else:
-
-                    luu_nguoi_la(
+                    enqueue_db_task(
+                        luu_nguoi_la,
                         xe_id=VEHICLE_ID,
                         duong_dan_anh=duong_dan_anh,
                         ghi_chu=(
@@ -962,61 +916,39 @@ while True:
                         ),
                     )
 
-            current_drowsy_time = time.time()
+        elif status == "MAT TAP TRUNG":
+            distraction_warning()
 
-            if current_drowsy_time - last_drowsy_count_time > 5:
-
-                drowsy_count += 1
-                last_drowsy_count_time = current_drowsy_time
-
-        elif risk_score >= 2 or (prediction == 1 and confidence >= 60) or yawn_frames > 10:
-
-            status = "MET MOI"
-            color = (0, 165, 255)
+        elif status == "MET MOI":
 
             if now - last_fatigue_warning_time >= FATIGUE_WARNING_INTERVAL:
-
                 fatigue_warning()
                 last_fatigue_warning_time = now
 
             if now - last_rest_warning_time >= REST_WARNING_INTERVAL:
-
                 rest_text = lay_text_diem_dung()
-
                 if rest_text:
                     nearby_rest_warning(rest_text)
                 else:
                     nearby_rest_warning(
                         "Không tìm thấy địa điểm cụ thể. Hãy tấp vào vị trí an toàn gần nhất."
                     )
-
                 last_rest_warning_time = now
 
-        else:
-
-            status = "TINH TAO"
-            color = (0, 255, 0)
-
-        
         # SAVE DATABASE THÔNG MINH
-        
-        current_time = time.time()
 
+        current_time = time.time()
         should_save = False
 
-        if status in ["MET MOI", "BUON NGU"]:
-
+        if status in ["MET MOI", "BUON NGU", "MAT TAP TRUNG"]:
             if status != last_saved_status:
-
                 should_save = True
-
             elif current_time - last_save_time > SAVE_INTERVAL:
-
                 should_save = True
 
         if should_save and tai_xe_hien_tai and nguoi_lai_hop_le:
-
-            save_detection_log(
+            enqueue_db_task(
+                save_detection_log,
                 tai_xe_id=tai_xe_hien_tai,
                 xe_id=VEHICLE_ID,
                 status=status,
@@ -1028,66 +960,43 @@ while True:
             last_saved_status = status
             last_save_time = current_time
 
-    
     # FPS
-    
+
     current = time.time()
-
     fps = int(1 / max(current - prev_time, 0.0001))
-
     prev_time = current
-
     runtime = int(time.time() - start_time)
 
-    
-    # DISPLAY
-    
-    texts = [
-        f"Tai xe: {ten_tai_xe}",
-        f"Nhan dien: {'DA CHOT' if auth_done else 'CHUA CHOT'}",
-        f"Xac thuc: {'HOP LE' if nguoi_lai_hop_le else 'KHONG HOP LE'}",
-        f"Xe: {VEHICLE_NAME}",
-        f"Trang thai xe: {'DANG CHAY' if xe_dang_chay else 'DUNG'}",
-        f"Phim 1: DUNG | Phim 2: CHAY | Q: THOAT",
-        f"EAR: {ear:.2f}",
-        f"MAR: {mar:.2f}",
-        f"Blink: {blink_count}",
-        f"PERCLOS: {perclos:.2f}",
-        f"Pitch: {pitch:.1f}",
-        f"Confidence: {confidence:.1f}%",
-        f"Risk Score: {risk_score}",
-        status,
-        f"Drowsy Frames: {drowsy_frames}",
-        f"Head Down Frames: {head_down_frames}",
-        f"Drowsy Count: {drowsy_count}",
-        f"FPS: {fps}",
-        f"Runtime: {runtime}s",
-    ]
+    # DISPLAY HUD
 
-    y = 35
+    render_hud(
+        frame=frame,
+        ten_tai_xe=ten_tai_xe,
+        auth_done=auth_done,
+        nguoi_lai_hop_le=nguoi_lai_hop_le,
+        vehicle_name=VEHICLE_NAME,
+        xe_dang_chay=xe_dang_chay,
+        ear=ear,
+        mar=mar,
+        blink_count=blink_count,
+        perclos=perclos,
+        pitch=pitch,
+        yaw=yaw,
+        confidence=confidence,
+        risk_score=risk_score,
+        fatigue_score=fatigue_score,
+        status=status,
+        status_color=color,
+        reasons=reasons,
+        ai_probs=ai_probs,
+        blink_rate_per_min=blink_rate_per_min,
+        yawn_count_3m=yawn_count_3m,
+        drowsy_count=drowsy_count,
+        fps=fps,
+        runtime=runtime,
+    )
 
-    for text in texts:
-
-        if text == status:
-            draw_color = color
-        elif "Trang thai xe" in text:
-            draw_color = (0, 255, 255) if not xe_dang_chay else (0, 255, 0)
-        else:
-            draw_color = (255, 255, 255)
-
-        cv2.putText(
-            frame,
-            text,
-            (20, y),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.65,
-            draw_color,
-            2,
-        )
-
-        y += 30
-
-    cv2.imshow("AI Drowsiness Detection - DEMO BAO VE", frame)
+    cv2.imshow(WINDOW_TITLE, frame)
 
     
     # PHÍM ĐIỀU KHIỂN

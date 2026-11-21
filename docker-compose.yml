@@ -1,0 +1,19 @@
+services:
+  dacn1-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dacn1-backend
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+    environment:
+      - FLASK_HOST=0.0.0.0
+      - FLASK_PORT=5000
+      - FLASK_DEBUG=false
+    volumes:
+      - ./snapshots:/app/snapshots
+      - ./exports:/app/exports
+      - ./logs:/app/logs
+    restart: unless-stopped

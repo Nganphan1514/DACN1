@@ -1,83 +1,135 @@
-import mysql.connector
-from mysql.connector import Error
+import json
 import threading
 
+import bcrypt
+import psycopg2
+from psycopg2 import OperationalError, pool
+from psycopg2.extras import RealDictCursor
 
-class MySQLService:
+from config.app_config import DATABASE_URL
+from config.logger import get_logger
 
-    def __init__(self):
-        self.connection = None
+logger = get_logger("postgres_service")
+
+
+class PostgresService:
+
+    def __init__(self, minconn=1, maxconn=10):
+        self.pool = None
+        self.minconn = minconn
+        self.maxconn = maxconn
         self.lock = threading.RLock()
-        self.connect()
-
-    def connect(self):
-        try:
-            self.connection = mysql.connector.connect(
-                host="localhost",
-                user="root",
-                password="",
-                database="he_thong_tai_xe",
-                charset="utf8mb4",
-                autocommit=True,
-                connection_timeout=60
-            )
-
-            print("MySQL Connected")
-
-        except Error as e:
-            print("Database Error:", e)
-            self.connection = None
-
-    def reconnect_if_needed(self):
-        if self.connection is None or not self.connection.is_connected():
+        if DATABASE_URL:
             self.connect()
         else:
-            self.connection.ping(reconnect=True, attempts=3, delay=2)
+            logger.warning("DATABASE_URL chua duoc cau hinh trong .env")
 
-    def get_cursor(self):
-        self.reconnect_if_needed()
-        return self.connection.cursor(dictionary=True, buffered=True)
+    def connect(self):
+        if not DATABASE_URL:
+            logger.error("Thieu DATABASE_URL (Supabase PostgreSQL) trong .env")
+            self.pool = None
+            return
+
+        try:
+            self.pool = pool.ThreadedConnectionPool(
+                minconn=self.minconn,
+                maxconn=self.maxconn,
+                dsn=DATABASE_URL,
+                connect_timeout=15,
+            )
+            logger.info("Supabase PostgreSQL Pool initialized (max=%s)", self.maxconn)
+
+        except Exception as e:
+            logger.error("Database Pool Error: %s", e)
+            self.pool = None
+
+    def _get_connection(self):
+        if self.pool is None:
+            with self.lock:
+                if self.pool is None:
+                    self.connect()
+        if self.pool is None:
+            raise OperationalError("Khong the ket noi toi Supabase PostgreSQL.")
+
+        conn = self.pool.getconn()
+        if conn.closed:
+            self.pool.putconn(conn, close=True)
+            conn = self.pool.getconn()
+        conn.autocommit = True
+        return conn
+
+    def _release_connection(self, conn, broken=False):
+        if conn is not None and self.pool is not None:
+            try:
+                self.pool.putconn(conn, close=broken)
+            except Exception:
+                pass
 
     def execute(self, query, values=None):
-        with self.lock:
-            cursor = self.get_cursor()
-            try:
-                cursor.execute(query, values)
-                last_id = cursor.lastrowid
+        conn = self._get_connection()
+        broken = False
+        try:
+            sql = query.strip()
+            is_insert = sql.upper().startswith("INSERT")
+            if is_insert and "RETURNING" not in sql.upper():
+                sql = sql.rstrip(";") + " RETURNING id"
 
-                class Result:
-                    pass
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute(sql, values)
+                last_id = None
+                if cursor.description is not None:
+                    row = cursor.fetchone()
+                    if row and "id" in row:
+                        last_id = row["id"]
 
-                result = Result()
-                result.lastrowid = last_id
-                return result
+            class Result:
+                pass
 
-            finally:
-                cursor.close()
+            result = Result()
+            result.lastrowid = last_id
+            return result
+        except OperationalError:
+            broken = True
+            raise
+        finally:
+            self._release_connection(conn, broken=broken)
 
     def fetch_one(self, query, values=None):
-        with self.lock:
-            cursor = self.get_cursor()
-            try:
+        conn = self._get_connection()
+        broken = False
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 cursor.execute(query, values)
-                return cursor.fetchone()
-
-            finally:
-                cursor.close()
+                row = cursor.fetchone()
+                return dict(row) if row is not None else None
+        except OperationalError:
+            broken = True
+            raise
+        finally:
+            self._release_connection(conn, broken=broken)
 
     def fetch_all(self, query, values=None):
-        with self.lock:
-            cursor = self.get_cursor()
-            try:
+        conn = self._get_connection()
+        broken = False
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 cursor.execute(query, values)
-                return cursor.fetchall()
+                rows = cursor.fetchall()
+                return [dict(r) for r in rows]
+        except OperationalError:
+            broken = True
+            raise
+        finally:
+            self._release_connection(conn, broken=broken)
 
-            finally:
-                cursor.close()
+
+# Giu ten class tuong thich nguoc
+MySQLService = PostgresService
+
 # ==========================
 # INIT DB
 # ==========================
-db = MySQLService()
+db = PostgresService()
 
 
 # CAC TRANG THAI HOP LE
@@ -116,10 +168,33 @@ def chuyen_int_hoac_none(gia_tri):
 
 # AUTH / LOGIN
 
+def hash_password(plain_password):
+    return bcrypt.hashpw(
+        plain_password.encode("utf-8"),
+        bcrypt.gensalt()
+    ).decode("utf-8")
+
+
+def verify_password(plain_password, stored_password):
+    if not plain_password or not stored_password:
+        return False, False
+
+    if stored_password.startswith(("$2a$", "$2b$", "$2y$")):
+        try:
+            matched = bcrypt.checkpw(
+                plain_password.encode("utf-8"),
+                stored_password.encode("utf-8")
+            )
+            return matched, False
+        except ValueError:
+            return False, False
+
+    # Ho tro tai khoan cu luu plain-text va danh dau can nang cap sang bcrypt
+    return stored_password == plain_password, True
+
+
 def kiem_tra_dang_nhap(ten_dang_nhap, mat_khau):
-
     try:
-
         query = """
         SELECT *
         FROM tai_khoan
@@ -130,19 +205,42 @@ def kiem_tra_dang_nhap(ten_dang_nhap, mat_khau):
         user = db.fetch_one(query, (ten_dang_nhap,))
 
         if not user:
-
             return None
 
-        if user["mat_khau"] != mat_khau:
-
+        if user.get("trang_thai") == "khoa":
             return None
+
+        matched, needs_upgrade = verify_password(mat_khau, user["mat_khau"])
+        if not matched:
+            return None
+
+        # Tu dong ma hoa bcrypt cho tai khoan cu sau khi dang nhap dung
+        if needs_upgrade:
+            new_hash = hash_password(mat_khau)
+            db.execute(
+                "UPDATE tai_khoan SET mat_khau=%s WHERE id=%s",
+                (new_hash, user["id"])
+            )
+            user["mat_khau"] = new_hash
 
         return user
 
     except Exception as e:
-
         print("Login error:", e)
+        return None
 
+
+def lay_tai_xe_theo_tai_khoan_id(tai_khoan_id):
+    try:
+        query = """
+        SELECT *
+        FROM tai_xe
+        WHERE tai_khoan_id=%s
+        LIMIT 1
+        """
+        return db.fetch_one(query, (tai_khoan_id,))
+    except Exception as e:
+        print("Lay tai xe theo tai khoan error:", e)
         return None
 
 
@@ -233,6 +331,8 @@ def tao_tai_xe_va_tai_khoan(
                 print("So GPLX da ton tai")
                 return None
 
+        mat_khau_hash = hash_password(mat_khau)
+
         tai_khoan = db.execute(
             """
             INSERT INTO tai_khoan
@@ -247,7 +347,7 @@ def tao_tai_xe_va_tai_khoan(
             """,
             (
                 ten_dang_nhap,
-                mat_khau,
+                mat_khau_hash,
             )
         )
 
@@ -650,16 +750,8 @@ def dong_phien_lai_xe(phien_id):
         UPDATE phien_lai_xe
         SET
             ket_thuc=NOW(),
-
-            tong_phut=
-            TIMESTAMPDIFF(
-                MINUTE,
-                bat_dau,
-                NOW()
-            ),
-
-            trang_thai=
-            'DA_KET_THUC'
+            tong_phut=ROUND(EXTRACT(EPOCH FROM (NOW() - bat_dau)) / 60.0),
+            trang_thai='DA_KET_THUC'
         WHERE id=%s
         """
 
@@ -929,7 +1021,7 @@ def danh_dau_da_doc(ghi_chu_id):
 
         query = """
         UPDATE ghi_chu
-        SET da_doc=1
+        SET da_doc=TRUE
         WHERE id=%s
         """
 
@@ -1106,7 +1198,7 @@ def top_tai_xe_nguy_co():
         n.trang_thai='BUON NGU'
 
         GROUP BY
-        n.tai_xe_id
+        n.tai_xe_id, t.ho_ten
 
         ORDER BY
         tong_lan DESC
@@ -1340,43 +1432,98 @@ import json
 # ==========================
 # LUU VECTOR KHUON MAT
 # ==========================
-def luu_vector_khuon_mat(tai_xe_id, embedding, do_tin_cay=1.0):
-
+def luu_vector_khuon_mat(tai_xe_id, embedding, do_tin_cay=1.0, replace_existing=True, mo_ta=None):
     try:
+        if replace_existing:
+            db.execute(
+                "DELETE FROM du_lieu_khuon_mat WHERE tai_xe_id=%s",
+                (tai_xe_id,),
+            )
 
-        # xoa vector cu
-        sql_delete = """
-        DELETE FROM
-        du_lieu_khuon_mat
-        WHERE tai_xe_id=%s
-        """
+        vec_list = embedding.tolist() if hasattr(embedding, "tolist") else list(embedding)
 
-        db.execute(sql_delete, (tai_xe_id,))
-
-        # save vector moi
         sql_insert = """
-        INSERT INTO
-        du_lieu_khuon_mat
+        INSERT INTO du_lieu_khuon_mat
         (
             tai_xe_id,
             vector_khuon_mat,
-            do_tin_cay
+            do_tin_cay,
+            mo_ta
         )
         VALUES
-        (%s,%s,%s)
+        (%s,%s,%s,%s)
         """
 
-        db.execute(sql_insert, (tai_xe_id, json.dumps(embedding.tolist()), do_tin_cay))
-
+        db.execute(sql_insert, (tai_xe_id, json.dumps(vec_list), do_tin_cay, mo_ta))
         print("Da luu vector khuon mat")
+        return True
+
+    except Exception as e:
+        print("Loi luu vector:", e)
+        return False
+
+
+def luu_nhieu_vector_khuon_mat(tai_xe_id, embeddings, do_tin_cay=1.0, mo_ta="Dang ky tu web"):
+    try:
+        if not embeddings:
+            return False
+
+        db.execute(
+            "DELETE FROM du_lieu_khuon_mat WHERE tai_xe_id=%s",
+            (tai_xe_id,),
+        )
+
+        sql_insert = """
+        INSERT INTO du_lieu_khuon_mat
+        (
+            tai_xe_id,
+            vector_khuon_mat,
+            do_tin_cay,
+            mo_ta
+        )
+        VALUES
+        (%s,%s,%s,%s)
+        """
+
+        for idx, embedding in enumerate(embeddings, start=1):
+            vec_list = embedding.tolist() if hasattr(embedding, "tolist") else list(embedding)
+            db.execute(
+                sql_insert,
+                (tai_xe_id, json.dumps(vec_list), do_tin_cay, f"{mo_ta} #{idx}"),
+            )
 
         return True
 
     except Exception as e:
-
-        print("Loi luu vector:", e)
-
+        print("Loi luu nhieu vector:", e)
         return False
+
+
+def lay_trang_thai_khuon_mat(tai_xe_id):
+    try:
+        sql = """
+        SELECT
+            COUNT(*) AS so_mau,
+            MAX(ngay_tao) AS cap_nhat_cuoi
+        FROM du_lieu_khuon_mat
+        WHERE tai_xe_id=%s
+        AND trang_thai='hoat_dong'
+        """
+        row = db.fetch_one(sql, (tai_xe_id,))
+        so_mau = int(row["so_mau"]) if row and row.get("so_mau") else 0
+        cap_nhat = row.get("cap_nhat_cuoi") if row else None
+        return {
+            "da_dang_ky": so_mau > 0,
+            "so_mau": so_mau,
+            "cap_nhat_cuoi": str(cap_nhat) if cap_nhat else None,
+        }
+    except Exception as e:
+        print("Loi lay trang thai khuon mat:", e)
+        return {
+            "da_dang_ky": False,
+            "so_mau": 0,
+            "cap_nhat_cuoi": None,
+        }
 
 
 # ==========================
@@ -1641,7 +1788,7 @@ def lay_admin_dashboard():
         canh_bao_hom_nay = db.fetch_one("""
             SELECT COUNT(*) AS tong
             FROM nhat_ky_phat_hien
-            WHERE DATE(thoi_gian) = CURDATE()
+            WHERE thoi_gian::date = CURRENT_DATE
             AND trang_thai IN ('MET MOI', 'BUON NGU')
         """)
 
@@ -2357,7 +2504,7 @@ def lay_admin_analytics():
             FROM nhat_ky_phat_hien nk
             LEFT JOIN tai_xe tx ON nk.tai_xe_id = tx.id
             WHERE nk.trang_thai IN ('MET MOI', 'BUON NGU')
-            GROUP BY nk.tai_xe_id
+            GROUP BY nk.tai_xe_id, tx.id, tx.ho_ten
             ORDER BY tong_canh_bao DESC
             LIMIT 10
         """)

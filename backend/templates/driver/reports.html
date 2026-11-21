@@ -168,7 +168,7 @@
 const params = new URLSearchParams(window.location.search);
 const user = JSON.parse(localStorage.getItem("user") || "{}");
 
-let taiXeId = params.get("tai_xe_id") || user.id || 1;
+let taiXeId = params.get("tai_xe_id") || user.tai_xe_id || user.id || 1;
 let reports = [];
 
 function withDriverId(path) {
@@ -431,7 +431,7 @@ loadReports();
 
 <script>
 const user = JSON.parse(localStorage.getItem("user") || "{}");
-const taiXeId = user.id || 1;
+const taiXeId = user.tai_xe_id || user.id || 1;
 
 async function guiBaoCao() {
     const res = await fetch("/api/driver/reports", {

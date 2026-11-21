@@ -1,129 +1,134 @@
-import pandas as pd
-import joblib
+import json
 import os
 
-from sklearn.model_selection import train_test_split
+import joblib
+import pandas as pd
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from sklearn.model_selection import StratifiedKFold, cross_val_score, train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
-from sklearn.metrics import accuracy_score
-from sklearn.metrics import classification_report
-from sklearn.metrics import confusion_matrix
 
-
-# PATH
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+V2_DATASET_PATH = os.path.join(BASE_DIR, "dataset", "drowsiness_dataset_v2.csv")
+LEGACY_DATASET_PATH = os.path.join(BASE_DIR, "dataset", "drowsiness_dataset.csv")
 
-dataset_path = os.path.join(BASE_DIR, "dataset", "drowsiness_dataset.csv")
+MODEL_DIR = os.path.join(BASE_DIR, "model")
+os.makedirs(MODEL_DIR, exist_ok=True)
 
-model_folder = os.path.join(BASE_DIR, "model")
+MODEL_PATH = os.path.join(MODEL_DIR, "drowsy_model.pkl")
+SCALER_PATH = os.path.join(MODEL_DIR, "scaler.pkl")
+META_PATH = os.path.join(MODEL_DIR, "model_meta.json")
 
-os.makedirs(model_folder, exist_ok=True)
-
-model_path = os.path.join(model_folder, "drowsy_model.pkl")
-
-scaler_path = os.path.join(model_folder, "scaler.pkl")
-
-
-# Đọc dataset
-
-print("Dang doc dataset...")
-
-if not os.path.exists(dataset_path):
-
-    print("Khong tim thay dataset!")
-    print(dataset_path)
-
-    exit()
-
-df = pd.read_csv(dataset_path)
-
-print("\n===== 5 DONG DAU =====")
-print(df.head())
-
-print("\n===== THONG TIN DATASET =====")
-print(df.info())
-
-print("\n===== SO LUONG LABEL =====")
-print(df["Label"].value_counts())
+V2_FEATURES = ["EAR", "MAR", "Pitch", "Yaw", "PERCLOS"]
+LEGACY_FEATURES = ["EAR", "MAR"]
 
 
-# Feature và Label
+def clean_outliers(df):
+    """
+    Loc bo cac mau nhieu ro ret do chop mat luc bam phim hoac loi landmark:
+    - Loai gia tri EAR <= 0 hoac NaN
+    - Nhan 0 (Tinh tao): loai mau EAR < 0.16 (dinh chop mat)
+    - Nhan 2 (Buon ngu): loai mau EAR > 0.28 (mat dang mo to)
+    """
+    before = len(df)
+    df = df.dropna().copy()
+    df = df[df["EAR"] > 0]
 
-X = df[["EAR", "MAR"]]
-y = df["Label"]
+    mask_noise_awake = (df["Label"] == 0) & (df["EAR"] < 0.16)
+    mask_noise_drowsy = (df["Label"] == 2) & (df["EAR"] > 0.28)
+    df = df[~(mask_noise_awake | mask_noise_drowsy)]
 
-
-# Chia train/test
-
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42, stratify=y
-)
-
-print("\nDa chia train/test")
-
-
-# Chuẩn hóa dữ liệu
-
-scaler = StandardScaler()
-
-X_train_scaled = scaler.fit_transform(X_train)
-
-X_test_scaled = scaler.transform(X_test)
+    removed = before - len(df)
+    print(f"Da loc {removed} mau nhieu (con lai {len(df)} mau sach).")
+    return df
 
 
-# Khởi tạo model SVM
+def choose_dataset():
+    """
+    Uu tien dataset v2 (5 dac trung) neu da thu du >= 150 mau va moi lop >= 30 mau.
+    Nguoc lai dung dataset legacy (EAR, MAR).
+    """
+    if os.path.exists(V2_DATASET_PATH):
+        df_v2 = pd.read_csv(V2_DATASET_PATH)
+        if all(col in df_v2.columns for col in V2_FEATURES + ["Label"]):
+            counts = df_v2["Label"].value_counts()
+            if len(df_v2) >= 150 and len(counts) == 3 and counts.min() >= 30:
+                print(f"Su dung dataset v2 (5 dac trung): {V2_DATASET_PATH}")
+                return df_v2, V2_FEATURES, "v2_5features"
 
-model = SVC(kernel="rbf", probability=True, C=10, gamma="scale")
+    if not os.path.exists(LEGACY_DATASET_PATH):
+        raise FileNotFoundError(f"Khong tim thay dataset: {LEGACY_DATASET_PATH}")
 
-print("\nDang train model SVM...")
-
-
-# Train
-
-model.fit(X_train_scaled, y_train)
-
-print("Train xong!")
-
-
-# Predict
-
-y_pred = model.predict(X_test_scaled)
-
-
-# Accuracy
-
-accuracy = accuracy_score(y_test, y_pred)
-
-print("\n===== KET QUA =====")
-
-print(f"Do chinh xac: {accuracy * 100:.2f}%")
+    print(f"Su dung dataset legacy (2 dac trung EAR, MAR): {LEGACY_DATASET_PATH}")
+    return pd.read_csv(LEGACY_DATASET_PATH), LEGACY_FEATURES, "legacy_2features"
 
 
-# Classification report
+def train():
+    df, feature_cols, dataset_mode = choose_dataset()
+    df = clean_outliers(df)
 
-print("\n===== CLASSIFICATION REPORT =====")
+    print("\n===== PHAN BO NHAN SAU KHI LAM SACH =====")
+    print(df["Label"].value_counts().sort_index())
 
-print(classification_report(y_test, y_pred))
+    X = df[feature_cols]
+    y = df["Label"].astype(int)
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42, stratify=y
+    )
+
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+
+    # class_weight="balanced" khac phuc mat can bang giua lop Buon ngu (2) va lop 0/1
+    model = SVC(
+        kernel="rbf",
+        probability=True,
+        C=10,
+        gamma="scale",
+        class_weight="balanced",
+        random_state=42,
+    )
+
+    print("\nDang train model SVM (balanced)...")
+    model.fit(X_train_scaled, y_train)
+
+    y_pred = model.predict(X_test_scaled)
+    accuracy = accuracy_score(y_test, y_pred)
+
+    # Danh gia 5-fold CV de kiem tra do on dinh
+    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    X_all_scaled = scaler.transform(X)
+    cv_scores = cross_val_score(model, X_all_scaled, y, cv=cv, scoring="f1_macro")
+
+    print("\n===== KET QUA =====")
+    print(f"Test Accuracy: {accuracy * 100:.2f}%")
+    print(f"5-Fold Macro-F1: {cv_scores.mean() * 100:.2f}% (+/- {cv_scores.std() * 100:.2f}%)")
+    print("\n===== CLASSIFICATION REPORT =====")
+    print(classification_report(y_test, y_pred, target_names=["Tinh tao (0)", "Met/Ngap (1)", "Buon ngu (2)"]))
+    print("===== CONFUSION MATRIX =====")
+    print(confusion_matrix(y_test, y_pred))
+
+    joblib.dump(model, MODEL_PATH)
+    joblib.dump(scaler, SCALER_PATH)
+
+    meta = {
+        "dataset_mode": dataset_mode,
+        "features": feature_cols,
+        "num_samples": int(len(df)),
+        "label_counts": {str(k): int(v) for k, v in y.value_counts().sort_index().items()},
+        "test_accuracy": round(float(accuracy) * 100, 2),
+        "cv_macro_f1": round(float(cv_scores.mean()) * 100, 2),
+    }
+    with open(META_PATH, "w", encoding="utf-8") as f:
+        json.dump(meta, f, ensure_ascii=False, indent=2)
+
+    print(f"\nDa luu model -> {MODEL_PATH}")
+    print(f"Da luu scaler -> {SCALER_PATH}")
+    print(f"Da luu metadata -> {META_PATH}")
 
 
-# Confusion Matrix
-
-print("\n===== CONFUSION MATRIX =====")
-
-print(confusion_matrix(y_test, y_pred))
-
-
-# Lưu model
-
-joblib.dump(model, model_path)
-
-joblib.dump(scaler, scaler_path)
-
-print("\n===== DA LUU MODEL =====")
-print(model_path)
-
-print("\n===== DA LUU SCALER =====")
-print(scaler_path)
-
-print("\nTrain model thanh cong!")
+if __name__ == "__main__":
+    train()
