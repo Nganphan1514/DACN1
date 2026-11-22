@@ -53,6 +53,12 @@ def admin_reports_page():
     return render_template("admin/reports.html")
 
 
+@admin_bp.route("/admin/operations")
+@require_role(*ADMIN_PANEL_ROLES)
+def admin_operations_page():
+    return render_template("admin/operations.html")
+
+
 @admin_bp.route("/api/admin/dashboard")
 @require_role(*ADMIN_PANEL_ROLES)
 def api_admin_dashboard():

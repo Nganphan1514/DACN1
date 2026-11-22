@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trung tâm Vận hành & Kiểm soát V3</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-white min-h-screen">
+
+<nav class="sticky top-0 z-50 bg-slate-950/90 backdrop-blur border-b border-slate-800">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+            <h1 class="text-xl font-bold">DACN1 V3.0 — Trung tâm Vận hành & Kiểm soát</h1>
+            <p id="roleBadge" class="text-sm text-cyan-400">Đang tải thông tin vai trò...</p>
+        </div>
+        <div class="flex gap-2 overflow-x-auto pb-1">
+            <a href="/admin/dashboard" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">Dashboard</a>
+            <a href="/admin/operations" class="px-4 py-2 rounded-xl bg-cyan-600 text-sm font-bold whitespace-nowrap">Vận hành V3</a>
+            <a href="/admin/drivers" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">Tài xế</a>
+            <a href="/admin/vehicles" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">Xe</a>
+            <a href="/admin/scheduler" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">Lịch chạy</a>
+            <a href="/admin/reports" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">Báo cáo</a>
+            <a href="/logout" class="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-sm whitespace-nowrap">Đăng xuất</a>
+        </div>
+    </div>
+</nav>
+
+<main class="max-w-7xl mx-auto p-6">
+    <!-- TABS -->
+    <div class="flex flex-wrap gap-2 mb-6">
+        <button onclick="switchTab('ai')" id="tab-ai" class="tab-btn px-4 py-2.5 rounded-2xl bg-cyan-600 font-bold text-sm">1. Xác minh AI → Vi phạm</button>
+        <button onclick="switchTab('appeals')" id="tab-appeals" class="tab-btn px-4 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-sm">2. Khiếu nại vi phạm</button>
+        <button onclick="switchTab('trips')" id="tab-trips" class="tab-btn px-4 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-sm">3. Chuyến thực tế & Ngoại lệ</button>
+        <button onclick="switchTab('requests')" id="tab-requests" class="tab-btn px-4 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-sm">4. Yêu cầu đổi lịch/xe</button>
+        <button onclick="switchTab('org')" id="tab-org" class="tab-btn px-4 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-sm">5. Tổ chức & Audit Log</button>
+    </div>
+
+    <div id="toast" class="hidden mb-4 p-4 rounded-2xl bg-slate-800 border border-cyan-500/40 text-cyan-200 text-sm"></div>
+
+    <!-- PANEL 1: AI EVENTS -> VERIFY VIOLATION -->
+    <section id="panel-ai" class="panel space-y-4">
+        <div class="flex justify-between items-center">
+            <h2 class="text-xl font-bold">Sự kiện AI chờ xác minh (AI không tự kết luận vi phạm)</h2>
+            <button onclick="loadAiEvents()" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs">Làm mới</button>
+        </div>
+        <div id="aiEventsList" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+    </section>
+
+    <!-- PANEL 2: APPEALS -->
+    <section id="panel-appeals" class="panel hidden space-y-4">
+        <div class="flex justify-between items-center">
+            <h2 class="text-xl font-bold">Trung tâm Xử lý Khiếu nại Vi phạm</h2>
+            <button onclick="loadAppeals()" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs">Làm mới</button>
+        </div>
+        <div id="appealsList" class="space-y-3"></div>
+    </section>
+
+    <!-- PANEL 3: TRIPS -->
+    <section id="panel-trips" class="panel hidden space-y-4">
+        <div class="flex justify-between items-center">
+            <h2 class="text-xl font-bold">Chuyến thực tế & Kết thúc ngoại lệ</h2>
+            <button onclick="loadTrips()" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs">Làm mới</button>
+        </div>
+        <div id="tripsList" class="space-y-3"></div>
+    </section>
+
+    <!-- PANEL 4: CHANGE REQUESTS -->
+    <section id="panel-requests" class="panel hidden space-y-4">
+        <div class="flex justify-between items-center">
+            <h2 class="text-xl font-bold">Yêu cầu đổi lịch / đổi xe từ Tài xế</h2>
+            <button onclick="loadChangeRequests()" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs">Làm mới</button>
+        </div>
+        <div id="requestsList" class="space-y-3"></div>
+    </section>
+
+    <!-- PANEL 5: ORG & AUDIT -->
+    <section id="panel-org" class="panel hidden space-y-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+                <h3 class="font-bold text-lg mb-3">Chi nhánh</h3>
+                <div id="branchesList" class="space-y-2 text-sm text-slate-300"></div>
+            </div>
+            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+                <h3 class="font-bold text-lg mb-3">Đội xe</h3>
+                <div id="fleetsList" class="space-y-2 text-sm text-slate-300"></div>
+            </div>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h3 class="font-bold text-lg mb-3">Nhật ký kiểm toán (Audit Log bất biến)</h3>
+            <div id="auditList" class="space-y-2 text-xs text-slate-300 max-h-96 overflow-y-auto"></div>
+        </div>
+    </section>
+</main>
+
+<script>
+function showToast(msg, isError = false) {
+    const el = document.getElementById("toast");
+    el.textContent = msg;
+    el.className = isError
+        ? "mb-4 p-4 rounded-2xl bg-red-950 border border-red-500/40 text-red-200 text-sm"
+        : "mb-4 p-4 rounded-2xl bg-slate-800 border border-cyan-500/40 text-cyan-200 text-sm";
+    el.classList.remove("hidden");
+    setTimeout(() => el.classList.add("hidden"), 5000);
+}
+
+function switchTab(tab) {
+    document.querySelectorAll(".panel").forEach(p => p.classList.add("hidden"));
+    document.querySelectorAll(".tab-btn").forEach(b => {
+        b.classList.remove("bg-cyan-600", "font-bold");
+        b.classList.add("bg-slate-800");
+    });
+    document.getElementById("panel-" + tab).classList.remove("hidden");
+    const btn = document.getElementById("tab-" + tab);
+    btn.classList.remove("bg-slate-800");
+    btn.classList.add("bg-cyan-600", "font-bold");
+
+    if (tab === "ai") loadAiEvents();
+    if (tab === "appeals") loadAppeals();
+    if (tab === "trips") loadTrips();
+    if (tab === "requests") loadChangeRequests();
+    if (tab === "org") loadOrgAndAudit();
+}
+
+async function loadMe() {
+    try {
+        const res = await fetch("/api/auth/me");
+        const j = await res.json();
+        if (j.success && j.user) {
+            document.getElementById("roleBadge").textContent =
+                `Tài khoản: ${j.user.ten_dang_nhap} • Vai trò: ${j.user.vai_tro_label || j.user.vai_tro}`;
+        }
+    } catch (e) {}
+}
+
+async function loadAiEvents() {
+    const box = document.getElementById("aiEventsList");
+    box.innerHTML = "<p class='text-slate-400 text-sm'>Đang tải...</p>";
+    const res = await fetch("/api/admin/ai-events?limit=40");
+    const j = await res.json();
+    if (!j.success) {
+        box.innerHTML = `<p class='text-red-400 text-sm'>${j.message || "Không có quyền truy cập"}</p>`;
+        return;
+    }
+    if (!j.data.length) {
+        box.innerHTML = "<p class='text-slate-400 text-sm'>Chưa có sự kiện AI nào.</p>";
+        return;
+    }
+    box.innerHTML = j.data.map(ev => `
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-4 flex flex-col gap-3">
+            <div class="flex justify-between items-start gap-2">
+                <div>
+                    <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-red-600/20 text-red-300">${ev.loai_canh_bao}</span>
+                    <span class="ml-2 px-2.5 py-1 rounded-full text-xs bg-slate-800 text-cyan-300">${ev.trang_thai}</span>
+                </div>
+                <span class="text-xs text-slate-400">#${ev.id} • Risk ${ev.risk_score || 0}</span>
+            </div>
+            <p class="text-sm font-semibold">${ev.ho_ten || "Chưa rõ tài xế"} • ${ev.bien_so || "N/A"}</p>
+            <p class="text-xs text-slate-300">${ev.noi_dung || ""}</p>
+            ${ev.image_url ? `<img src="${ev.image_url}" class="w-full h-44 object-cover rounded-2xl border border-slate-800" />` : "<p class='text-xs text-yellow-400'>Không có ảnh bằng chứng</p>"}
+            ${ev.vi_pham_id ? `<p class="text-xs text-emerald-400 font-semibold">Đã lập vi phạm #${ev.vi_pham_id} (${ev.vi_pham_trang_thai})</p>` : `
+                <div class="flex gap-2 mt-1">
+                    <button onclick="verifyViolation(${ev.id})" class="flex-1 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-xs font-bold">Xác minh Vi phạm</button>
+                    <button onclick="rejectAiEvent(${ev.id})" class="flex-1 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-xs font-bold">Bác bỏ (Báo sai)</button>
+                </div>
+            `}
+        </div>
+    `).join("");
+}
+
+async function verifyViolation(id) {
+    const lyDo = prompt("Nhập lý do xác minh vi phạm (bắt buộc, tối thiểu 5 ký tự):");
+    if (!lyDo) return;
+    const res = await fetch(`/api/admin/ai-events/${id}/verify-violation`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ly_do_xac_minh: lyDo})
+    });
+    const j = await res.json();
+    showToast(j.message, !j.success);
+    if (j.success) loadAiEvents();
+}
+
+async function rejectAiEvent(id) {
+    const lyDo = prompt("Nhập lý do bác bỏ sự kiện AI (bắt buộc):");
+    if (!lyDo) return;
+    const res = await fetch(`/api/admin/ai-events/${id}/reject`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({trang_thai: "REJECTED", ly_do: lyDo})
+    });
+    const j = await res.json();
+    showToast(j.message, !j.success);
+    if (j.success) loadAiEvents();
+}
+
+async function loadAppeals() {
+    const box = document.getElementById("appealsList");
+    box.innerHTML = "<p class='text-slate-400 text-sm'>Đang tải...</p>";
+    const res = await fetch("/api/admin/appeals");
+    const j = await res.json();
+    if (!j.success) {
+        box.innerHTML = `<p class='text-red-400 text-sm'>${j.message || "Không có quyền truy cập"}</p>`;
+        return;
+    }
+    if (!j.data.length) {
+        box.innerHTML = "<p class='text-slate-400 text-sm'>Chưa có khiếu nại nào.</p>";
+        return;
+    }
+    box.innerHTML = j.data.map(kn => `
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-2">
+            <div class="flex justify-between items-center">
+                <span class="font-bold text-sm">Khiếu nại #${kn.id} • Vi phạm #${kn.vi_pham_id} (${kn.loai_vi_pham})</span>
+                <span class="px-3 py-1 rounded-full text-xs bg-amber-600/20 text-amber-300 font-bold">${kn.trang_thai}</span>
+            </div>
+            <p class="text-xs text-slate-400">Tài xế: <b class="text-white">${kn.ho_ten || "N/A"}</b> • Trạng thái VP: <b class="text-cyan-300">${kn.vi_pham_trang_thai}</b></p>
+            <p class="text-sm bg-slate-950 p-3 rounded-xl border border-slate-800"><b>Giải trình gốc:</b> ${kn.noi_dung_giai_trinh}</p>
+            ${kn.ly_do_ket_luan ? `<p class="text-xs text-emerald-300"><b>Kết luận:</b> ${kn.ly_do_ket_luan}</p>` : ""}
+            ${!["ACCEPTED", "REJECTED", "CLOSED"].includes(kn.trang_thai) ? `
+                <div class="flex flex-wrap gap-2 pt-2">
+                    <button onclick="decideAppeal(${kn.id}, 'ACCEPTED')" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-xs font-bold">Chấp nhận (Hủy vi phạm)</button>
+                    <button onclick="decideAppeal(${kn.id}, 'REJECTED')" class="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-xs font-bold">Bác bỏ khiếu nại</button>
+                    <button onclick="decideAppeal(${kn.id}, 'NEED_MORE_INFO')" class="px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-xs font-bold">Yêu cầu bổ sung</button>
+                </div>
+            ` : ""}
+        </div>
+    `).join("");
+}
+
+async function decideAppeal(id, decision) {
+    const lyDo = prompt(`Nhập lý do kết luận cho quyết định ${decision} (bắt buộc):`);
+    if (!lyDo) return;
+    const res = await fetch(`/api/admin/appeals/${id}/decide`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({quyet_dinh: decision, ly_do_ket_luan: lyDo})
+    });
+    const j = await res.json();
+    showToast(j.message, !j.success);
+    if (j.success) loadAppeals();
+}
+
+async function loadTrips() {
+    const box = document.getElementById("tripsList");
+    box.innerHTML = "<p class='text-slate-400 text-sm'>Đang tải...</p>";
+    const res = await fetch("/api/admin/trips");
+    const j = await res.json();
+    if (!j.success) {
+        box.innerHTML = `<p class='text-red-400 text-sm'>${j.message || "Lỗi tải dữ liệu"}</p>`;
+        return;
+    }
+    if (!j.data.length) {
+        box.innerHTML = "<p class='text-slate-400 text-sm'>Chưa có chuyến thực tế nào.</p>";
+        return;
+    }
+    box.innerHTML = j.data.map(ct => `
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 flex flex-col md:flex-row justify-between gap-4">
+            <div class="space-y-1">
+                <p class="font-bold">Chuyến #${ct.id} • ${ct.tuyen_duong || "N/A"}</p>
+                <p class="text-xs text-slate-400">Tài xế: ${ct.ho_ten || "N/A"} • Xe: ${ct.bien_so || "N/A"} • Bắt đầu: ${ct.started_at || ""}</p>
+                <p class="text-xs text-amber-300">Tổng thời gian Camera Offline: ${ct.tong_giay_camera_offline || 0} giây</p>
+                ${ct.ly_do_ngoai_le ? `<p class="text-xs text-red-300">Lý do ngoại lệ: ${ct.ly_do_ngoai_le}</p>` : ""}
+            </div>
+            <div class="flex items-center gap-3">
+                <span class="px-3 py-1 rounded-full text-xs font-bold bg-cyan-600/20 text-cyan-300">${ct.trang_thai}</span>
+                ${!["HOAN_THANH", "KET_THUC_NGOAI_LE"].includes(ct.trang_thai) ? `
+                    <button onclick="forceCompleteTrip(${ct.id})" class="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-xs font-bold">Kết thúc ngoại lệ</button>
+                ` : ""}
+            </div>
+        </div>
+    `).join("");
+}
+
+async function forceCompleteTrip(id) {
+    const lyDo = prompt("Nhập lý do kết thúc chuyến ngoại lệ (bắt buộc, không dùng để đối phó lỗi mất kết nối camera):");
+    if (!lyDo) return;
+    const res = await fetch(`/api/admin/trips/${id}/force-complete`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ly_do_ngoai_le: lyDo})
+    });
+    const j = await res.json();
+    showToast(j.message, !j.success);
+    if (j.success) loadTrips();
+}
+
+async function loadChangeRequests() {
+    const box = document.getElementById("requestsList");
+    box.innerHTML = "<p class='text-slate-400 text-sm'>Đang tải...</p>";
+    const res = await fetch("/api/admin/change-requests");
+    const j = await res.json();
+    if (!j.success) {
+        box.innerHTML = `<p class='text-red-400 text-sm'>${j.message || "Không có quyền truy cập"}</p>`;
+        return;
+    }
+    if (!j.data.length) {
+        box.innerHTML = "<p class='text-slate-400 text-sm'>Chưa có yêu cầu đổi lịch/xe nào.</p>";
+        return;
+    }
+    box.innerHTML = j.data.map(r => `
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 flex flex-col md:flex-row justify-between gap-4">
+            <div class="space-y-1">
+                <p class="font-bold text-sm">#${r.id} • ${r.loai_yeu_cau} • Lịch #${r.lich_chay_id} (${r.tuyen_duong || ""})</p>
+                <p class="text-xs text-slate-400">Tài xế: ${r.ho_ten || ""} • Xe: ${r.bien_so || ""}</p>
+                <p class="text-sm text-slate-200">Lý do: ${r.ly_do}</p>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="px-3 py-1 rounded-full text-xs font-bold bg-slate-800 text-cyan-300">${r.trang_thai}</span>
+                ${r.trang_thai === "CHO_DUYET" ? `
+                    <button onclick="decideChangeRequest(${r.id}, 'approve')" class="px-3 py-2 rounded-xl bg-emerald-600 text-xs font-bold">Duyệt</button>
+                    <button onclick="decideChangeRequest(${r.id}, 'reject')" class="px-3 py-2 rounded-xl bg-red-600 text-xs font-bold">Từ chối</button>
+                ` : ""}
+            </div>
+        </div>
+    `).join("");
+}
+
+async function decideChangeRequest(id, action) {
+    let body = {};
+    if (action === "reject") {
+        const lyDo = prompt("Nhập lý do từ chối yêu cầu (bắt buộc):");
+        if (!lyDo) return;
+        body = {ly_do_tu_choi: lyDo};
+    }
+    const res = await fetch(`/api/admin/change-requests/${id}/${action}`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(body)
+    });
+    const j = await res.json();
+    showToast(j.message, !j.success);
+    if (j.success) loadChangeRequests();
+}
+
+async function loadOrgAndAudit() {
+    const [bRes, fRes, aRes] = await Promise.all([
+        fetch("/api/admin/branches").then(r => r.json()).catch(() => ({success: false})),
+        fetch("/api/admin/fleets").then(r => r.json()).catch(() => ({success: false})),
+        fetch("/api/admin/audit-logs?limit=50").then(r => r.json()).catch(() => ({success: false})),
+    ]);
+    document.getElementById("branchesList").innerHTML = bRes.success && bRes.data.length
+        ? bRes.data.map(b => `<div class="p-3 rounded-xl bg-slate-950 border border-slate-800"><b>${b.ma_chi_nhanh}</b> — ${b.ten} (${b.so_doi_xe} đội xe)</div>`).join("")
+        : "<p class='text-slate-500'>Không có dữ liệu hoặc không đủ quyền.</p>";
+    document.getElementById("fleetsList").innerHTML = fRes.success && fRes.data.length
+        ? fRes.data.map(f => `<div class="p-3 rounded-xl bg-slate-950 border border-slate-800"><b>${f.ma_doi_xe}</b> — ${f.ten} (${f.ten_chi_nhanh}) • ${f.so_tai_xe} TX, ${f.so_xe} xe</div>`).join("")
+        : "<p class='text-slate-500'>Không có dữ liệu hoặc không đủ quyền.</p>";
+    document.getElementById("auditList").innerHTML = aRes.success && aRes.data.length
+        ? aRes.data.map(l => `<div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800">[${l.thoi_gian || ""}] <b class="text-cyan-300">${l.hanh_dong}</b> (${l.bang_du_lieu}#${l.doi_tuong_id || ""}) bởi <b>${l.nguoi_thuc_hien || l.nguoi_thuc_hien_id}</b> ${l.ly_do ? "• Lý do: " + l.ly_do : ""}</div>`).join("")
+        : "<p class='text-slate-500'>Không có dữ liệu hoặc không đủ quyền xem Audit Log.</p>";
+}
+
+loadMe();
+loadAiEvents();
+</script>
+</body>
+</html>

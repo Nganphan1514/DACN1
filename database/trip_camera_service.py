@@ -46,6 +46,21 @@ def tai_xe_bat_dau_chuyen(lich_chay_id, tai_xe_id, actor_id, ghi_chu=None):
                     "Tài xế bắt buộc xác nhận lịch (DA_XAC_NHAN) trước khi bắt đầu chuyến."
                 )
 
+            # P1: Chan bat dau chuyen neu checklist truoc chuyen gan nhat KHONG_DAT
+            try:
+                cur.execute(
+                    "SELECT ket_qua_tong FROM checklist_truoc_chuyen WHERE lich_chay_id = %s ORDER BY id DESC LIMIT 1",
+                    (int(lich_chay_id),),
+                )
+                chk = cur.fetchone()
+                if chk and chk.get("ket_qua_tong") == "KHONG_DAT":
+                    return None, 409, (
+                        "Checklist kiểm tra xe trước chuyến đang ở trạng thái KHÔNG ĐẠT. "
+                        "Vui lòng chờ quản lý xử lý sự cố và thực hiện lại checklist đạt trước khi khởi hành."
+                    )
+            except Exception:
+                pass
+
             xe_id = lich.get("xe_id")
             _lock_driver_and_vehicle(cur, tai_xe_id, xe_id)
 

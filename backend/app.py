@@ -18,6 +18,7 @@ from backend.routes.dashboard_routes import dashboard_bp
 from backend.routes.driver_routes import driver_bp
 from backend.routes.face_routes import face_bp
 from backend.routes.org_routes import org_bp
+from backend.routes.p1_routes import p1_bp
 from backend.routes.realtime_routes import realtime_bp
 from backend.routes.report_routes import report_bp
 from backend.routes.scheduler_routes import scheduler_bp
@@ -40,6 +41,7 @@ app.register_blueprint(dashboard_bp)
 app.register_blueprint(driver_bp)
 app.register_blueprint(face_bp)
 app.register_blueprint(org_bp)
+app.register_blueprint(p1_bp)
 app.register_blueprint(realtime_bp)
 app.register_blueprint(report_bp)
 app.register_blueprint(admin_bp)

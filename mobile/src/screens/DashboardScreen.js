@@ -13,9 +13,11 @@ export default function DashboardScreen() {
   const { user } = useAuth();
   const [data, setData] = useState(null);
   const [faceStatus, setFaceStatus] = useState(null);
+  const [cameraStatus, setCameraStatus] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  const isAdmin = user?.vai_tro === "quan_ly";
+  const isDriver = user?.vai_tro === "tai_xe";
+  const isAdmin = !isDriver;
   const driverId = user?.tai_xe_id || user?.id;
 
   const loadData = useCallback(async () => {
@@ -25,12 +27,14 @@ export default function DashboardScreen() {
         const res = await apiRequest("/api/admin/dashboard");
         if (res.data?.success) setData(res.data.data);
       } else if (driverId) {
-        const [dashRes, faceRes] = await Promise.all([
+        const [dashRes, faceRes, camRes] = await Promise.all([
           apiRequest(`/api/driver/dashboard/${driverId}`),
           apiRequest(`/api/driver/face-status/${driverId}`),
+          apiRequest("/api/driver/camera-status"),
         ]);
         if (dashRes.data?.success) setData(dashRes.data.data);
         if (faceRes.data?.success) setFaceStatus(faceRes.data.data);
+        if (camRes.data?.success) setCameraStatus(camRes.data.data);
       }
     } catch (e) {
       console.warn("Load dashboard error:", e);
@@ -43,6 +47,9 @@ export default function DashboardScreen() {
     loadData();
   }, [loadData]);
 
+  const camHealth = cameraStatus?.health_status || cameraStatus?.status || "UNKNOWN";
+  const isCamOffline = camHealth === "OFFLINE";
+
   return (
     <ScrollView
       style={styles.container}
@@ -52,10 +59,10 @@ export default function DashboardScreen() {
       }
     >
       <Text style={styles.title}>
-        {isAdmin ? "Tổng quan Quản lý" : "Cabin Tài xế"}
+        {isAdmin ? "Tổng quan Quản trị" : "Cabin Tài xế"}
       </Text>
       <Text style={styles.sub}>
-        Xin chào, {data?.ho_ten || user?.ten_dang_nhap} ({isAdmin ? "Quản lý" : "Tài xế"})
+        Xin chào, {data?.ho_ten || user?.ten_dang_nhap} ({user?.vai_tro_label || user?.vai_tro})
       </Text>
 
       {isAdmin ? (
@@ -68,6 +75,32 @@ export default function DashboardScreen() {
         </View>
       ) : (
         <View style={styles.stack}>
+          {/* BANNER TRANG THAI CAMERA (CAM-01, CAM-02) */}
+          <View
+            style={[
+              styles.card,
+              isCamOffline ? styles.camOfflineCard : styles.camOnlineCard,
+            ]}
+          >
+            <Text style={styles.cardLabel}>TRẠNG THÁI CAMERA CABIN</Text>
+            <Text style={[styles.cardBig, { color: isCamOffline ? "#fca5a5" : "#6ee7b7" }]}>
+              {camHealth === "ONLINE_HEALTHY"
+                ? "Đang hoạt động tốt"
+                : camHealth === "ONLINE_DEGRADED"
+                ? "Tín hiệu suy giảm"
+                : isCamOffline
+                ? "CAMERA MẤT KẾT NỐI"
+                : "Chưa có tín hiệu"}
+            </Text>
+            <Text style={styles.cardSub}>
+              {isCamOffline
+                ? "Chuyến đi vẫn tiếp tục ghi nhận (không tự kết thúc). Quản lý đã được thông báo; vui lòng kiểm tra thiết bị khi dừng xe an toàn."
+                : cameraStatus?.device_id
+                ? `Thiết bị: ${cameraStatus.device_id} • FPS: ${Number(cameraStatus.fps || 0).toFixed(1)}`
+                : "Chưa ghi nhận thiết bị camera trên xe phụ trách."}
+            </Text>
+          </View>
+
           <View style={styles.card}>
             <Text style={styles.cardLabel}>XE PHỤ TRÁCH</Text>
             <Text style={styles.cardBig}>{data?.bien_so || "Chưa phân công"}</Text>
@@ -119,8 +152,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#1e293b",
   },
-  statLabel: { color: "#94a3b8", fontSize: 12, fontWeight: "600" },
-  statValue: { fontSize: 28, fontWeight: "900", marginTop: 8 },
+  statLabel: { color: "#94a3b8", fontSize: 13 },
+  statValue: { fontSize: 30, fontWeight: "900", marginTop: 8 },
   stack: { gap: 14 },
   card: {
     backgroundColor: "#0f172a",
@@ -129,8 +162,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#1e293b",
   },
-  cardLabel: { color: "#22d3ee", fontSize: 11, fontWeight: "700", letterSpacing: 1 },
+  camOfflineCard: {
+    backgroundColor: "#450a0a",
+    borderColor: "#dc2626",
+  },
+  camOnlineCard: {
+    borderColor: "#0f766e",
+  },
+  cardLabel: { color: "#94a3b8", fontSize: 11, fontWeight: "700", letterSpacing: 1 },
   cardBig: { color: "#fff", fontSize: 22, fontWeight: "800", marginTop: 6 },
-  cardSub: { color: "#cbd5e1", marginTop: 6, lineHeight: 20 },
-  badge: { color: "#34d399", fontWeight: "700", marginTop: 10 },
+  cardSub: { color: "#cbd5e1", fontSize: 13, marginTop: 6, lineHeight: 19 },
+  badge: { color: "#22d3ee", fontSize: 13, fontWeight: "700", marginTop: 10 },
 });
