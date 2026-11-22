@@ -12,7 +12,7 @@ from config.ai_config import (
     AUTH_CHECK_INTERVAL,
     AUTH_MIN_HITS,
     AUTH_SCAN_SECONDS,
-    CAMERA_INDEX,
+    CAMERA_SOURCE,
     DANGEROUS_TIME_WARNING_INTERVAL,
     DROWSY_CONFIRM_TIME,
     DROWSY_THRESHOLD,
@@ -401,23 +401,33 @@ def khoa_tai_xe_sai_xe(tai_xe_id, ten_nhan_dien, frame=None):
 
 
 
-# CAMERA
+# CAMERA (HO TRO CA WEBCAM 0/1 LAN CAMERA IP/RTSP TREN XE)
 
-print("Dang mo camera...", flush=True)
+print(f"Dang mo camera ({CAMERA_SOURCE})...", flush=True)
 
-if os.name == "nt":
-    cap = cv2.VideoCapture(CAMERA_INDEX, cv2.CAP_DSHOW)
-    if not cap.isOpened():
-        cap = cv2.VideoCapture(CAMERA_INDEX)
+if isinstance(CAMERA_SOURCE, int):
+    if os.name == "nt":
+        cap = cv2.VideoCapture(CAMERA_SOURCE, cv2.CAP_DSHOW)
+        if not cap.isOpened():
+            cap = cv2.VideoCapture(CAMERA_SOURCE)
+    else:
+        cap = cv2.VideoCapture(CAMERA_SOURCE)
 else:
-    cap = cv2.VideoCapture(CAMERA_INDEX)
+    cap = cv2.VideoCapture(CAMERA_SOURCE, cv2.CAP_FFMPEG)
+    if not cap.isOpened():
+        cap = cv2.VideoCapture(CAMERA_SOURCE)
 
 if not cap.isOpened():
-    print("Khong mo duoc camera! Hay kiem tra quyen webcam hoac dong ung dung khac dang dung camera.", flush=True)
+    print(
+        f"Khong mo duoc camera ({CAMERA_SOURCE})! "
+        "Hay kiem tra quyen webcam, link RTSP/HTTP hoac dong ung dung khac dang dung camera.",
+        flush=True,
+    )
     exit()
 
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
+cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
 cv2.namedWindow(WINDOW_TITLE, cv2.WINDOW_NORMAL)
 print("Da mo camera thanh cong! Nhan 1 (Dung), 2 (Chay), Q (Thoat).", flush=True)

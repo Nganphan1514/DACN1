@@ -8,7 +8,7 @@ import cv2
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from config.ai_config import CAMERA_INDEX, EAR_THRESHOLD, FRAME_HEIGHT, FRAME_WIDTH
+from config.ai_config import CAMERA_SOURCE, EAR_THRESHOLD, FRAME_HEIGHT, FRAME_WIDTH
 from detection.eye_calibration import EyeCalibration
 from detection.head_pose import get_head_pose
 from detection.mediapipe_detector import detect_face_features
@@ -72,19 +72,25 @@ def save_sample(ear, mar, pitch, yaw, perclos, label):
 
 
 def open_camera():
-    if os.name == "nt":
-        cap = cv2.VideoCapture(CAMERA_INDEX, cv2.CAP_DSHOW)
-        if not cap.isOpened():
-            cap = cv2.VideoCapture(CAMERA_INDEX)
+    if isinstance(CAMERA_SOURCE, int):
+        if os.name == "nt":
+            cap = cv2.VideoCapture(CAMERA_SOURCE, cv2.CAP_DSHOW)
+            if not cap.isOpened():
+                cap = cv2.VideoCapture(CAMERA_SOURCE)
+        else:
+            cap = cv2.VideoCapture(CAMERA_SOURCE)
     else:
-        cap = cv2.VideoCapture(CAMERA_INDEX)
+        cap = cv2.VideoCapture(CAMERA_SOURCE, cv2.CAP_FFMPEG)
+        if not cap.isOpened():
+            cap = cv2.VideoCapture(CAMERA_SOURCE)
 
     if not cap.isOpened():
-        print("Khong mo duoc camera!", flush=True)
+        print(f"Khong mo duoc camera ({CAMERA_SOURCE})!", flush=True)
         sys.exit(1)
 
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
+    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
     return cap
 
 

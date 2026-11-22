@@ -1,5 +1,24 @@
+import os
+
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except ImportError:
+    pass
+
+
+def _parse_camera_source(raw_value):
+    val = str(raw_value).strip()
+    if val.isdigit():
+        return int(val)
+    return val
+
+
 # CAU HINH CAMERA & HIEN THI
-CAMERA_INDEX = 0
+# Ho tro ca so webcam (0, 1) lan luong Camera IP/RTSP tren xe (rtsp://..., http://.../video)
+CAMERA_SOURCE = _parse_camera_source(os.getenv("CAMERA_SOURCE", "0"))
+CAMERA_INDEX = CAMERA_SOURCE if isinstance(CAMERA_SOURCE, int) else 0
 FRAME_WIDTH = 960
 FRAME_HEIGHT = 540
 WINDOW_TITLE = "AI Drowsiness Detection - DACN1"
