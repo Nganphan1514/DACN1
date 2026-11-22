@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from flask import Flask, redirect
+from flask import Flask, redirect, render_template
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 
@@ -12,6 +12,7 @@ from config.app_config import (
     SECRET_KEY,
 )
 from backend.routes.admin_routes import admin_bp
+from backend.routes.ai_monitor_routes import ai_monitor_bp
 from backend.routes.auth_routes import auth_bp
 from backend.routes.dashboard_routes import dashboard_bp
 from backend.routes.driver_routes import driver_bp
@@ -38,12 +39,18 @@ app.register_blueprint(face_bp)
 app.register_blueprint(realtime_bp)
 app.register_blueprint(report_bp)
 app.register_blueprint(admin_bp)
+app.register_blueprint(ai_monitor_bp)
 app.register_blueprint(scheduler_bp)
 
 
 @app.route("/")
 def index():
     return redirect("/login")
+
+
+@app.route("/privacy")
+def privacy_policy():
+    return render_template("privacy.html")
 
 
 if __name__ == "__main__":

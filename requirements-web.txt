@@ -10,4 +10,7 @@ numpy>=1.26.0
 opencv-python-headless>=4.10.0
 dlib-bin>=19.24.0
 face_recognition_models==0.3.0
+joblib>=1.4.0
+mediapipe==0.10.14
 requests>=2.32.0
+scikit-learn>=1.5.0

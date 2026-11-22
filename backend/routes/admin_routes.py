@@ -21,7 +21,10 @@ from database.mysql_service import (
     tao_xe,
     cap_nhat_xe,
     lay_admin_analytics,
+    lay_anh_canh_bao,
+    lay_nguoi_la,
 )
+from services.storage_service import resolve_snapshot_url
 
 admin_bp = Blueprint("admin_bp", __name__)
 
@@ -47,6 +50,41 @@ def api_admin_dashboard():
         "success": True,
         "data": data
     })
+
+
+@admin_bp.route("/api/admin/snapshots")
+@require_role("quan_ly")
+def api_admin_snapshots():
+    drowsy_rows = lay_anh_canh_bao(limit=20)
+    unknown_rows = lay_nguoi_la(limit=20)
+
+    gallery = []
+    for row in drowsy_rows:
+        url = resolve_snapshot_url(row.get("duong_dan_anh"))
+        if url:
+            gallery.append({
+                "type": "BUON_NGU",
+                "image_url": url,
+                "driver_name": row.get("ho_ten") or f"Tài xế #{row.get('tai_xe_id') or '?'}",
+                "vehicle": row.get("bien_so") or "N/A",
+                "note": "Cảnh báo buồn ngủ",
+                "thoi_gian": str(row.get("thoi_gian") or ""),
+            })
+
+    for row in unknown_rows:
+        url = resolve_snapshot_url(row.get("duong_dan_anh"))
+        if url:
+            gallery.append({
+                "type": "NGUOI_LA",
+                "image_url": url,
+                "driver_name": "Người lạ / Sai xe",
+                "vehicle": row.get("bien_so") or "N/A",
+                "note": row.get("ghi_chu") or "Người lái chưa xác thực",
+                "thoi_gian": str(row.get("thoi_gian") or ""),
+            })
+
+    gallery.sort(key=lambda x: x["thoi_gian"], reverse=True)
+    return jsonify({"success": True, "data": gallery[:24]})
 
 
 @admin_bp.route("/admin/drivers")

@@ -20,10 +20,16 @@ COPY requirements-web.txt .
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements-web.txt
 
-# Copy ma nguon can thiet cho Backend API & Face Embedding 128D
+# Copy ma nguon can thiet cho Backend API, Face Embedding 128D & Mobile Backup AI Monitor
+COPY alerts/snapshot.py ./alerts/snapshot.py
 COPY backend/ ./backend/
 COPY config/ ./config/
+COPY core/ ./core/
 COPY database/ ./database/
+COPY detection/ ./detection/
+COPY model/drowsy_model.pkl ./model/drowsy_model.pkl
+COPY model/scaler.pkl ./model/scaler.pkl
+COPY model/model_meta.json ./model/model_meta.json
 COPY services/ ./services/
 COPY face_auth/embedding_service.py ./face_auth/embedding_service.py
 
