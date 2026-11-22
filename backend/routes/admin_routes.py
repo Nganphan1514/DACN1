@@ -11,6 +11,14 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from backend.middleware.auth_guard import require_role
+from core.ops_rules import (
+    ADMIN_PANEL_ROLES,
+    FLEET_MANAGE_ROLES,
+    FLEET_VIEW_ROLES,
+    MANAGER_CONTROL_ROLES,
+    MONITOR_ROLES,
+    mask_sensitive_id,
+)
 from database.mysql_service import (
     lay_admin_dashboard,
     lay_danh_sach_tai_xe,
@@ -33,19 +41,19 @@ admin_bp = Blueprint("admin_bp", __name__)
 
 
 @admin_bp.route("/admin/dashboard")
-@require_role("quan_ly")
+@require_role(*ADMIN_PANEL_ROLES)
 def admin_dashboard_page():
     return render_template("admin/dashboard.html")
 
 
 @admin_bp.route("/admin/reports")
-@require_role("quan_ly")
+@require_role(*ADMIN_PANEL_ROLES)
 def admin_reports_page():
     return render_template("admin/reports.html")
 
 
 @admin_bp.route("/api/admin/dashboard")
-@require_role("quan_ly")
+@require_role(*ADMIN_PANEL_ROLES)
 def api_admin_dashboard():
     data = lay_admin_dashboard()
 
@@ -56,7 +64,7 @@ def api_admin_dashboard():
 
 
 @admin_bp.route("/api/admin/snapshots")
-@require_role("quan_ly")
+@require_role(*MONITOR_ROLES)
 def api_admin_snapshots():
     drowsy_rows = lay_anh_canh_bao(limit=20)
     unknown_rows = lay_nguoi_la(limit=20)
@@ -91,7 +99,7 @@ def api_admin_snapshots():
 
 
 @admin_bp.route("/api/admin/alerts", methods=["GET"])
-@require_role("quan_ly")
+@require_role(*MONITOR_ROLES)
 def api_admin_alerts():
     trang_thai = request.args.get("trang_thai")
     rows = lay_danh_sach_su_kien_canh_bao(trang_thai=trang_thai, limit=40)
@@ -100,11 +108,8 @@ def api_admin_alerts():
     return jsonify({"success": True, "data": rows})
 
 
-from core.ops_rules import mask_sensitive_id
-
-
 @admin_bp.route("/api/admin/alerts/<int:canh_bao_id>", methods=["PUT"])
-@require_role("quan_ly")
+@require_role(*MANAGER_CONTROL_ROLES)
 def api_update_admin_alert(canh_bao_id):
     data = request.get_json(silent=True) or {}
     trang_thai = (data.get("trang_thai") or "").strip()
@@ -129,20 +134,20 @@ def api_update_admin_alert(canh_bao_id):
 
 
 @admin_bp.route("/api/admin/devices", methods=["GET"])
-@require_role("quan_ly")
+@require_role(*MONITOR_ROLES)
 def api_admin_devices():
     rows = lay_danh_sach_thiet_bi_camera(online_timeout_seconds=60)
     return jsonify({"success": True, "data": rows})
 
 
 @admin_bp.route("/admin/drivers")
-@require_role("quan_ly")
+@require_role(*FLEET_VIEW_ROLES)
 def admin_drivers_page():
     return render_template("admin/drivers.html")
 
 
 @admin_bp.route("/api/admin/drivers", methods=["GET"])
-@require_role("quan_ly")
+@require_role(*FLEET_VIEW_ROLES)
 def api_admin_drivers():
     data = lay_danh_sach_tai_xe()
     for item in data:
@@ -155,7 +160,7 @@ def api_admin_drivers():
 
 
 @admin_bp.route("/api/admin/drivers", methods=["POST"])
-@require_role("quan_ly")
+@require_role(*FLEET_MANAGE_ROLES)
 def api_create_driver():
     data = request.get_json(silent=True) or {}
 
@@ -204,7 +209,7 @@ def api_create_driver():
     }), 201
 
 @admin_bp.route("/api/admin/drivers/<int:tai_xe_id>", methods=["PUT"])
-@require_role("quan_ly")
+@require_role(*FLEET_MANAGE_ROLES)
 def api_update_driver(tai_xe_id):
     data = request.get_json(silent=True) or {}
 
@@ -229,13 +234,13 @@ def api_update_driver(tai_xe_id):
 
 
 @admin_bp.route("/admin/vehicles")
-@require_role("quan_ly")
+@require_role(*FLEET_VIEW_ROLES)
 def admin_vehicles_page():
     return render_template("admin/vehicles.html")
 
 
 @admin_bp.route("/api/admin/vehicles", methods=["GET"])
-@require_role("quan_ly")
+@require_role(*FLEET_VIEW_ROLES)
 def api_admin_vehicles():
     data = lay_danh_sach_xe_admin()
 
@@ -246,7 +251,7 @@ def api_admin_vehicles():
 
 
 @admin_bp.route("/api/admin/vehicles", methods=["POST"])
-@require_role("quan_ly")
+@require_role(*FLEET_MANAGE_ROLES)
 def api_create_vehicle():
     data = request.get_json(silent=True) or {}
 
@@ -283,7 +288,7 @@ def api_create_vehicle():
         "id": xe_id,
     }), 201
 @admin_bp.route("/api/admin/vehicles/<int:xe_id>", methods=["PUT"])
-@require_role("quan_ly")
+@require_role(*FLEET_MANAGE_ROLES)
 def api_update_vehicle(xe_id):
     data = request.get_json(silent=True) or {}
 
@@ -320,13 +325,13 @@ def api_update_vehicle(xe_id):
 
 
 @admin_bp.route("/admin/analytics")
-@require_role("quan_ly")
+@require_role(*ADMIN_PANEL_ROLES)
 def admin_analytics_page():
     return render_template("admin/analytics.html")
 
 
 @admin_bp.route("/api/admin/analytics")
-@require_role("quan_ly")
+@require_role(*ADMIN_PANEL_ROLES)
 def api_admin_analytics():
     data = lay_admin_analytics()
 
@@ -378,7 +383,7 @@ def _register_unicode_fonts(base_dir):
 
 
 @admin_bp.route("/api/admin/export-pdf")
-@require_role("quan_ly")
+@require_role(*ADMIN_PANEL_ROLES)
 def export_admin_pdf():
     data = lay_admin_analytics()
     tu_ngay = request.args.get("from")

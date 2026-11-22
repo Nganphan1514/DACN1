@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 import json
 import threading
 
@@ -120,6 +121,40 @@ class PostgresService:
             broken = True
             raise
         finally:
+            self._release_connection(conn, broken=broken)
+
+    @contextmanager
+    def transaction(self):
+        """
+        V3.0: Context manager thuc thi nhieu cau lenh trong 1 PostgreSQL transaction
+        (tu dong commit khi thanh cong, rollback khi co ngoai le).
+        """
+        conn = self._get_connection()
+        broken = False
+        try:
+            conn.autocommit = False
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                yield cursor
+            conn.commit()
+        except OperationalError:
+            broken = True
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            raise
+        except Exception:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            raise
+        finally:
+            if not broken:
+                try:
+                    conn.autocommit = True
+                except Exception:
+                    broken = True
             self._release_connection(conn, broken=broken)
 
 
@@ -1076,10 +1111,31 @@ def ghi_lich_su_thao_tac(
     bang_du_lieu,
     doi_tuong_id=None,
     ghi_chu=None,
+    du_lieu_truoc=None,
+    du_lieu_sau=None,
+    ly_do=None,
 ):
+    """
+    Ghi nhat ky kiem toan (Audit Log).
+    Ho tro them du_lieu_truoc/du_lieu_sau (JSONB) va ly_do theo dac ta V3.0,
+    tu dong loai bo truong nhay cam (mat_khau, token, vector_khuon_mat).
+    """
+    def _sanitize(payload):
+        if payload is None:
+            return None
+        if isinstance(payload, dict):
+            hidden = {"mat_khau", "password", "token", "vector_khuon_mat", "access_token"}
+            cleaned = {
+                k: v for k, v in payload.items()
+                if str(k).lower() not in hidden
+            }
+            return json.dumps(cleaned, ensure_ascii=False, default=str)
+        return json.dumps(payload, ensure_ascii=False, default=str)
+
+    truoc_json = _sanitize(du_lieu_truoc)
+    sau_json = _sanitize(du_lieu_sau)
 
     try:
-
         query = """
         INSERT INTO
         lich_su_thao_tac
@@ -1089,12 +1145,14 @@ def ghi_lich_su_thao_tac(
             hanh_dong,
             bang_du_lieu,
             doi_tuong_id,
-            ghi_chu
+            ghi_chu,
+            du_lieu_truoc,
+            du_lieu_sau,
+            ly_do
         )
         VALUES
-        (%s,%s,%s,%s,%s,%s)
+        (%s,%s,%s,%s,%s,%s,%s::jsonb,%s::jsonb,%s)
         """
-
         db.execute(
             query,
             (
@@ -1104,16 +1162,44 @@ def ghi_lich_su_thao_tac(
                 bang_du_lieu,
                 doi_tuong_id,
                 ghi_chu,
+                truoc_json,
+                sau_json,
+                ly_do,
             ),
         )
-
         return True
-
-    except Exception as e:
-
-        print("Audit log error:", e)
-
-        return False
+    except Exception:
+        # Fallback tuong thich nguoc neu DB chua chay migration V3 bo sung 3 cot moi
+        try:
+            query_legacy = """
+            INSERT INTO
+            lich_su_thao_tac
+            (
+                nguoi_thuc_hien_id,
+                vai_tro,
+                hanh_dong,
+                bang_du_lieu,
+                doi_tuong_id,
+                ghi_chu
+            )
+            VALUES
+            (%s,%s,%s,%s,%s,%s)
+            """
+            db.execute(
+                query_legacy,
+                (
+                    nguoi_thuc_hien_id,
+                    vai_tro,
+                    hanh_dong,
+                    bang_du_lieu,
+                    doi_tuong_id,
+                    ly_do or ghi_chu,
+                ),
+            )
+            return True
+        except Exception as e:
+            print("Audit log error:", e)
+            return False
 
 
 

@@ -1,6 +1,7 @@
 from flask import Blueprint, g, jsonify, render_template, request
 
 from backend.middleware.auth_guard import require_role
+from core.ops_rules import DISPATCH_ROLES, MANAGER_CONTROL_ROLES
 from database.mysql_service import (
     tao_lich_chay,
     lay_tat_ca_lich_chay,
@@ -17,7 +18,7 @@ scheduler_bp = Blueprint("scheduler_bp", __name__)
 # TRANG QUAN LY LICH CHAY
 
 @scheduler_bp.route("/admin/scheduler")
-@require_role("quan_ly")
+@require_role(*DISPATCH_ROLES)
 def admin_scheduler_page():
     return render_template("admin/scheduler.html")
 
@@ -25,7 +26,7 @@ def admin_scheduler_page():
 # DANH SACH LICH CHAY
 
 @scheduler_bp.route("/api/admin/schedules", methods=["GET"])
-@require_role("quan_ly")
+@require_role(*DISPATCH_ROLES)
 def api_admin_schedules():
     data = lay_tat_ca_lich_chay()
 
@@ -39,7 +40,7 @@ def api_admin_schedules():
 # Chi hien tai xe dang lam va xe dang hoat dong
 
 @scheduler_bp.route("/api/admin/schedules/options", methods=["GET"])
-@require_role("quan_ly")
+@require_role(*DISPATCH_ROLES)
 def api_schedule_options():
     drivers = lay_danh_sach_tai_xe()
     vehicles = lay_danh_sach_xe_admin()
@@ -67,7 +68,7 @@ def api_schedule_options():
 # TAO LICH MOI
 
 @scheduler_bp.route("/api/admin/schedules", methods=["POST"])
-@require_role("quan_ly")
+@require_role(*DISPATCH_ROLES)
 def api_create_schedule():
     data = request.get_json(silent=True) or {}
 
@@ -126,7 +127,7 @@ def api_create_schedule():
     "/api/admin/schedules/<int:lich_id>",
     methods=["PUT"]
 )
-@require_role("quan_ly")
+@require_role(*DISPATCH_ROLES)
 def api_update_schedule(lich_id):
     data = request.get_json(silent=True) or {}
 
@@ -162,7 +163,7 @@ def api_update_schedule(lich_id):
     "/api/admin/schedules/<int:lich_id>",
     methods=["DELETE"]
 )
-@require_role("quan_ly")
+@require_role(*MANAGER_CONTROL_ROLES)
 def api_delete_schedule(lich_id):
     ok = xoa_lich_chay(
         lich_id=lich_id,

@@ -57,3 +57,180 @@ def mask_sensitive_id(value):
     if len(text) <= 7:
         return text[:2] + ("*" * (len(text) - 4)) + text[-2:]
     return text[:3] + ("*" * (len(text) - 6)) + text[-3:]
+
+
+# ============================================================
+# V3.0 - RBAC 6 VAI TRO & DATA SCOPE RULES (PURE FUNCTIONS)
+# ============================================================
+
+ROLE_ADMIN_HE_THONG = "admin_he_thong"
+ROLE_QUAN_TRI_CONG_TY = "quan_tri_cong_ty"
+ROLE_QUAN_LY = "quan_ly"
+ROLE_DIEU_PHOI_VIEN = "dieu_phoi_vien"
+ROLE_GIAM_SAT = "giam_sat"
+ROLE_TAI_XE = "tai_xe"
+
+VALID_ROLES = {
+    ROLE_ADMIN_HE_THONG,
+    ROLE_QUAN_TRI_CONG_TY,
+    ROLE_QUAN_LY,
+    ROLE_DIEU_PHOI_VIEN,
+    ROLE_GIAM_SAT,
+    ROLE_TAI_XE,
+}
+
+ROLE_LABELS = {
+    ROLE_ADMIN_HE_THONG: "Quản trị hệ thống",
+    ROLE_QUAN_TRI_CONG_TY: "Quản trị công ty",
+    ROLE_QUAN_LY: "Quản lý chi nhánh / đội xe",
+    ROLE_DIEU_PHOI_VIEN: "Điều phối viên",
+    ROLE_GIAM_SAT: "Nhân viên giám sát",
+    ROLE_TAI_XE: "Tài xế",
+}
+
+# Nhom vai tro duoc vao Web Quan tri
+ADMIN_PANEL_ROLES = (
+    ROLE_ADMIN_HE_THONG,
+    ROLE_QUAN_TRI_CONG_TY,
+    ROLE_QUAN_LY,
+    ROLE_DIEU_PHOI_VIEN,
+    ROLE_GIAM_SAT,
+)
+
+# Quan ly to chuc cap Cong ty / Chi nhanh
+ORG_ADMIN_ROLES = (
+    ROLE_ADMIN_HE_THONG,
+    ROLE_QUAN_TRI_CONG_TY,
+)
+
+# Quan ly doi xe, tai xe, xe
+FLEET_MANAGE_ROLES = (
+    ROLE_ADMIN_HE_THONG,
+    ROLE_QUAN_TRI_CONG_TY,
+    ROLE_QUAN_LY,
+)
+
+# Xem danh sach tai xe / xe / doi xe
+FLEET_VIEW_ROLES = (
+    ROLE_ADMIN_HE_THONG,
+    ROLE_QUAN_TRI_CONG_TY,
+    ROLE_QUAN_LY,
+    ROLE_DIEU_PHOI_VIEN,
+    ROLE_GIAM_SAT,
+)
+
+# Dieu phoi lich trinh (phan cong tai xe & phuong tien)
+DISPATCH_ROLES = (
+    ROLE_ADMIN_HE_THONG,
+    ROLE_QUAN_TRI_CONG_TY,
+    ROLE_QUAN_LY,
+    ROLE_DIEU_PHOI_VIEN,
+)
+
+# Theo doi chuyen di realtime, camera & su kien AI
+MONITOR_ROLES = (
+    ROLE_ADMIN_HE_THONG,
+    ROLE_QUAN_TRI_CONG_TY,
+    ROLE_QUAN_LY,
+    ROLE_GIAM_SAT,
+)
+
+# Xac minh su kien AI -> vi pham, xu ly khieu nai, ket thuc chuyen ngoai le
+MANAGER_CONTROL_ROLES = (
+    ROLE_QUAN_LY,
+    ROLE_QUAN_TRI_CONG_TY,
+)
+
+# Xem nhat ky kiem toan (Audit Log)
+AUDIT_VIEW_ROLES = (
+    ROLE_ADMIN_HE_THONG,
+    ROLE_QUAN_TRI_CONG_TY,
+    ROLE_QUAN_LY,
+)
+
+
+def la_vai_tro_hop_le(vai_tro):
+    return str(vai_tro or "").strip() in VALID_ROLES
+
+
+def xac_dinh_cap_pham_vi(vai_tro):
+    """
+    Tra ve cap pham vi du lieu cua tung vai tro:
+    - 'SYSTEM': admin_he_thong (toan he thong)
+    - 'COMPANY': quan_tri_cong_ty (toan cong ty)
+    - 'UNIT': quan_ly, dieu_phoi_vien, giam_sat (chi nhanh hoac doi xe phu trach)
+    - 'SELF': tai_xe (chi du lieu ca nhan)
+    """
+    role = str(vai_tro or "").strip()
+    if role == ROLE_ADMIN_HE_THONG:
+        return "SYSTEM"
+    if role == ROLE_QUAN_TRI_CONG_TY:
+        return "COMPANY"
+    if role in (ROLE_QUAN_LY, ROLE_DIEU_PHOI_VIEN, ROLE_GIAM_SAT):
+        return "UNIT"
+    return "SELF"
+
+
+def co_quyen_trong_pham_vi(user_scope, target_scope):
+    """
+    Kiem tra nguoi dung (user_scope) co quyen truy cap ban ghi (target_scope)
+    theo nguyen tac Data Scope V3.0 hay khong.
+    user_scope / target_scope gom: vai_tro, cong_ty_id, chi_nhanh_id, doi_xe_id, tai_xe_id.
+    """
+    if not isinstance(user_scope, dict):
+        return False
+    role = user_scope.get("vai_tro")
+    if not la_vai_tro_hop_le(role):
+        return False
+
+    level = xac_dinh_cap_pham_vi(role)
+    if level == "SYSTEM":
+        return True
+
+    if not isinstance(target_scope, dict):
+        return False
+
+    if level == "SELF":
+        u_tx = user_scope.get("tai_xe_id")
+        t_tx = target_scope.get("tai_xe_id")
+        return u_tx is not None and t_tx is not None and int(u_tx) == int(t_tx)
+
+    u_cty = user_scope.get("cong_ty_id")
+    t_cty = target_scope.get("cong_ty_id")
+    if u_cty is not None and t_cty is not None and int(u_cty) != int(t_cty):
+        return False
+
+    if level == "COMPANY":
+        return u_cty is None or t_cty is None or int(u_cty) == int(t_cty)
+
+    # level == 'UNIT' (quan_ly, dieu_phoi_vien, giam_sat)
+    u_dx = user_scope.get("doi_xe_id")
+    t_dx = target_scope.get("doi_xe_id")
+    if u_dx is not None:
+        return t_dx is not None and int(u_dx) == int(t_dx)
+
+    u_cn = user_scope.get("chi_nhanh_id")
+    t_cn = target_scope.get("chi_nhanh_id")
+    if u_cn is not None:
+        return t_cn is not None and int(u_cn) == int(t_cn)
+
+    # Truong hop tai khoan quan_ly cu chua gan chi_nhanh_id/doi_xe_id thi fallback theo cong_ty_id
+    return u_cty is None or t_cty is None or int(u_cty) == int(t_cty)
+
+
+def lay_menu_theo_vai_tro(vai_tro):
+    """
+    Tra ve danh sach ma phan he Web Quan tri duoc phep hien thi theo vai tro.
+    """
+    role = str(vai_tro or "").strip()
+    if role == ROLE_ADMIN_HE_THONG:
+        return ["dashboard", "organization", "accounts", "drivers", "vehicles", "scheduler", "reports", "analytics", "audit"]
+    if role == ROLE_QUAN_TRI_CONG_TY:
+        return ["dashboard", "organization", "accounts", "drivers", "vehicles", "scheduler", "reports", "analytics", "audit"]
+    if role == ROLE_QUAN_LY:
+        return ["dashboard", "organization", "drivers", "vehicles", "scheduler", "reports", "analytics", "audit"]
+    if role == ROLE_DIEU_PHOI_VIEN:
+        return ["dashboard", "drivers", "vehicles", "scheduler", "reports"]
+    if role == ROLE_GIAM_SAT:
+        return ["dashboard", "drivers", "vehicles", "reports"]
+    return []

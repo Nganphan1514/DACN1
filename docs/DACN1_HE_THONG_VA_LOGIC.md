@@ -227,3 +227,42 @@ File định nghĩa: `database/schema_postgres.sql` | Dữ liệu mẫu: `databa
   * `tests/test_p0_upgrades.py` (5 tests): `OfflineOutbox` bền vững/retry/chống trùng `event_id`/`DEAD_LETTER`, Event Contract & mã trạng thái `realtime_client`, `storage_service.create_signed_url` cho Private Bucket, `auth_guard` thu hồi tài khoản bị khóa & xóa cache, state machine cảnh báo + Device Health 3 mức + che CCCD/GPLX.
 * **Đóng gói Docker**: `Dockerfile`, `docker-compose.yml`, `requirements-web.txt`, `.dockerignore`.
 * **Build App Android/iOS**: `mobile/eas.json` (`preview` xuất `.apk`, `production` xuất `.aab`).
+
+---
+
+## 8. Bảng truy vết triển khai P0 & P0+ (Code ↔ Schema ↔ Test)
+
+| Hạng mục | Thành phần / File triển khai | Bảng / Index DB | Unit Test xác minh |
+| :--- | :--- | :--- | :--- |
+| **P0-1: Chống trùng lịch & phiên** | `database/mysql_service.py` (`kiem_tra_trung_lich_chay`, `tao_lich_chay`, `cap_nhat_lich_chay`, `tao_phien_lai_xe`) | `lich_chay`, `phien_lai_xe`, `uq_phien_lai_xe_tai_xe_dang_mo` | Đã áp dụng ràng buộc cả tầng ứng dụng & PostgreSQL |
+| **P0-2: Alert Lifecycle + Optimistic Lock** | `core/ops_rules.py`, `database/mysql_service.py`, `backend/routes/realtime_routes.py`, `backend/routes/admin_routes.py`, `backend/templates/admin/dashboard.html` | `su_kien_canh_bao` (`event_id` UNIQUE), `lich_su_thao_tac` | `test_alert_state_machine_and_device_health_and_masking` |
+| **P0-3: Device Heartbeat 3 mức Health** | `core/ops_rules.py` (`phan_loai_suc_khoe_thiet_bi`), `services/realtime_client.py`, `main.py`, `backend/routes/realtime_routes.py`, `backend/templates/admin/dashboard.html` | `thiet_bi_camera` (`device_id` UNIQUE, `fps`, `outbox_pending`, `dead_letter_count`) | `test_alert_state_machine_and_device_health_and_masking` |
+| **P0-4: SQLite Offline Outbox + Dead-letter** | `services/offline_outbox.py`, `services/realtime_client.py` (Event Contract `payload_version`, `device_id`, `occurred_at`), `main.py` | SQLite cục bộ `logs/offline_outbox.db` (`PENDING` / `DEAD_LETTER`) | `test_offline_outbox_persists_retries_deduplicates_and_dead_letters`, `test_realtime_client_event_contract_and_status_codes` |
+| **P0-5: Thu hồi JWT/Session + Private Signed URL + Bảo vệ CCCD/Ảnh** | `backend/middleware/auth_guard.py`, `services/storage_service.py`, `backend/routes/admin_routes.py` (`mask_sensitive_id`), `backend/routes/realtime_routes.py` (`/api/snapshots/<filename>`) | `tai_khoan`, `anh_canh_bao`, `su_kien_canh_bao`, Supabase Bucket `snapshots` | `test_storage_service_private_bucket_signed_url`, `test_auth_guard_revokes_locked_account_and_invalidates_cache` |
+| **P0+ AI: Chống Data Leakage & Lý do đóng phiên** | `ai/collect_dataset.py` (`SessionId`), `ai/train_model.py` (`GroupShuffleSplit` + `GroupKFold` + `Pipeline`), `database/mysql_service.py` (`ly_do_ket_thuc`), `main.py` | `phien_lai_xe.ly_do_ket_thuc`, `model/model_meta.json` | `tests/test_detection.py` (9 tests) |
+
+---
+
+## 9. Hướng dẫn khởi chạy nhanh
+
+1. **Cơ sở dữ liệu Supabase**: Chạy file `database/schema_postgres.sql` trong **Supabase SQL Editor** (đã tích hợp đủ 16 bảng + `IF NOT EXISTS`).
+2. **Backend Web & API**:
+   ```powershell
+   .\venv\Scripts\python.exe backend\app.py
+   ```
+   Truy cập Web: `http://127.0.0.1:5000` (hoặc qua Docker: `docker compose up -d --build`).
+3. **Camera AI Edge (Windows / RTSP)**:
+   ```powershell
+   .\venv\Scripts\python.exe main.py
+   ```
+   Phím điều khiển: `1` (Tạm dừng), `2` (Chạy lại & hiệu chuẩn/xác thực lại), `Q` (Thoát).
+4. **App Điện thoại Expo (SDK 58)**:
+   ```powershell
+   cd mobile
+   npx expo start
+   ```
+   Quét mã QR bằng **Expo Go (SDK 58)** trên điện thoại cùng mạng Wi-Fi với máy chạy Backend.
+5. **Chạy kiểm thử tự động**:
+   ```powershell
+   .\venv\Scripts\python.exe -m pytest -v
+   ```

@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
 
 from backend.middleware.auth_guard import require_role, resolve_driver_id
+from core.ops_rules import ADMIN_PANEL_ROLES, MANAGER_CONTROL_ROLES
 from database.mysql_service import (
     tao_bao_cao_su_co,
     lay_bao_cao_su_co_tai_xe,
@@ -58,7 +59,7 @@ def api_create_driver_report():
 
 
 @report_bp.route("/api/admin/reports", methods=["GET"])
-@require_role("quan_ly")
+@require_role(*ADMIN_PANEL_ROLES)
 def api_admin_reports():
     data = lay_tat_ca_bao_cao_su_co()
 
@@ -69,7 +70,7 @@ def api_admin_reports():
 
 
 @report_bp.route("/api/admin/reports/<int:bao_cao_id>", methods=["PUT"])
-@require_role("quan_ly")
+@require_role(*MANAGER_CONTROL_ROLES)
 def api_update_report(bao_cao_id):
     data = request.get_json(silent=True) or {}
 

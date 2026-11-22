@@ -10,6 +10,7 @@ from flask import Blueprint, Response, g, jsonify, request, send_from_directory,
 
 from backend.middleware.auth_guard import require_auth, require_role
 from config.app_config import INTERNAL_API_KEY
+from core.ops_rules import ADMIN_PANEL_ROLES, MONITOR_ROLES
 from database.mysql_service import (
     cap_nhat_heartbeat_thiet_bi,
     kiem_tra_quyen_xem_anh_snapshot,
@@ -170,7 +171,7 @@ def api_unregister_push_token():
 
 
 @realtime_bp.route("/api/admin/events", methods=["GET"])
-@require_role("quan_ly")
+@require_role(*MONITOR_ROLES)
 def api_admin_events():
     client_queue = queue.Queue(maxsize=50)
     with _sub_lock:
@@ -206,8 +207,8 @@ def api_admin_events():
 def api_get_snapshot(filename):
     safe_name = os.path.basename(filename)
 
-    # P0+ REV-07: Chi quan_ly hoac dung tai xe so huu anh moi duoc xem
-    if g.current_user.get("vai_tro") != "quan_ly":
+    # P0+ REV-07 & V3.0: Chi nhom quan tri/giam sat hoac dung tai xe so huu anh moi duoc xem
+    if g.current_user.get("vai_tro") not in ADMIN_PANEL_ROLES:
         tai_xe_id = g.current_user.get("tai_xe_id")
         if not kiem_tra_quyen_xem_anh_snapshot(safe_name, tai_xe_id):
             return jsonify({
