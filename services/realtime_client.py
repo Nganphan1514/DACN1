@@ -18,6 +18,7 @@ def push_realtime_alert(
     vehicle_name,
     message,
     snapshot_path=None,
+    snapshot_url=None,
     risk_score=0,
 ):
     """
@@ -25,13 +26,22 @@ def push_realtime_alert(
     Thiet ke de chay trong background queue (khong bao gio chan camera).
     """
     try:
-        snapshot_filename = os.path.basename(snapshot_path) if snapshot_path else None
+        resolved_url = snapshot_url
+        snapshot_filename = None
+
+        if not resolved_url and snapshot_path:
+            if str(snapshot_path).startswith(("http://", "https://")):
+                resolved_url = str(snapshot_path)
+            else:
+                snapshot_filename = os.path.basename(snapshot_path)
+
         payload = {
             "type": event_type,
             "driver_name": driver_name,
             "vehicle_name": vehicle_name,
             "message": message,
             "snapshot_filename": snapshot_filename,
+            "snapshot_url": resolved_url,
             "risk_score": risk_score,
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         }

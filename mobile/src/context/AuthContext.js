@@ -1,12 +1,17 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { apiRequest, DEFAULT_API_URL, STORAGE_KEYS } from "../config/api";
+import {
+  registerForPushNotificationsAsync,
+  unregisterPushTokenAsync,
+} from "../services/pushNotifications";
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
+  const [pushToken, setPushToken] = useState(null);
   const [apiUrl, setApiUrl] = useState(DEFAULT_API_URL);
   const [loading, setLoading] = useState(true);
 
@@ -22,6 +27,9 @@ export function AuthProvider({ children }) {
         if (savedToken && savedUser) {
           setToken(savedToken);
           setUser(JSON.parse(savedUser));
+          registerForPushNotificationsAsync().then((pt) => {
+            if (pt) setPushToken(pt);
+          });
         }
       } catch (e) {
         console.warn("Restore session error:", e);
@@ -60,18 +68,25 @@ export function AuthProvider({ children }) {
     setToken(res.data.token);
     setUser(res.data.user);
 
+    // Tu dong dang ky nhan Expo Push Notifications khi dang nhap thanh cong
+    registerForPushNotificationsAsync().then((pt) => {
+      if (pt) setPushToken(pt);
+    });
+
     return { success: true };
   }
 
   async function logout() {
+    await unregisterPushTokenAsync(pushToken);
     await AsyncStorage.multiRemove([STORAGE_KEYS.TOKEN, STORAGE_KEYS.USER]);
+    setPushToken(null);
     setToken(null);
     setUser(null);
   }
 
   return (
     <AuthContext.Provider
-      value={{ user, token, apiUrl, loading, login, logout, updateApiUrl }}
+      value={{ user, token, pushToken, apiUrl, loading, login, logout, updateApiUrl }}
     >
       {children}
     </AuthContext.Provider>

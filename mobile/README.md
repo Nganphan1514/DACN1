@@ -23,3 +23,16 @@
    npx expo start
    ```
 6. Mở **Expo Go** trên điện thoại quét mã QR → bấm **"Cấu hình địa chỉ máy chủ (IP LAN)"** nhập `http://<IP_MAY_TINH>:5000` → đăng nhập `taixe01` / `123456` hoặc `admin` / `123456`.
+
+## Build file `.apk` (cài trực tiếp Android) hoặc `.aab` (up CH Play)
+Cài EAS CLI và đăng nhập tài khoản Expo (miễn phí tại https://expo.dev):
+```bash
+cd mobile
+npx eas-cli login
+
+# Build file .apk cài thử trực tiếp lên điện thoại Android (miễn phí)
+npx eas-cli build -p android --profile preview
+
+# Build file .aab để phát hành lên Google Play Store (CH Play)
+npx eas-cli build -p android --profile production
+```

@@ -10,16 +10,20 @@
     },
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.dacn1.drivermonitor",
       "infoPlist": {
         "NSCameraUsageDescription": "Ứng dụng cần quyền camera để đăng ký khuôn mặt tài xế."
       }
     },
     "android": {
+      "package": "com.dacn1.drivermonitor",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#020617"
       },
       "permissions": [
-        "CAMERA"
+        "CAMERA",
+        "POST_NOTIFICATIONS"
       ]
     },
     "plugins": [
@@ -28,7 +32,8 @@
         {
           "cameraPermission": "Cho phép DACN1 sử dụng camera để đăng ký khuôn mặt tài xế."
         }
-      ]
+      ],
+      "expo-notifications"
     ]
   }
 }

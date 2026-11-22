@@ -2582,3 +2582,77 @@ def kiem_tra_tai_xe_duoc_phan_cong_xe(tai_xe_id, xe_id):
     except Exception as e:
         print("Loi kiem tra tai xe duoc phan cong xe:", e)
         return False
+
+
+# EXPO PUSH NOTIFICATION TOKENS
+
+def _ensure_push_token_table():
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS thiet_bi_thong_bao (
+            id SERIAL PRIMARY KEY,
+            tai_khoan_id INT NOT NULL REFERENCES tai_khoan(id) ON DELETE CASCADE,
+            vai_tro VARCHAR(20) NOT NULL,
+            expo_push_token VARCHAR(255) UNIQUE NOT NULL,
+            nen_tang VARCHAR(30) DEFAULT 'unknown',
+            cap_nhat_cuoi TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+
+
+def luu_expo_push_token(tai_khoan_id, vai_tro, expo_push_token, nen_tang="unknown"):
+    try:
+        if not expo_push_token:
+            return False
+        _ensure_push_token_table()
+        db.execute(
+            """
+            INSERT INTO thiet_bi_thong_bao
+            (tai_khoan_id, vai_tro, expo_push_token, nen_tang, cap_nhat_cuoi)
+            VALUES (%s, %s, %s, %s, NOW())
+            ON CONFLICT (expo_push_token)
+            DO UPDATE SET
+                tai_khoan_id = EXCLUDED.tai_khoan_id,
+                vai_tro = EXCLUDED.vai_tro,
+                nen_tang = EXCLUDED.nen_tang,
+                cap_nhat_cuoi = NOW()
+            """,
+            (tai_khoan_id, vai_tro, expo_push_token, nen_tang),
+        )
+        return True
+    except Exception as e:
+        print("Luu expo push token error:", e)
+        return False
+
+
+def xoa_expo_push_token(expo_push_token):
+    try:
+        if not expo_push_token:
+            return False
+        _ensure_push_token_table()
+        db.execute(
+            "DELETE FROM thiet_bi_thong_bao WHERE expo_push_token=%s",
+            (expo_push_token,),
+        )
+        return True
+    except Exception as e:
+        print("Xoa expo push token error:", e)
+        return False
+
+
+def lay_danh_sach_push_token(vai_tro="quan_ly"):
+    try:
+        _ensure_push_token_table()
+        rows = db.fetch_all(
+            """
+            SELECT expo_push_token
+            FROM thiet_bi_thong_bao
+            WHERE vai_tro=%s
+            """,
+            (vai_tro,),
+        )
+        return [r["expo_push_token"] for r in rows if r.get("expo_push_token")]
+    except Exception as e:
+        print("Lay danh sach push token error:", e)
+        return []

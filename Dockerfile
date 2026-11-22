@@ -24,6 +24,7 @@ RUN pip install --no-cache-dir --upgrade pip \
 COPY backend/ ./backend/
 COPY config/ ./config/
 COPY database/ ./database/
+COPY services/ ./services/
 COPY face_auth/embedding_service.py ./face_auth/embedding_service.py
 
 # Tao cac thu muc du lieu mount volume

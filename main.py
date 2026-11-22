@@ -50,6 +50,7 @@ from services.location_service import (
     prefetch_nearest_rest_stop_async,
 )
 from services.realtime_client import push_realtime_alert
+from services.storage_service import upload_snapshot_to_supabase
 
 from database.mysql_service import (
     db,
@@ -150,6 +151,50 @@ def enqueue_db_task(fn, *args, **kwargs):
         _db_queue.put_nowait((fn, args, kwargs))
     except queue.Full:
         print("DB queue full, bo qua task de giu FPS")
+
+
+def _upload_and_record_unknown(local_path, xe_id, ghi_chu, event_type, driver_name):
+    final_path = upload_snapshot_to_supabase(local_path)
+    luu_nguoi_la(
+        xe_id=xe_id,
+        duong_dan_anh=final_path,
+        ghi_chu=ghi_chu,
+    )
+    push_realtime_alert(
+        event_type=event_type,
+        driver_name=driver_name,
+        vehicle_name=VEHICLE_NAME,
+        message=ghi_chu,
+        snapshot_path=final_path,
+        risk_score=10,
+    )
+
+
+def _upload_and_record_drowsy_snapshot(local_path, tai_xe_id, xe_id, nguoi_lai_hop_le, ten_hien_thi, risk_score):
+    final_path = upload_snapshot_to_supabase(local_path)
+    if nguoi_lai_hop_le and tai_xe_id:
+        luu_anh_canh_bao(
+            tai_xe_id=tai_xe_id,
+            xe_id=xe_id,
+            duong_dan_anh=final_path,
+        )
+    else:
+        luu_nguoi_la(
+            xe_id=xe_id,
+            duong_dan_anh=final_path,
+            ghi_chu=(
+                f"Nguoi lai khong hop le co dau hieu buon ngu. "
+                f"Ten hien thi: {ten_hien_thi}"
+            ),
+        )
+    push_realtime_alert(
+        event_type="BUON_NGU",
+        driver_name=ten_hien_thi,
+        vehicle_name=VEHICLE_NAME,
+        message=f"Ảnh chụp cảnh báo buồn ngủ của {ten_hien_thi}",
+        snapshot_path=final_path,
+        risk_score=risk_score,
+    )
 
 
 # GỢI Ý ĐIỂM DỪNG (KHONG BLOCK CAMERA)
@@ -292,19 +337,12 @@ def khoa_nguoi_lai_khong_hop_le(frame=None, ghi_chu="Nguoi lai chua xac thuc hoa
             duong_dan_anh = save_snapshot(frame)
 
             enqueue_db_task(
-                luu_nguoi_la,
+                _upload_and_record_unknown,
+                local_path=duong_dan_anh,
                 xe_id=VEHICLE_ID,
-                duong_dan_anh=duong_dan_anh,
                 ghi_chu=ghi_chu,
-            )
-            enqueue_db_task(
-                push_realtime_alert,
                 event_type="NGUOI_LA",
                 driver_name=ten_tai_xe,
-                vehicle_name=VEHICLE_NAME,
-                message=ghi_chu,
-                snapshot_path=duong_dan_anh,
-                risk_score=10,
             )
 
             last_unknown_log = current_time
@@ -346,22 +384,15 @@ def khoa_tai_xe_sai_xe(tai_xe_id, ten_nhan_dien, frame=None):
             duong_dan_anh = save_snapshot(frame)
 
             enqueue_db_task(
-                luu_nguoi_la,
+                _upload_and_record_unknown,
+                local_path=duong_dan_anh,
                 xe_id=VEHICLE_ID,
-                duong_dan_anh=duong_dan_anh,
                 ghi_chu=(
                     f"Nhan dien duoc {ten_nhan_dien} "
                     f"nhung tai xe nay khong duoc phan cong xe {VEHICLE_NAME}"
                 ),
-            )
-            enqueue_db_task(
-                push_realtime_alert,
                 event_type="SAI_XE",
                 driver_name=ten_nhan_dien,
-                vehicle_name=VEHICLE_NAME,
-                message=f"Tài xế {ten_nhan_dien} không được phân công xe {VEHICLE_NAME}",
-                snapshot_path=duong_dan_anh,
-                risk_score=10,
             )
 
             last_unknown_log = current_time
@@ -898,23 +929,15 @@ while True:
                 last_snapshot_time = current_snapshot_time
 
             if duong_dan_anh:
-                if nguoi_lai_hop_le and tai_xe_hien_tai:
-                    enqueue_db_task(
-                        luu_anh_canh_bao,
-                        tai_xe_id=tai_xe_hien_tai,
-                        xe_id=VEHICLE_ID,
-                        duong_dan_anh=duong_dan_anh,
-                    )
-                else:
-                    enqueue_db_task(
-                        luu_nguoi_la,
-                        xe_id=VEHICLE_ID,
-                        duong_dan_anh=duong_dan_anh,
-                        ghi_chu=(
-                            f"Nguoi lai khong hop le co dau hieu buon ngu. "
-                            f"Ten hien thi: {ten_tai_xe}"
-                        ),
-                    )
+                enqueue_db_task(
+                    _upload_and_record_drowsy_snapshot,
+                    local_path=duong_dan_anh,
+                    tai_xe_id=tai_xe_hien_tai,
+                    xe_id=VEHICLE_ID,
+                    nguoi_lai_hop_le=nguoi_lai_hop_le,
+                    ten_hien_thi=ten_tai_xe,
+                    risk_score=risk_score,
+                )
 
         elif status == "MAT TAP TRUNG":
             distraction_warning()

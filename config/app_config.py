@@ -17,6 +17,15 @@ FLASK_PORT = int(os.getenv("FLASK_PORT", "5000"))
 # Supabase PostgreSQL connection string
 DATABASE_URL = os.getenv("DATABASE_URL", "")
 
+# Supabase Storage (upload anh vi pham snapshots len cloud)
+_raw_supabase_url = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
+for _suffix in ("/rest/v1", "/storage/v1"):
+    if _raw_supabase_url.endswith(_suffix):
+        _raw_supabase_url = _raw_supabase_url[: -len(_suffix)]
+SUPABASE_URL = _raw_supabase_url
+SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "").strip()
+SUPABASE_SNAPSHOT_BUCKET = os.getenv("SUPABASE_SNAPSHOT_BUCKET", "snapshots").strip()
+
 # Legacy MySQL XAMPP settings (chi dung cho script migrate du lieu)
 MYSQL_HOST = os.getenv("MYSQL_HOST", os.getenv("DB_HOST", "localhost"))
 MYSQL_PORT = int(os.getenv("MYSQL_PORT", os.getenv("DB_PORT", "3306")))

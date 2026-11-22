@@ -8,6 +8,8 @@ import { AuthProvider, useAuth } from "./src/context/AuthContext";
 import LoginScreen from "./src/screens/LoginScreen";
 import DashboardScreen from "./src/screens/DashboardScreen";
 import SchedulesScreen from "./src/screens/SchedulesScreen";
+import ViolationsScreen from "./src/screens/ViolationsScreen";
+import NotificationsScreen from "./src/screens/NotificationsScreen";
 import ReportsScreen from "./src/screens/ReportsScreen";
 import FaceRegisterScreen from "./src/screens/FaceRegisterScreen";
 import ProfileScreen from "./src/screens/ProfileScreen";
@@ -43,12 +45,22 @@ function AppNavigator() {
             paddingBottom: 8,
             paddingTop: 6,
           },
+          tabBarLabelStyle: {
+            fontSize: 10,
+            fontWeight: "700",
+          },
           tabBarActiveTintColor: "#22d3ee",
           tabBarInactiveTintColor: "#64748b",
         }}
       >
         <Tab.Screen name="Tổng quan" component={DashboardScreen} />
         <Tab.Screen name="Lịch chạy" component={SchedulesScreen} />
+        {isDriver && (
+          <Tab.Screen name="Vi phạm" component={ViolationsScreen} />
+        )}
+        {isDriver && (
+          <Tab.Screen name="Thông báo" component={NotificationsScreen} />
+        )}
         <Tab.Screen name="Sự cố" component={ReportsScreen} />
         {isDriver && (
           <Tab.Screen name="Khuôn mặt" component={FaceRegisterScreen} />
