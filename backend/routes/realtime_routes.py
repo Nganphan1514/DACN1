@@ -16,9 +16,18 @@ from database.mysql_service import (
     kiem_tra_quyen_xem_anh_snapshot,
     luu_expo_push_token,
     tao_su_kien_canh_bao,
+    them_ghi_chu,
     xoa_expo_push_token,
 )
-from services.expo_push_service import is_valid_expo_token, send_alert_push_to_managers_async
+from database.trip_camera_service import (
+    ghi_nhan_camera_heartbeat_va_lich_su,
+    quet_camera_mat_ket_noi,
+)
+from services.expo_push_service import (
+    is_valid_expo_token,
+    send_alert_push_to_managers_async,
+    send_push_to_account_async,
+)
 
 realtime_bp = Blueprint("realtime_bp", __name__)
 
@@ -133,7 +142,84 @@ def api_internal_device_heartbeat():
         outbox_pending=data.get("outbox_pending", 0),
         dead_letter_count=data.get("dead_letter_count", 0),
     )
+    if ok:
+        ghi_nhan_camera_heartbeat_va_lich_su(
+            device_id=device_id,
+            xe_id=data.get("xe_id"),
+            camera_ok=data.get("camera_ok", True),
+            fps=data.get("fps", 0.0),
+            outbox_pending=data.get("outbox_pending", 0),
+        )
     return jsonify({"success": ok})
+
+
+def dispatch_camera_offline_alerts(offline_events):
+    """
+    CAM-02: Canh bao 2 phia (Tai xe + Quan ly/Giam sat) khi camera mat ket noi giua chuyen.
+    Chuyen di van tiep tuc (IN_PROGRESS), khong tu dong ket thuc.
+    """
+    for dev in offline_events or []:
+        bien_so = dev.get("bien_so") or f"Xe #{dev.get('xe_id') or '?'}"
+        driver_name = dev.get("ten_tai_xe") or "Chưa có tài xế"
+        chuyen_id = dev.get("chuyen_thuc_te_id")
+        msg_mgr = (
+            f"Camera {dev.get('device_id')} trên xe {bien_so} mất kết nối "
+            f"(chuyến #{chuyen_id or 'N/A'} vẫn đang tiếp tục, cần xử lý kỹ thuật)."
+        )
+        event = {
+            "type": "CAMERA_OFFLINE",
+            "device_id": dev.get("device_id"),
+            "driver_name": driver_name,
+            "vehicle_name": bien_so,
+            "chuyen_thuc_te_id": chuyen_id,
+            "message": msg_mgr,
+            "risk_score": 0,
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        }
+        broadcast_event(event)
+        send_alert_push_to_managers_async(event)
+
+        # Canh bao phia Tai xe (neu dang co chuyen chay)
+        if dev.get("tai_xe_id"):
+            msg_driver = (
+                f"Cảnh báo: Camera trên xe {bien_so} đang mất kết nối. "
+                "Chuyến đi vẫn tiếp tục ghi nhận; vui lòng kiểm tra thiết bị khi dừng xe an toàn."
+            )
+            them_ghi_chu(tai_xe_id=dev["tai_xe_id"], quan_ly_id=None, noi_dung=msg_driver)
+            if dev.get("tai_khoan_tai_xe_id"):
+                send_push_to_account_async(
+                    tai_khoan_id=dev["tai_khoan_tai_xe_id"],
+                    title=f"Camera mất kết nối • {bien_so}",
+                    body=msg_driver,
+                    data={"type": "CAMERA_OFFLINE", "device_id": dev.get("device_id"), "chuyen_thuc_te_id": chuyen_id},
+                )
+
+
+_watcher_started = False
+
+
+def _camera_offline_watcher_loop():
+    import time
+
+    while True:
+        time.sleep(20)
+        try:
+            offline_events = quet_camera_mat_ket_noi(timeout_seconds=60)
+            if offline_events:
+                dispatch_camera_offline_alerts(offline_events)
+        except Exception:
+            pass
+
+
+def start_camera_offline_watcher():
+    global _watcher_started
+    if _watcher_started or os.getenv("PYTEST_CURRENT_TEST"):
+        return
+    _watcher_started = True
+    threading.Thread(target=_camera_offline_watcher_loop, daemon=True).start()
+
+
+start_camera_offline_watcher()
 
 
 @realtime_bp.route("/api/push/register-token", methods=["POST"])

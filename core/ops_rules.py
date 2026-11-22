@@ -234,3 +234,96 @@ def lay_menu_theo_vai_tro(vai_tro):
     if role == ROLE_GIAM_SAT:
         return ["dashboard", "drivers", "vehicles", "reports"]
     return []
+
+
+# ============================================================
+# V3.0 - SPRINT 2: LICH CHAY & YEU CAU DOI LICH (PURE RULES)
+# ============================================================
+
+LICH_CHAY_V3_STATUSES = {
+    "NHAP",
+    "CHO_XAC_NHAN",
+    "DA_XAC_NHAN",
+    "SAP_CHAY",
+    "DANG_THUC_HIEN",
+    "HOAN_THANH",
+    "BI_TU_CHOI",
+    "DA_HUY",
+    "KHONG_KHOI_HANH",
+    "CAN_KIEM_TRA",
+    "KET_THUC_NGOAI_LE",
+}
+
+# Trang thai chiem lich tai xe / phuong tien khi kiem tra trung lich (SCH-02)
+LICH_CHAY_ACTIVE_FOR_OVERLAP = {
+    "CHO_XAC_NHAN",
+    "DA_XAC_NHAN",
+    "SAP_CHAY",
+    "DANG_THUC_HIEN",
+    "sap_chay",
+    "dang_chay",
+    "tam_ngung",
+}
+
+# Trang thai cho phep bat dau chuyen di (SCH-03: bat buoc da xac nhan)
+LICH_CHAY_READY_FOR_START = {"DA_XAC_NHAN", "SAP_CHAY"}
+
+# Trang thai lich da ket thuc hoac huy -> khong sua / khong gui yeu cau doi lich
+LICH_CHAY_TERMINAL_STATUSES = {
+    "HOAN_THANH",
+    "DA_HUY",
+    "KHONG_KHOI_HANH",
+    "KET_THUC_NGOAI_LE",
+    "hoan_thanh",
+    "da_huy",
+}
+
+CHANGE_REQUEST_TYPES = {
+    "DOI_THOI_GIAN",
+    "DOI_XE",
+    "HUY_LICH",
+    "KHONG_THE_NHAN",
+}
+
+CHANGE_REQUEST_STATUSES = {
+    "CHO_DUYET",
+    "DA_DUYET",
+    "TU_CHOI",
+    "CAN_BO_SUNG",
+    "DA_RUT_YEU_CAU",
+    "HET_HAN",
+}
+
+
+def kiem_tra_khoang_thoi_gian_giao_nhau(start1, end1, start2, end2):
+    """
+    SCH-02: Kiem tra giao nhau theo khoang nua mo [start, end).
+    Hai lich noi tiep [08:00, 10:00) va [10:00, 12:00) -> False (khong trung).
+    """
+    if start1 is None or end1 is None or start2 is None or end2 is None:
+        return False
+    return start1 < end2 and end1 > start2
+
+
+def can_xac_nhan_lai_lich(lich_cu, tai_xe_moi, xe_moi, gio_bd_moi, gio_kt_moi):
+    """
+    SCH-04: Neu lich da o trang thai DA_XAC_NHAN / SAP_CHAY va co thay doi
+    tai xe, phuong tien hoac khung gio -> bat buoc quay ve CHO_XAC_NHAN.
+    """
+    if not isinstance(lich_cu, dict):
+        return False
+    if lich_cu.get("trang_thai") not in ("DA_XAC_NHAN", "SAP_CHAY"):
+        return False
+
+    def _norm(v):
+        return str(v).strip()[:19] if v is not None else None
+
+    if tai_xe_moi is not None and lich_cu.get("tai_xe_id") is not None and int(tai_xe_moi) != int(lich_cu["tai_xe_id"]):
+        return True
+    if xe_moi is not None and lich_cu.get("xe_id") is not None and int(xe_moi) != int(lich_cu["xe_id"]):
+        return True
+    if gio_bd_moi is not None and _norm(gio_bd_moi) != _norm(lich_cu.get("gio_bat_dau")):
+        return True
+    if gio_kt_moi is not None and _norm(gio_kt_moi) != _norm(lich_cu.get("gio_ket_thuc")):
+        return True
+    return False

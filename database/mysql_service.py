@@ -693,26 +693,59 @@ def tao_phien_lai_xe(tai_xe_id, xe_id):
             FROM lich_chay
             WHERE tai_xe_id=%s
             AND xe_id=%s
-            AND trang_thai IN ('dang_chay', 'sap_chay')
-            ORDER BY CASE WHEN trang_thai='dang_chay' THEN 1 ELSE 2 END, gio_bat_dau ASC
+            AND trang_thai IN ('DANG_THUC_HIEN', 'DA_XAC_NHAN', 'SAP_CHAY', 'dang_chay', 'sap_chay')
+            ORDER BY CASE
+                WHEN trang_thai IN ('DANG_THUC_HIEN', 'dang_chay') THEN 1
+                WHEN trang_thai = 'DA_XAC_NHAN' THEN 2
+                ELSE 3
+            END, gio_bat_dau ASC
             LIMIT 1
             """,
             (tai_xe_id, xe_id),
         )
         lich_chay_id = lich_chay["id"] if lich_chay else None
 
-        query = """
-        INSERT INTO phien_lai_xe
-        (
-            tai_xe_id,
-            xe_id,
-            lich_chay_id
-        )
-        VALUES
-        (%s,%s,%s)
-        """
+        # V3.0: Tu dong gan chuyen_thuc_te_id neu xe va tai xe dang co chuyen DANG_CHAY
+        chuyen_thuc_te_id = None
+        try:
+            ct = db.fetch_one(
+                """
+                SELECT id FROM chuyen_thuc_te
+                WHERE tai_xe_id=%s AND xe_id=%s AND trang_thai='DANG_CHAY'
+                ORDER BY id DESC LIMIT 1
+                """,
+                (tai_xe_id, xe_id),
+            )
+            if ct:
+                chuyen_thuc_te_id = ct["id"]
+        except Exception:
+            chuyen_thuc_te_id = None
 
-        cursor = db.execute(query, (tai_xe_id, xe_id, lich_chay_id))
+        try:
+            query = """
+            INSERT INTO phien_lai_xe
+            (
+                tai_xe_id,
+                xe_id,
+                lich_chay_id,
+                chuyen_thuc_te_id
+            )
+            VALUES
+            (%s,%s,%s,%s)
+            """
+            cursor = db.execute(query, (tai_xe_id, xe_id, lich_chay_id, chuyen_thuc_te_id))
+        except Exception:
+            query_legacy = """
+            INSERT INTO phien_lai_xe
+            (
+                tai_xe_id,
+                xe_id,
+                lich_chay_id
+            )
+            VALUES
+            (%s,%s,%s)
+            """
+            cursor = db.execute(query_legacy, (tai_xe_id, xe_id, lich_chay_id))
         return cursor.lastrowid
 
     except Exception as e:
@@ -2696,13 +2729,13 @@ def kiem_tra_tai_xe_duoc_phan_cong_xe(tai_xe_id, xe_id):
         if result_xe:
             return True
 
-        # Cách 2: Kiểm tra theo lịch chạy đang/sắp chạy
+        # Cách 2: Kiểm tra theo lịch chạy đã xác nhận / đang chạy (V3.0 + tương thích ngược)
         sql_lich = """
         SELECT id
         FROM lich_chay
         WHERE xe_id = %s
         AND tai_xe_id = %s
-        AND trang_thai IN ('dang_chay', 'sap_chay')
+        AND trang_thai IN ('DA_XAC_NHAN', 'SAP_CHAY', 'DANG_THUC_HIEN', 'dang_chay', 'sap_chay')
         LIMIT 1
         """
 

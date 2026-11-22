@@ -1,7 +1,8 @@
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 import threading
 import time
+import uuid
 
 from flask import Blueprint, jsonify, request
 
@@ -14,6 +15,7 @@ from database.mysql_service import (
     lay_xe_theo_tai_xe,
     luu_anh_canh_bao,
     save_detection_log,
+    tao_su_kien_canh_bao,
 )
 from detection.head_pose import get_head_pose
 from detection.mediapipe_detector import detect_face_features
@@ -74,11 +76,33 @@ def _handle_mobile_drowsy_side_effects(frame, tai_xe_id, xe_id, driver_name, veh
             snapshot_url = f"/api/snapshots/{os.path.basename(str(final_path))}"
 
     reason_text = ", ".join(reasons) if reasons else "BUON NGU"
+    event_id = str(uuid.uuid4())
+    message = f"[App Dự Phòng] Tài xế {driver_name} buồn ngủ ({reason_text})"
+    occurred_at = datetime.now(timezone.utc).isoformat()
+
+    # V3.0: Luu su_kien_canh_bao (PENDING_REVIEW) cho Quan ly xac minh, khong tu ket luan vi pham
+    inserted_id = tao_su_kien_canh_bao(
+        event_id=event_id,
+        loai_canh_bao="BUON_NGU",
+        noi_dung=message,
+        tai_xe_id=tai_xe_id,
+        xe_id=xe_id,
+        nguon="mobile_backup",
+        muc_do="CAO",
+        duong_dan_anh=snapshot_url,
+        risk_score=risk_score,
+        device_id=f"mobile-driver-{tai_xe_id}",
+        occurred_at=occurred_at,
+        payload_version="1.0",
+    )
+
     event = {
+        "id": inserted_id,
+        "event_id": event_id,
         "type": "BUON_NGU",
         "driver_name": driver_name,
         "vehicle_name": vehicle_name,
-        "message": f"[App Dự Phòng] Tài xế {driver_name} buồn ngủ ({reason_text})",
+        "message": message,
         "risk_score": risk_score,
         "snapshot_url": snapshot_url,
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),

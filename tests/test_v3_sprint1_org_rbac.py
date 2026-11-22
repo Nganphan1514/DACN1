@@ -104,7 +104,7 @@ def test_api_rbac_separation_dispatcher_monitor_company_admin_driver():
 
     with patch("backend.middleware.auth_guard._is_account_active", return_value=True):
         # 1. Dieu phoi vien: xem duoc lich, bi chan 403 khi xac minh canh bao / huy lich / tao chi nhanh
-        with patch("backend.routes.scheduler_routes.lay_tat_ca_lich_chay", return_value=[]):
+        with patch("backend.routes.scheduler_routes.lay_danh_sach_lich_chay_v3", return_value=[]):
             assert client.get("/api/admin/schedules", headers={"Authorization": f"Bearer {tok_dpv}"}).status_code == 200
         assert client.put(
             "/api/admin/alerts/1",

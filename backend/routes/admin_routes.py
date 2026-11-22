@@ -35,6 +35,7 @@ from database.mysql_service import (
     cap_nhat_trang_thai_su_kien_canh_bao,
     lay_danh_sach_thiet_bi_camera,
 )
+from database.schedule_service import lay_lich_bi_anh_huong_khi_bao_tri_xe
 from services.storage_service import resolve_snapshot_url
 
 admin_bp = Blueprint("admin_bp", __name__)
@@ -300,12 +301,13 @@ def api_update_vehicle(xe_id):
             "message": "Không tìm thấy xe."
         }), 404
 
+    trang_thai_moi = data.get("trang_thai", xe_cu.get("trang_thai"))
     ok = cap_nhat_xe(
         xe_id=xe_id,
         bien_so=data.get("bien_so", xe_cu.get("bien_so")),
         model=data.get("model", xe_cu.get("model")),
         loai_xe=data.get("loai_xe", xe_cu.get("loai_xe")),
-        trang_thai=data.get("trang_thai", xe_cu.get("trang_thai")),
+        trang_thai=trang_thai_moi,
         ghi_chu=data.get("ghi_chu", xe_cu.get("ghi_chu")),
         tai_xe_mac_dinh_id=data.get(
             "tai_xe_mac_dinh_id",
@@ -314,13 +316,18 @@ def api_update_vehicle(xe_id):
         quan_ly_id=g.current_user["id"],
     )
 
+    affected_schedules = []
+    if ok and str(trang_thai_moi or "").lower() in ("bao_tri", "ngung", "ngung_hoat_dong"):
+        affected_schedules = lay_lich_bi_anh_huong_khi_bao_tri_xe(xe_id)
+
     return jsonify({
         "success": ok,
         "message": (
             "Đã cập nhật xe."
             if ok
             else "Cập nhật xe thất bại."
-        )
+        ),
+        "affected_schedules": affected_schedules,
     }), 200 if ok else 400
 
 

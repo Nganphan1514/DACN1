@@ -3,7 +3,7 @@ import threading
 import requests
 
 from config.logger import get_logger
-from database.mysql_service import lay_danh_sach_push_token
+from database.mysql_service import db, lay_danh_sach_push_token
 
 logger = get_logger("expo_push")
 
@@ -14,6 +14,9 @@ ALERT_TITLES = {
     "NGUOI_LA": "Cảnh báo NGƯỜI LẠ lái xe",
     "SAI_XE": "Cảnh báo TÀI XẾ SAI XE",
     "MET_MOI": "Cảnh báo Mệt mỏi",
+    "CAMERA_OFFLINE": "Cảnh báo CAMERA MẤT KẾT NỐI",
+    "VI_PHAM_XAC_NHAN": "Thông báo Vi phạm đã xác minh",
+    "KET_QUA_KHIEU_NAI": "Kết quả xử lý Khiếu nại",
 }
 
 
@@ -95,6 +98,33 @@ def send_alert_push_to_managers_async(event):
     thread = threading.Thread(
         target=send_alert_push_to_managers,
         args=(event,),
+        daemon=True,
+    )
+    thread.start()
+
+
+def send_push_to_account(tai_khoan_id, title, body, data=None):
+    """V3.0: Gui Expo Push nham dich truc tiep toi 1 tai khoan (vi du: tai xe)."""
+    if not tai_khoan_id:
+        return False
+    try:
+        rows = db.fetch_all(
+            "SELECT expo_push_token FROM thiet_bi_thong_bao WHERE tai_khoan_id = %s",
+            (int(tai_khoan_id),),
+        )
+        tokens = [r["expo_push_token"] for r in rows if r.get("expo_push_token")]
+        if not tokens:
+            return False
+        return send_expo_push_messages(tokens=tokens, title=title, body=body, data=data or {})
+    except Exception as e:
+        logger.warning("Push to account %s error: %s", tai_khoan_id, e)
+        return False
+
+
+def send_push_to_account_async(tai_khoan_id, title, body, data=None):
+    thread = threading.Thread(
+        target=send_push_to_account,
+        args=(tai_khoan_id, title, body, data),
         daemon=True,
     )
     thread.start()

@@ -21,6 +21,8 @@ from backend.routes.org_routes import org_bp
 from backend.routes.realtime_routes import realtime_bp
 from backend.routes.report_routes import report_bp
 from backend.routes.scheduler_routes import scheduler_bp
+from backend.routes.trip_routes import trip_bp
+from backend.routes.violation_routes import violation_bp
 
 app = Flask(__name__)
 
@@ -43,6 +45,8 @@ app.register_blueprint(report_bp)
 app.register_blueprint(admin_bp)
 app.register_blueprint(ai_monitor_bp)
 app.register_blueprint(scheduler_bp)
+app.register_blueprint(trip_bp)
+app.register_blueprint(violation_bp)
 
 
 @app.route("/")
