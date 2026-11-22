@@ -9,6 +9,7 @@ import { AuthProvider, useAuth } from "./src/context/AuthContext";
 import LoginScreen from "./src/screens/LoginScreen";
 import DashboardScreen from "./src/screens/DashboardScreen";
 import MonitorScreen from "./src/screens/MonitorScreen";
+import AdminDriversScreen from "./src/screens/AdminDriversScreen";
 import SchedulesScreen from "./src/screens/SchedulesScreen";
 import ViolationsScreen from "./src/screens/ViolationsScreen";
 import NotificationsScreen from "./src/screens/NotificationsScreen";
@@ -20,6 +21,7 @@ const Tab = createBottomTabNavigator();
 const TAB_ICONS = {
   Cabin: ["speedometer", "speedometer-outline"],
   "AI Cam": ["eye", "eye-outline"],
+  "Tài xế": ["people", "people-outline"],
   "Lịch": ["calendar", "calendar-outline"],
   "Vi phạm": ["warning", "warning-outline"],
   "T.Báo": ["notifications", "notifications-outline"],
@@ -69,6 +71,9 @@ function AppNavigator() {
         })}
       >
         <Tab.Screen name="Cabin" component={DashboardScreen} />
+        {!isDriver && (
+          <Tab.Screen name="Tài xế" component={AdminDriversScreen} />
+        )}
         {isDriver && (
           <Tab.Screen name="AI Cam" component={MonitorScreen} />
         )}

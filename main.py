@@ -3,9 +3,11 @@ import time
 import csv
 import os
 import queue
+import socket
 import threading
+import uuid
 
-from datetime import datetime
+from datetime import datetime, timezone
 from collections import deque
 
 from config.ai_config import (
@@ -49,7 +51,12 @@ from services.location_service import (
     get_cached_rest_stop,
     prefetch_nearest_rest_stop_async,
 )
-from services.realtime_client import push_realtime_alert
+from services.realtime_client import (
+    push_device_heartbeat,
+    push_realtime_alert,
+    push_realtime_alert_status,
+)
+from services.offline_outbox import offline_outbox
 from services.storage_service import upload_snapshot_to_supabase
 
 from database.mysql_service import (
@@ -153,47 +160,196 @@ def enqueue_db_task(fn, *args, **kwargs):
         print("DB queue full, bo qua task de giu FPS")
 
 
+DEVICE_ID = os.getenv("DEVICE_ID", f"cam-xe-{VEHICLE_ID}-{socket.gethostname()}")
+HEARTBEAT_INTERVAL = 20
+OUTBOX_FLUSH_INTERVAL = 15
+
+
+def _send_or_queue_alert(
+    event_type,
+    driver_name,
+    vehicle_name,
+    message,
+    snapshot_path=None,
+    risk_score=0,
+    tai_xe_id=None,
+    xe_id=None,
+    phien_id=None,
+    event_id=None,
+):
+    eid = event_id or str(uuid.uuid4())
+    occurred = datetime.now(timezone.utc).isoformat()
+    status_res = push_realtime_alert_status(
+        event_type=event_type,
+        driver_name=driver_name,
+        vehicle_name=vehicle_name,
+        message=message,
+        snapshot_path=snapshot_path,
+        risk_score=risk_score,
+        tai_xe_id=tai_xe_id,
+        xe_id=xe_id,
+        phien_id=phien_id,
+        event_id=eid,
+        source="edge_main",
+        device_id=DEVICE_ID,
+        occurred_at=occurred,
+        payload_version="1.0",
+    )
+    if status_res == "RETRY":
+        offline_outbox.enqueue(
+            "alert_event",
+            {
+                "event_type": event_type,
+                "driver_name": driver_name,
+                "vehicle_name": vehicle_name,
+                "message": message,
+                "snapshot_path": snapshot_path,
+                "risk_score": risk_score,
+                "tai_xe_id": tai_xe_id,
+                "xe_id": xe_id,
+                "phien_id": phien_id,
+                "event_id": eid,
+                "device_id": DEVICE_ID,
+                "occurred_at": occurred,
+                "payload_version": "1.0",
+            },
+            event_id=eid,
+        )
+
+
+def _save_or_queue_detection_log(tai_xe_id, xe_id, status, ear, mar, risk_score):
+    ok = False
+    try:
+        res = save_detection_log(
+            tai_xe_id=tai_xe_id,
+            xe_id=xe_id,
+            status=status,
+            ear=ear,
+            mar=mar,
+            risk_score=risk_score,
+        )
+        ok = res is not False
+    except Exception as e:
+        print("save_detection_log failed, luu vao offline outbox:", e)
+        ok = False
+
+    if not ok:
+        offline_outbox.enqueue(
+            "detection_log",
+            {
+                "tai_xe_id": tai_xe_id,
+                "xe_id": xe_id,
+                "status": status,
+                "ear": round(float(ear), 4),
+                "mar": round(float(mar), 4),
+                "risk_score": int(risk_score),
+            },
+        )
+
+
+def _flush_offline_outbox():
+    def _handle_alert(payload):
+        return push_realtime_alert_status(
+            event_type=payload.get("event_type", "CANH_BAO"),
+            driver_name=payload.get("driver_name"),
+            vehicle_name=payload.get("vehicle_name"),
+            message=payload.get("message", ""),
+            snapshot_path=payload.get("snapshot_path"),
+            risk_score=payload.get("risk_score", 0),
+            tai_xe_id=payload.get("tai_xe_id"),
+            xe_id=payload.get("xe_id"),
+            phien_id=payload.get("phien_id"),
+            event_id=payload.get("event_id"),
+            source="edge_outbox_replay",
+            device_id=payload.get("device_id") or DEVICE_ID,
+            occurred_at=payload.get("occurred_at"),
+            payload_version=payload.get("payload_version") or "1.0",
+        )
+
+    def _handle_detection_log(payload):
+        res = save_detection_log(
+            tai_xe_id=payload.get("tai_xe_id"),
+            xe_id=payload.get("xe_id"),
+            status=payload.get("status"),
+            ear=payload.get("ear", 0.0),
+            mar=payload.get("mar", 0.0),
+            risk_score=payload.get("risk_score", 0),
+        )
+        return res is not False
+
+    sent = offline_outbox.flush(
+        {
+            "alert_event": _handle_alert,
+            "detection_log": _handle_detection_log,
+        },
+        max_batch=25,
+    )
+    if sent > 0:
+        print(f"OfflineOutbox: da dong bo lai {sent} su kien len server.")
+
+
 def _upload_and_record_unknown(local_path, xe_id, ghi_chu, event_type, driver_name):
     final_path = upload_snapshot_to_supabase(local_path)
-    luu_nguoi_la(
-        xe_id=xe_id,
-        duong_dan_anh=final_path,
-        ghi_chu=ghi_chu,
-    )
-    push_realtime_alert(
+    try:
+        luu_nguoi_la(
+            xe_id=xe_id,
+            duong_dan_anh=final_path,
+            ghi_chu=ghi_chu,
+        )
+    except Exception as e:
+        print("Loi luu nguoi la:", e)
+    _send_or_queue_alert(
         event_type=event_type,
         driver_name=driver_name,
         vehicle_name=VEHICLE_NAME,
         message=ghi_chu,
         snapshot_path=final_path,
         risk_score=10,
+        tai_xe_id=None,
+        xe_id=xe_id,
+        phien_id=None,
     )
 
 
-def _upload_and_record_drowsy_snapshot(local_path, tai_xe_id, xe_id, nguoi_lai_hop_le, ten_hien_thi, risk_score):
+def _upload_and_record_drowsy_snapshot(
+    local_path,
+    tai_xe_id,
+    xe_id,
+    nguoi_lai_hop_le,
+    ten_hien_thi,
+    risk_score,
+    phien_id=None,
+):
     final_path = upload_snapshot_to_supabase(local_path)
-    if nguoi_lai_hop_le and tai_xe_id:
-        luu_anh_canh_bao(
-            tai_xe_id=tai_xe_id,
-            xe_id=xe_id,
-            duong_dan_anh=final_path,
-        )
-    else:
-        luu_nguoi_la(
-            xe_id=xe_id,
-            duong_dan_anh=final_path,
-            ghi_chu=(
-                f"Nguoi lai khong hop le co dau hieu buon ngu. "
-                f"Ten hien thi: {ten_hien_thi}"
-            ),
-        )
-    push_realtime_alert(
+    try:
+        if nguoi_lai_hop_le and tai_xe_id:
+            luu_anh_canh_bao(
+                tai_xe_id=tai_xe_id,
+                xe_id=xe_id,
+                duong_dan_anh=final_path,
+            )
+        else:
+            luu_nguoi_la(
+                xe_id=xe_id,
+                duong_dan_anh=final_path,
+                ghi_chu=(
+                    f"Nguoi lai khong hop le co dau hieu buon ngu. "
+                    f"Ten hien thi: {ten_hien_thi}"
+                ),
+            )
+    except Exception as e:
+        print("Loi luu anh canh bao:", e)
+
+    _send_or_queue_alert(
         event_type="BUON_NGU",
         driver_name=ten_hien_thi,
         vehicle_name=VEHICLE_NAME,
         message=f"Ảnh chụp cảnh báo buồn ngủ của {ten_hien_thi}",
         snapshot_path=final_path,
         risk_score=risk_score,
+        tai_xe_id=tai_xe_id if nguoi_lai_hop_le else None,
+        xe_id=xe_id,
+        phien_id=phien_id if nguoi_lai_hop_le else None,
     )
 
 
@@ -510,6 +666,8 @@ last_drowsy_warning_time = 0
 last_rest_warning_time = 0
 last_dangerous_time_warning_time = 0
 last_long_drive_warning_time = 0
+last_heartbeat_time = 0
+last_outbox_flush_time = 0
 
 
 # PERCLOS
@@ -675,9 +833,9 @@ while True:
 
                     if lost_seconds > LOST_TIMEOUT:
 
-                        dong_phien_lai_xe(phien_hien_tai)
+                        dong_phien_lai_xe(phien_hien_tai, ly_do_ket_thuc="AUTO_MAT_DAU_30P")
 
-                        print("Da dong phien")
+                        print("Da dong phien (AUTO_MAT_DAU_30P)")
 
                         phien_hien_tai = None
                         driver_locked = False
@@ -919,13 +1077,16 @@ while True:
 
                 reason_str = ", ".join(reasons) if reasons else "BUON NGU"
                 enqueue_db_task(
-                    push_realtime_alert,
+                    _send_or_queue_alert,
                     event_type="BUON_NGU",
                     driver_name=ten_tai_xe,
                     vehicle_name=VEHICLE_NAME,
                     message=f"Tài xế {ten_tai_xe} buồn ngủ ({reason_str} | Fatigue {fatigue_score:.0f}%)",
                     snapshot_path=None,
                     risk_score=risk_score,
+                    tai_xe_id=tai_xe_hien_tai if nguoi_lai_hop_le else None,
+                    xe_id=VEHICLE_ID,
+                    phien_id=phien_hien_tai if nguoi_lai_hop_le else None,
                 )
 
                 last_drowsy_warning_time = now
@@ -947,6 +1108,7 @@ while True:
                     nguoi_lai_hop_le=nguoi_lai_hop_le,
                     ten_hien_thi=ten_tai_xe,
                     risk_score=risk_score,
+                    phien_id=phien_hien_tai if nguoi_lai_hop_le else None,
                 )
 
         elif status == "MAT TAP TRUNG":
@@ -981,7 +1143,7 @@ while True:
 
         if should_save and tai_xe_hien_tai and nguoi_lai_hop_le:
             enqueue_db_task(
-                save_detection_log,
+                _save_or_queue_detection_log,
                 tai_xe_id=tai_xe_hien_tai,
                 xe_id=VEHICLE_ID,
                 status=status,
@@ -999,6 +1161,28 @@ while True:
     fps = int(1 / max(current - prev_time, 0.0001))
     prev_time = current
     runtime = int(time.time() - start_time)
+
+    # P0-3: DEVICE HEARTBEAT (20s) & P0-4: OFFLINE OUTBOX FLUSH (15s)
+    if current - last_heartbeat_time >= HEARTBEAT_INTERVAL:
+        last_heartbeat_time = current
+        enqueue_db_task(
+            push_device_heartbeat,
+            device_id=DEVICE_ID,
+            xe_id=VEHICLE_ID,
+            camera_source=str(CAMERA_SOURCE),
+            fps=float(fps),
+            status="ONLINE" if xe_dang_chay else "PAUSED",
+            active_driver_id=tai_xe_hien_tai if nguoi_lai_hop_le else None,
+            active_phien_id=phien_hien_tai if nguoi_lai_hop_le else None,
+            outbox_pending=offline_outbox.count_pending(),
+            dead_letter_count=offline_outbox.count_dead_letter(),
+            firmware_version="edge-2.0",
+        )
+
+    if current - last_outbox_flush_time >= OUTBOX_FLUSH_INTERVAL:
+        last_outbox_flush_time = current
+        if offline_outbox.count_pending() > 0:
+            enqueue_db_task(_flush_offline_outbox)
 
     # DISPLAY HUD
 

@@ -87,7 +87,7 @@ export default function DashboardScreen() {
             <Text style={styles.cardSub}>
               {faceStatus?.da_dang_ky
                 ? `Số mẫu lưu trên Supabase: ${faceStatus.so_mau}`
-                : "Hãy mở tab Khuôn mặt để quét và đăng ký bằng camera điện thoại."}
+                : "Chưa có dữ liệu khuôn mặt. Vui lòng liên hệ Quản lý để đăng ký khuôn mặt 128D."}
             </Text>
           </View>
         </View>

@@ -1,25 +1,9 @@
-import React, { useState } from "react";
+import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useAuth } from "../context/AuthContext";
-import FaceRegisterScreen from "./FaceRegisterScreen";
 
 export default function ProfileScreen() {
   const { user, apiUrl, logout } = useAuth();
-  const [showFaceRegister, setShowFaceRegister] = useState(false);
-
-  if (showFaceRegister) {
-    return (
-      <View style={{ flex: 1, backgroundColor: "#020617" }}>
-        <TouchableOpacity
-          style={styles.backBar}
-          onPress={() => setShowFaceRegister(false)}
-        >
-          <Text style={styles.backText}>← Quay lại Tài khoản</Text>
-        </TouchableOpacity>
-        <FaceRegisterScreen />
-      </View>
-    );
-  }
 
   return (
     <View style={styles.container}>
@@ -46,12 +30,11 @@ export default function ProfileScreen() {
       </View>
 
       {user?.vai_tro === "tai_xe" && (
-        <TouchableOpacity
-          style={styles.faceBtn}
-          onPress={() => setShowFaceRegister(true)}
-        >
-          <Text style={styles.logoutText}>ĐĂNG KÝ / CẬP NHẬT KHUÔN MẶT 128D</Text>
-        </TouchableOpacity>
+        <View style={styles.noteBox}>
+          <Text style={styles.noteText}>
+            Lưu ý: Việc đăng ký hoặc cập nhật lại khuôn mặt 128D chỉ do Quản lý thực hiện để đảm bảo an toàn xác thực.
+          </Text>
+        </View>
       )}
 
       <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
@@ -63,8 +46,6 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#020617", padding: 18 },
-  backBar: { paddingTop: 14, paddingHorizontal: 18, paddingBottom: 4 },
-  backText: { color: "#22d3ee", fontWeight: "700", fontSize: 14 },
   header: { color: "#fff", fontSize: 24, fontWeight: "800", marginBottom: 16 },
   card: {
     backgroundColor: "#0f172a",
@@ -75,15 +56,17 @@ const styles = StyleSheet.create({
   },
   label: { color: "#64748b", fontSize: 11, fontWeight: "700", marginTop: 12 },
   value: { color: "#f8fafc", fontSize: 16, fontWeight: "700", marginTop: 4 },
-  faceBtn: {
-    marginTop: 18,
-    backgroundColor: "#0891b2",
-    borderRadius: 16,
-    padding: 16,
-    alignItems: "center",
+  noteBox: {
+    marginTop: 16,
+    backgroundColor: "#0f172a",
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#1e293b",
   },
+  noteText: { color: "#94a3b8", fontSize: 12, lineHeight: 18 },
   logoutBtn: {
-    marginTop: 12,
+    marginTop: 18,
     backgroundColor: "#dc2626",
     borderRadius: 16,
     padding: 16,

@@ -119,6 +119,41 @@
         </div>
     </div>
 
+    <!-- P0-3: TRẠNG THÁI THIẾT BỊ CAMERA (HEARTBEAT) -->
+    <div class="bg-slate-900 rounded-3xl p-5 border border-slate-800 mb-6 shadow-xl">
+        <div class="flex justify-between items-center mb-4">
+            <div>
+                <h2 class="text-xl font-bold">📷 Trạng thái Thiết bị Camera (Heartbeat)</h2>
+                <p class="text-sm text-slate-400">Phát hiện mất kết nối camera/mạng theo thời gian thực (Offline sau 60s)</p>
+            </div>
+            <span class="text-xs bg-slate-800 px-3 py-1 rounded-full text-slate-400">Heartbeat 20s</span>
+        </div>
+        <div id="device_status_list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <p class="text-slate-400 text-sm">Đang kiểm tra thiết bị...</p>
+        </div>
+    </div>
+
+    <!-- P0-2: QUẢN LÝ VÒNG ĐỜI CẢNH BÁO (ALERT LIFECYCLE) -->
+    <div class="bg-slate-900 rounded-3xl p-5 border border-slate-800 mb-6 shadow-xl">
+        <div class="flex justify-between items-center mb-4">
+            <div>
+                <h2 class="text-xl font-bold">🚨 Quản lý Vòng đời Cảnh báo (Alert Lifecycle)</h2>
+                <p class="text-sm text-slate-400">Tiếp nhận, xử lý, đóng hoặc gắn cờ báo sai cho từng sự kiện cảnh báo</p>
+            </div>
+            <select id="alert_status_filter" onchange="loadAlertLifecycle()" class="bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm text-white">
+                <option value="">Tất cả trạng thái</option>
+                <option value="MOI">Mới (MOI)</option>
+                <option value="DA_TIEP_NHAN">Đã tiếp nhận</option>
+                <option value="DANG_XU_LY">Đang xử lý</option>
+                <option value="DA_DONG">Đã đóng</option>
+                <option value="CANH_BAO_SAI">Cảnh báo sai</option>
+            </select>
+        </div>
+        <div id="alert_lifecycle_list" class="space-y-3">
+            <p class="text-slate-400 text-sm">Đang tải danh sách sự kiện cảnh báo...</p>
+        </div>
+    </div>
+
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
         <div class="bg-slate-900 rounded-3xl p-5 border border-slate-800 shadow-xl">
@@ -169,6 +204,10 @@ function statusColor(status) {
     if (status === "CHO_XU_LY") return "bg-yellow-500/20 text-yellow-300 border border-yellow-500/30";
     if (status === "DANG_XU_LY") return "bg-blue-500/20 text-blue-300 border border-blue-500/30";
     if (status === "DA_XU_LY") return "bg-green-500/20 text-green-300 border border-green-500/30";
+    if (status === "MOI") return "bg-rose-500/20 text-rose-300 border border-rose-500/40";
+    if (status === "DA_TIEP_NHAN") return "bg-amber-500/20 text-amber-300 border border-amber-500/40";
+    if (status === "DA_DONG") return "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40";
+    if (status === "CANH_BAO_SAI") return "bg-slate-700/80 text-slate-300 border border-slate-600";
     return "bg-slate-700 text-slate-300 border border-slate-600";
 }
 
@@ -188,9 +227,122 @@ async function loadDashboard() {
         renderAlerts(data.canh_bao_moi || []);
         renderReports(data.bao_cao_moi || []);
         loadSnapshots();
+        loadDevices();
+        loadAlertLifecycle();
 
     } catch (error) {
         console.error("Dashboard error:", error);
+    }
+}
+
+async function loadDevices() {
+    try {
+        const res = await fetch("/api/admin/devices");
+        const json = await res.json();
+        const rows = json.data || [];
+        const box = document.getElementById("device_status_list");
+        if (!box) return;
+
+        if (rows.length === 0) {
+            box.innerHTML = `<p class="text-slate-400 text-sm">Chưa có thiết bị camera nào gửi heartbeat.</p>`;
+            return;
+        }
+
+        box.innerHTML = rows.map(d => {
+            const health = d.health_status || (d.online ? "ONLINE_HEALTHY" : "OFFLINE");
+            let badge = `<span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40">🔴 OFFLINE (${d.seconds_since_seen ?? "?"}s)</span>`;
+            if (health === "ONLINE_HEALTHY") {
+                badge = `<span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">🟢 HEALTHY • ${Number(d.fps || 0).toFixed(0)} FPS</span>`;
+            } else if (health === "ONLINE_DEGRADED") {
+                badge = `<span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">🟡 DEGRADED • ${Number(d.fps || 0).toFixed(0)} FPS</span>`;
+            }
+            const outboxBadge = (d.outbox_pending || 0) > 0
+                ? `<span class="text-xs text-amber-300 ml-2">Outbox chờ: ${d.outbox_pending}</span>`
+                : "";
+            const dlqBadge = (d.dead_letter_count || 0) > 0
+                ? `<span class="text-xs text-rose-300 ml-2">Lỗi DLQ: ${d.dead_letter_count}</span>`
+                : "";
+            return `
+                <div class="bg-slate-800/80 border border-slate-700 rounded-2xl p-4">
+                    <div class="flex items-center justify-between gap-2">
+                        <h3 class="font-bold text-sm truncate">${d.device_id}</h3>
+                        ${badge}
+                    </div>
+                    <p class="text-xs text-slate-300 mt-2">Xe: <b>${d.bien_so || ("ID " + (d.xe_id || "N/A"))}</b> • Nguồn: ${d.nguon_camera || "0"}</p>
+                    <p class="text-xs text-slate-400 mt-1">Tài xế: ${d.ho_ten || "Chưa khóa"} ${outboxBadge} ${dlqBadge}</p>
+                    <p class="text-[11px] text-slate-500 mt-1">Heartbeat cuối: ${d.lan_cuoi_ket_noi || ""}</p>
+                </div>
+            `;
+        }).join("");
+    } catch (err) {
+        console.error("Load devices error:", err);
+    }
+}
+
+async function loadAlertLifecycle() {
+    try {
+        const filterEl = document.getElementById("alert_status_filter");
+        const statusParam = filterEl && filterEl.value ? `?trang_thai=${encodeURIComponent(filterEl.value)}&limit=15` : "?limit=15";
+        const res = await fetch(`/api/admin/alerts${statusParam}`);
+        const json = await res.json();
+        const rows = json.data || [];
+        const box = document.getElementById("alert_lifecycle_list");
+        if (!box) return;
+
+        if (rows.length === 0) {
+            box.innerHTML = `<p class="text-slate-400 text-sm">Chưa có sự kiện cảnh báo nào trong danh sách.</p>`;
+            return;
+        }
+
+        box.innerHTML = rows.map(item => `
+            <div class="bg-slate-800/80 border border-slate-700 rounded-2xl p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                <div class="min-w-0">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-600/30 text-rose-200 border border-rose-500/40">${item.loai_canh_bao}</span>
+                        <span class="px-2.5 py-0.5 rounded-full text-xs ${statusColor(item.trang_thai)}">${item.trang_thai}</span>
+                        <span class="text-xs text-slate-400">${item.bien_so || ("Xe " + (item.xe_id || "N/A"))} • ${item.ho_ten || "Chưa xác định"}</span>
+                    </div>
+                    <p class="text-sm text-slate-200 mt-1.5">${item.noi_dung || ""}</p>
+                    <p class="text-[11px] text-slate-500 mt-1">
+                        Risk: ${item.risk_score || 0} • Nguồn: ${item.nguon || "edge"} • ${item.thoi_gian_xay_ra || ""}
+                        ${item.nguoi_xu_ly ? ` • Xử lý bởi: ${item.nguoi_xu_ly}` : ""}
+                        ${item.ghi_chu_xu_ly ? ` • Ghi chú: ${item.ghi_chu_xu_ly}` : ""}
+                    </p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2 shrink-0">
+                    ${item.image_url ? `<a href="${item.image_url}" target="_blank" class="px-3 py-1.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-xs">Xem ảnh</a>` : ""}
+                    ${item.trang_thai === "MOI" ? `<button onclick="updateAlertStatus(${item.id}, 'DA_TIEP_NHAN', '${item.trang_thai}')" class="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-xs font-semibold">Tiếp nhận</button>` : ""}
+                    ${item.trang_thai !== "DA_DONG" && item.trang_thai !== "CANH_BAO_SAI" ? `
+                        <button onclick="updateAlertStatus(${item.id}, 'DA_DONG', '${item.trang_thai}')" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold">Đã đóng</button>
+                        <button onclick="updateAlertStatus(${item.id}, 'CANH_BAO_SAI', '${item.trang_thai}')" class="px-3 py-1.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-xs">Báo sai</button>
+                    ` : ""}
+                </div>
+            </div>
+        `).join("");
+    } catch (err) {
+        console.error("Load alert lifecycle error:", err);
+    }
+}
+
+async function updateAlertStatus(alertId, newStatus, expectedStatus) {
+    try {
+        const res = await fetch(`/api/admin/alerts/${alertId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                trang_thai: newStatus,
+                expected_status: expectedStatus || null,
+            }),
+        });
+        if (!res.ok) {
+            const errJson = await res.json().catch(() => ({}));
+            alert(errJson.message || "Không thể cập nhật trạng thái cảnh báo");
+            loadAlertLifecycle();
+            return;
+        }
+        loadAlertLifecycle();
+    } catch (err) {
+        console.error("Update alert status error:", err);
     }
 }
 

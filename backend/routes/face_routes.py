@@ -15,16 +15,18 @@ face_bp = Blueprint("face_bp", __name__)
 
 
 @face_bp.route("/driver/register-face", methods=["GET"])
-@require_role("tai_xe", "quan_ly")
-def register_face_page():
-    tai_xe_id, allowed = resolve_driver_id(request.args.get("tai_xe_id"))
+@face_bp.route("/admin/drivers/<int:tai_xe_id>/register-face", methods=["GET"])
+@require_role("quan_ly")
+def register_face_page(tai_xe_id=None):
+    target_id = tai_xe_id or request.args.get("tai_xe_id")
+    resolved_id, allowed = resolve_driver_id(target_id)
     if not allowed:
-        return "Không có quyền truy cập trang đăng ký khuôn mặt này.", 403
+        return "Thiếu mã tài xế hợp lệ để đăng ký khuôn mặt.", 400
 
-    face_status = lay_trang_thai_khuon_mat(tai_xe_id)
+    face_status = lay_trang_thai_khuon_mat(resolved_id)
     return render_template(
         "driver/register_face.html",
-        tai_xe_id=tai_xe_id,
+        tai_xe_id=resolved_id,
         face_status=face_status,
     )
 
@@ -47,17 +49,22 @@ def api_face_status(tai_xe_id):
 
 
 @face_bp.route("/api/driver/register-face", methods=["POST"])
+@face_bp.route("/api/admin/drivers/register-face", methods=["POST"])
 @face_bp.route("/api/register-face", methods=["POST"])
-@require_role("tai_xe", "quan_ly")
+@require_role("quan_ly")
 def api_register_face():
+    """
+    Chi QUAN LY moi duoc dang ky hoac dang ky lai khuon mat 128D cho tai xe
+    (chong tai xe tu dang ky khuon mat nguoi khac).
+    """
     data = request.get_json(silent=True) or {}
 
     resolved_id, allowed = resolve_driver_id(data.get("tai_xe_id"))
     if not allowed:
         return jsonify({
             "success": False,
-            "message": "Bạn không có quyền đăng ký khuôn mặt cho tài xế khác."
-        }), 403
+            "message": "Vui lòng chọn tài xế hợp lệ để đăng ký khuôn mặt."
+        }), 400
 
     raw_images = data.get("images")
     if not raw_images and data.get("image"):
@@ -69,7 +76,6 @@ def api_register_face():
             "message": "Vui lòng gửi ít nhất 1 ảnh khuôn mặt."
         }), 400
 
-    # Gioi han toi da 5 mau cho moi lan dang ky
     raw_images = raw_images[:5]
 
     embeddings = []
@@ -100,7 +106,7 @@ def api_register_face():
     saved_vectors = luu_nhieu_vector_khuon_mat(
         tai_xe_id=resolved_id,
         embeddings=embeddings,
-        mo_ta="Đăng ký từ Web",
+        mo_ta="Quản lý đăng ký",
     )
 
     if not saved_vectors:

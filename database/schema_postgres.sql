@@ -164,3 +164,50 @@ CREATE TABLE IF NOT EXISTS thiet_bi_thong_bao (
     nen_tang VARCHAR(30) DEFAULT 'unknown',
     cap_nhat_cuoi TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 15. SU KIEN CANH BAO (VONG DOI XU LY + CHONG TRUNG UUID)
+CREATE TABLE IF NOT EXISTS su_kien_canh_bao (
+    id SERIAL PRIMARY KEY,
+    event_id VARCHAR(64) UNIQUE NOT NULL,
+    payload_version VARCHAR(16) DEFAULT '1.0',
+    device_id VARCHAR(100) NULL,
+    tai_xe_id INT NULL REFERENCES tai_xe(id) ON DELETE SET NULL,
+    xe_id INT NULL REFERENCES xe(id) ON DELETE SET NULL,
+    phien_id INT NULL REFERENCES phien_lai_xe(id) ON DELETE SET NULL,
+    nguon VARCHAR(30) DEFAULT 'vehicle_camera',
+    loai_canh_bao VARCHAR(50) NOT NULL,
+    muc_do VARCHAR(20) DEFAULT 'CAO',
+    noi_dung TEXT,
+    duong_dan_anh VARCHAR(255) NULL,
+    risk_score INT DEFAULT 0,
+    trang_thai VARCHAR(30) DEFAULT 'MOI'
+        CHECK (trang_thai IN ('MOI', 'DA_TIEP_NHAN', 'DANG_XU_LY', 'DA_DONG', 'CANH_BAO_SAI')),
+    nguoi_xu_ly_id INT NULL REFERENCES tai_khoan(id) ON DELETE SET NULL,
+    ghi_chu_xu_ly TEXT NULL,
+    occurred_at TIMESTAMP WITH TIME ZONE NULL,
+    thoi_gian_xay_ra TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    thoi_gian_xu_ly TIMESTAMP NULL
+);
+
+-- 16. THIET BI CAMERA & HEARTBEAT (ONLINE_HEALTHY / ONLINE_DEGRADED / OFFLINE)
+CREATE TABLE IF NOT EXISTS thiet_bi_camera (
+    id SERIAL PRIMARY KEY,
+    device_id VARCHAR(100) UNIQUE NOT NULL,
+    xe_id INT NULL REFERENCES xe(id) ON DELETE SET NULL,
+    ten_thiet_bi VARCHAR(150),
+    nguon_camera VARCHAR(255),
+    fps DOUBLE PRECISION DEFAULT 0,
+    camera_ok BOOLEAN DEFAULT TRUE,
+    trang_thai_hoat_dong VARCHAR(50) DEFAULT 'DANG_CHAY',
+    active_driver_id INT NULL REFERENCES tai_xe(id) ON DELETE SET NULL,
+    active_phien_id INT NULL REFERENCES phien_lai_xe(id) ON DELETE SET NULL,
+    outbox_pending INT DEFAULT 0,
+    dead_letter_count INT DEFAULT 0,
+    lan_cuoi_ket_noi TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- P0+ REV-03/08: CHONG TRUNG PHIEN DANG MO O TANG DB & LY DO KET THUC PHIEN
+ALTER TABLE phien_lai_xe ADD COLUMN IF NOT EXISTS ly_do_ket_thuc VARCHAR(100) NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_phien_lai_xe_tai_xe_dang_mo
+    ON phien_lai_xe (tai_xe_id)
+    WHERE trang_thai != 'DA_KET_THUC';

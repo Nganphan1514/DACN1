@@ -628,33 +628,60 @@ def lay_danh_sach_xe():
 # PHIEN LAI XE
 
 def tao_phien_lai_xe(tai_xe_id, xe_id):
-
+    """
+    Mo phien lai xe an toan (P0-1):
+    - Khong tao phien trung neu tai xe nay da co phien DANG_LAI / TAM_MAT_DAU tren cung xe.
+    - Tu dong gan lich_chay_id dang chay hoac sap chay cua (tai_xe_id, xe_id).
+    """
     try:
+        phien_cu = db.fetch_one(
+            """
+            SELECT id, xe_id
+            FROM phien_lai_xe
+            WHERE tai_xe_id=%s
+            AND trang_thai IN ('DANG_LAI', 'TAM_MAT_DAU')
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (tai_xe_id,),
+        )
+        if phien_cu:
+            if phien_cu.get("xe_id") == xe_id:
+                reset_mat_dau(phien_cu["id"])
+                return phien_cu["id"]
+            # Dong phien cu tren xe khac truoc khi mo phien moi
+            dong_phien_lai_xe(phien_cu["id"])
+
+        lich_chay = db.fetch_one(
+            """
+            SELECT id
+            FROM lich_chay
+            WHERE tai_xe_id=%s
+            AND xe_id=%s
+            AND trang_thai IN ('dang_chay', 'sap_chay')
+            ORDER BY CASE WHEN trang_thai='dang_chay' THEN 1 ELSE 2 END, gio_bat_dau ASC
+            LIMIT 1
+            """,
+            (tai_xe_id, xe_id),
+        )
+        lich_chay_id = lich_chay["id"] if lich_chay else None
 
         query = """
         INSERT INTO phien_lai_xe
         (
             tai_xe_id,
-            xe_id
+            xe_id,
+            lich_chay_id
         )
         VALUES
-        (%s,%s)
+        (%s,%s,%s)
         """
 
-        cursor = db.execute(
-            query,
-            (
-                tai_xe_id,
-                xe_id,
-            ),
-        )
-
+        cursor = db.execute(query, (tai_xe_id, xe_id, lich_chay_id))
         return cursor.lastrowid
 
     except Exception as e:
-
         print("Loi tao phien:", e)
-
         return None
 
 
@@ -742,20 +769,23 @@ def reset_mat_dau(phien_id):
         print("Reset mat dau error:", e)
 
 
-def dong_phien_lai_xe(phien_id):
+def dong_phien_lai_xe(phien_id, ly_do_ket_thuc="MANUAL_STOP"):
 
     try:
-
+        db.execute(
+            "ALTER TABLE phien_lai_xe ADD COLUMN IF NOT EXISTS ly_do_ket_thuc VARCHAR(100) NULL"
+        )
         query = """
         UPDATE phien_lai_xe
         SET
             ket_thuc=NOW(),
             tong_phut=ROUND(EXTRACT(EPOCH FROM (NOW() - bat_dau)) / 60.0),
-            trang_thai='DA_KET_THUC'
+            trang_thai='DA_KET_THUC',
+            ly_do_ket_thuc=%s
         WHERE id=%s
         """
 
-        db.execute(query, (phien_id,))
+        db.execute(query, (ly_do_ket_thuc, phien_id))
 
     except Exception as e:
 
@@ -2176,6 +2206,11 @@ def tao_lich_chay(
             print("Xe khong o trang thai hoat dong")
             return None
 
+        # P0-1: Chan tao lich trung khung gio cho cung xe hoac cung tai xe
+        if kiem_tra_trung_lich_chay(tai_xe_id, xe_id, gio_bat_dau, gio_ket_thuc):
+            print("Trung khung gio lich chay cho tai xe hoac xe nay")
+            return None
+
         cursor = db.execute(
             """
             INSERT INTO lich_chay
@@ -2334,6 +2369,19 @@ def cap_nhat_lich_chay(
 
             if not xe:
                 print("Xe khong o trang thai hoat dong")
+                return False
+
+            trung_lich = kiem_tra_trung_lich_chay(
+                tai_xe_id=tai_xe_id,
+                xe_id=xe_id,
+                gio_bat_dau=gio_bat_dau,
+                gio_ket_thuc=gio_ket_thuc,
+                bo_qua_lich_id=lich_id,
+            )
+            if trung_lich:
+                print(
+                    f"Trung lich chay khi cap nhat ID {lich_id} voi lich ID {trung_lich.get('id')}"
+                )
                 return False
 
         db.execute(
@@ -2656,3 +2704,373 @@ def lay_danh_sach_push_token(vai_tro="quan_ly"):
     except Exception as e:
         print("Lay danh sach push token error:", e)
         return []
+
+
+# P0-1: KIEM TRA TRUNG LICH CHAY (CHONG PHAN CONG CHONG LAN XE / TAI XE)
+
+def kiem_tra_trung_lich_chay(
+    tai_xe_id,
+    xe_id,
+    gio_bat_dau,
+    gio_ket_thuc=None,
+    bo_qua_lich_id=None,
+):
+    try:
+        sql = """
+        SELECT id
+        FROM lich_chay
+        WHERE trang_thai IN ('sap_chay', 'dang_chay', 'tam_ngung')
+        AND (tai_xe_id = %s OR xe_id = %s)
+        AND gio_bat_dau < COALESCE(%s::timestamp, %s::timestamp + INTERVAL '4 hours')
+        AND COALESCE(gio_ket_thuc, gio_bat_dau + INTERVAL '4 hours') > %s::timestamp
+        """
+        params = [tai_xe_id, xe_id, gio_ket_thuc, gio_bat_dau, gio_bat_dau]
+
+        if bo_qua_lich_id is not None:
+            sql += " AND id != %s"
+            params.append(bo_qua_lich_id)
+
+        sql += " LIMIT 1"
+        row = db.fetch_one(sql, tuple(params))
+        return row is not None
+    except Exception as e:
+        print("Kiem tra trung lich chay error:", e)
+        return False
+
+
+# P0-2: VONG DOI SU KIEN CANH BAO (UUID IDEMPOTENCY)
+
+TRANG_THAI_CANH_BAO_HOP_LE = {
+    "MOI",
+    "DA_TIEP_NHAN",
+    "DANG_XU_LY",
+    "DA_DONG",
+    "CANH_BAO_SAI",
+}
+
+
+def _ensure_alert_event_table():
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS su_kien_canh_bao (
+            id SERIAL PRIMARY KEY,
+            event_id VARCHAR(64) UNIQUE NOT NULL,
+            tai_xe_id INT NULL REFERENCES tai_xe(id) ON DELETE SET NULL,
+            xe_id INT NULL REFERENCES xe(id) ON DELETE SET NULL,
+            phien_id INT NULL REFERENCES phien_lai_xe(id) ON DELETE SET NULL,
+            nguon VARCHAR(30) DEFAULT 'vehicle_camera',
+            loai_canh_bao VARCHAR(50) NOT NULL,
+            muc_do VARCHAR(20) DEFAULT 'CAO',
+            noi_dung TEXT,
+            duong_dan_anh VARCHAR(255) NULL,
+            risk_score INT DEFAULT 0,
+            trang_thai VARCHAR(30) DEFAULT 'MOI'
+                CHECK (trang_thai IN ('MOI', 'DA_TIEP_NHAN', 'DANG_XU_LY', 'DA_DONG', 'CANH_BAO_SAI')),
+            nguoi_xu_ly_id INT NULL REFERENCES tai_khoan(id) ON DELETE SET NULL,
+            ghi_chu_xu_ly TEXT NULL,
+            thoi_gian_xay_ra TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            thoi_gian_xu_ly TIMESTAMP NULL
+        )
+        """
+    )
+
+
+from core.ops_rules import (
+    ALERT_ALLOWED_TRANSITIONS,
+    kiem_tra_chuyen_trang_thai_canh_bao,
+    phan_loai_suc_khoe_thiet_bi,
+)
+
+
+def tao_su_kien_canh_bao(
+    event_id,
+    loai_canh_bao,
+    noi_dung,
+    tai_xe_id=None,
+    xe_id=None,
+    phien_id=None,
+    nguon="vehicle_camera",
+    muc_do="CAO",
+    duong_dan_anh=None,
+    risk_score=0,
+    device_id=None,
+    occurred_at=None,
+    payload_version="1.0",
+):
+    try:
+        _ensure_alert_event_table()
+        db.execute("ALTER TABLE su_kien_canh_bao ADD COLUMN IF NOT EXISTS device_id VARCHAR(100) NULL")
+        db.execute("ALTER TABLE su_kien_canh_bao ADD COLUMN IF NOT EXISTS occurred_at TIMESTAMP WITH TIME ZONE NULL")
+        db.execute("ALTER TABLE su_kien_canh_bao ADD COLUMN IF NOT EXISTS payload_version VARCHAR(16) DEFAULT '1.0'")
+        res = db.execute(
+            """
+            INSERT INTO su_kien_canh_bao
+            (
+                event_id, payload_version, device_id, tai_xe_id, xe_id, phien_id,
+                nguon, loai_canh_bao, muc_do, noi_dung,
+                duong_dan_anh, risk_score, occurred_at, trang_thai
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'MOI')
+            ON CONFLICT (event_id) DO NOTHING
+            RETURNING id
+            """,
+            (
+                event_id,
+                payload_version,
+                device_id,
+                tai_xe_id,
+                xe_id,
+                phien_id,
+                nguon,
+                loai_canh_bao,
+                muc_do,
+                noi_dung,
+                duong_dan_anh,
+                risk_score,
+                occurred_at,
+            ),
+        )
+        return res.lastrowid
+    except Exception as e:
+        print("Tao su kien canh bao error:", e)
+        return None
+
+
+def lay_danh_sach_su_kien_canh_bao(trang_thai=None, limit=50):
+    try:
+        _ensure_alert_event_table()
+        sql = """
+        SELECT
+            sk.*,
+            tx.ho_ten,
+            x.bien_so,
+            tk.ten_dang_nhap AS nguoi_xu_ly
+        FROM su_kien_canh_bao sk
+        LEFT JOIN tai_xe tx ON sk.tai_xe_id = tx.id
+        LEFT JOIN xe x ON sk.xe_id = x.id
+        LEFT JOIN tai_khoan tk ON sk.nguoi_xu_ly_id = tk.id
+        """
+        params = []
+        if trang_thai and trang_thai in TRANG_THAI_CANH_BAO_HOP_LE:
+            sql += " WHERE sk.trang_thai = %s"
+            params.append(trang_thai)
+
+        sql += " ORDER BY sk.id DESC LIMIT %s"
+        params.append(int(limit))
+        return db.fetch_all(sql, tuple(params))
+    except Exception as e:
+        print("Lay danh sach su kien canh bao error:", e)
+        return []
+
+
+def cap_nhat_trang_thai_su_kien_canh_bao(
+    canh_bao_id,
+    trang_thai,
+    nguoi_xu_ly_id,
+    ghi_chu_xu_ly=None,
+    expected_status=None,
+):
+    try:
+        if trang_thai not in TRANG_THAI_CANH_BAO_HOP_LE:
+            return False
+        _ensure_alert_event_table()
+        hien_tai = db.fetch_one(
+            "SELECT id, trang_thai FROM su_kien_canh_bao WHERE id = %s LIMIT 1",
+            (canh_bao_id,),
+        )
+        if not hien_tai:
+            return False
+
+        current_status = hien_tai.get("trang_thai")
+        if expected_status and current_status != expected_status:
+            return False
+        if not kiem_tra_chuyen_trang_thai_canh_bao(current_status, trang_thai):
+            return False
+
+        res = db.execute(
+            """
+            UPDATE su_kien_canh_bao
+            SET
+                trang_thai = %s,
+                nguoi_xu_ly_id = %s,
+                ghi_chu_xu_ly = COALESCE(%s, ghi_chu_xu_ly),
+                thoi_gian_xu_ly = NOW()
+            WHERE id = %s AND trang_thai = %s
+            RETURNING id
+            """,
+            (trang_thai, nguoi_xu_ly_id, ghi_chu_xu_ly, canh_bao_id, current_status),
+        )
+        if not res.lastrowid:
+            return False
+
+        ghi_lich_su_thao_tac(
+            nguoi_thuc_hien_id=nguoi_xu_ly_id,
+            vai_tro="quan_ly",
+            hanh_dong=f"XU_LY_CANH_BAO_{trang_thai}",
+            bang_du_lieu="su_kien_canh_bao",
+            doi_tuong_id=canh_bao_id,
+            ghi_chu=ghi_chu_xu_ly or f"Chuyển trạng thái {current_status} -> {trang_thai}",
+        )
+        return True
+    except Exception as e:
+        print("Cap nhat canh bao error:", e)
+        return False
+
+
+# P0-3 + P0+ REV-13: QUAN LY THIET BI CAMERA & HEARTBEAT (3 MUC HEALTH)
+
+def _ensure_device_table():
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS thiet_bi_camera (
+            id SERIAL PRIMARY KEY,
+            device_id VARCHAR(100) UNIQUE NOT NULL,
+            xe_id INT NULL REFERENCES xe(id) ON DELETE SET NULL,
+            ten_thiet_bi VARCHAR(150),
+            nguon_camera VARCHAR(255),
+            fps DOUBLE PRECISION DEFAULT 0,
+            camera_ok BOOLEAN DEFAULT TRUE,
+            trang_thai_hoat_dong VARCHAR(50) DEFAULT 'DANG_CHAY',
+            active_driver_id INT NULL REFERENCES tai_xe(id) ON DELETE SET NULL,
+            active_phien_id INT NULL REFERENCES phien_lai_xe(id) ON DELETE SET NULL,
+            outbox_pending INT DEFAULT 0,
+            dead_letter_count INT DEFAULT 0,
+            lan_cuoi_ket_noi TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    db.execute("ALTER TABLE thiet_bi_camera ADD COLUMN IF NOT EXISTS active_driver_id INT NULL")
+    db.execute("ALTER TABLE thiet_bi_camera ADD COLUMN IF NOT EXISTS active_phien_id INT NULL")
+    db.execute("ALTER TABLE thiet_bi_camera ADD COLUMN IF NOT EXISTS outbox_pending INT DEFAULT 0")
+    db.execute("ALTER TABLE thiet_bi_camera ADD COLUMN IF NOT EXISTS dead_letter_count INT DEFAULT 0")
+
+
+def cap_nhat_heartbeat_thiet_bi(
+    device_id,
+    xe_id=None,
+    ten_thiet_bi=None,
+    nguon_camera="0",
+    fps=0.0,
+    camera_ok=True,
+    trang_thai_hoat_dong="DANG_CHAY",
+    active_driver_id=None,
+    active_phien_id=None,
+    outbox_pending=0,
+    dead_letter_count=0,
+):
+    try:
+        _ensure_device_table()
+        db.execute(
+            """
+            INSERT INTO thiet_bi_camera
+            (
+                device_id, xe_id, ten_thiet_bi, nguon_camera,
+                fps, camera_ok, trang_thai_hoat_dong,
+                active_driver_id, active_phien_id,
+                outbox_pending, dead_letter_count, lan_cuoi_ket_noi
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+            ON CONFLICT (device_id)
+            DO UPDATE SET
+                xe_id = EXCLUDED.xe_id,
+                ten_thiet_bi = COALESCE(EXCLUDED.ten_thiet_bi, thiet_bi_camera.ten_thiet_bi),
+                nguon_camera = EXCLUDED.nguon_camera,
+                fps = EXCLUDED.fps,
+                camera_ok = EXCLUDED.camera_ok,
+                trang_thai_hoat_dong = EXCLUDED.trang_thai_hoat_dong,
+                active_driver_id = EXCLUDED.active_driver_id,
+                active_phien_id = EXCLUDED.active_phien_id,
+                outbox_pending = EXCLUDED.outbox_pending,
+                dead_letter_count = EXCLUDED.dead_letter_count,
+                lan_cuoi_ket_noi = NOW()
+            """,
+            (
+                device_id,
+                xe_id,
+                ten_thiet_bi or device_id,
+                str(nguon_camera),
+                float(fps or 0.0),
+                bool(camera_ok),
+                trang_thai_hoat_dong,
+                active_driver_id,
+                active_phien_id,
+                int(outbox_pending or 0),
+                int(dead_letter_count or 0),
+            ),
+        )
+        return True
+    except Exception as e:
+        print("Cap nhat heartbeat error:", e)
+        return False
+
+
+def lay_danh_sach_thiet_bi_camera(online_timeout_seconds=60):
+    try:
+        _ensure_device_table()
+        rows = db.fetch_all(
+            """
+            SELECT
+                tb.*,
+                x.bien_so,
+                tx.ho_ten,
+                EXTRACT(EPOCH FROM (NOW() - tb.lan_cuoi_ket_noi)) AS seconds_since_seen
+            FROM thiet_bi_camera tb
+            LEFT JOIN xe x ON tb.xe_id = x.id
+            LEFT JOIN tai_xe tx ON tb.active_driver_id = tx.id
+            ORDER BY tb.lan_cuoi_ket_noi DESC
+            """
+        )
+        for row in rows:
+            secs = float(row.get("seconds_since_seen") or 9999)
+            health = phan_loai_suc_khoe_thiet_bi(
+                seconds_since_seen=secs,
+                camera_ok=row.get("camera_ok", True),
+                fps=row.get("fps", 0.0),
+                outbox_pending=row.get("outbox_pending", 0),
+                dead_letter_count=row.get("dead_letter_count", 0),
+                online_timeout_seconds=online_timeout_seconds,
+            )
+            row["health_status"] = health
+            row["online"] = health != "OFFLINE"
+            row["seconds_since_seen"] = int(max(0, secs))
+        return rows
+    except Exception as e:
+        print("Lay danh sach thiet bi error:", e)
+        return []
+
+
+def kiem_tra_quyen_xem_anh_snapshot(filename, tai_xe_id):
+    """P0+ REV-07: Kiem tra tai xe co so huu anh snapshot hay khong."""
+    if not filename or not tai_xe_id:
+        return False
+    pattern = f"%{filename}"
+    try:
+        row1 = db.fetch_one(
+            "SELECT id FROM anh_canh_bao WHERE tai_xe_id=%s AND duong_dan_anh LIKE %s LIMIT 1",
+            (tai_xe_id, pattern),
+        )
+        if row1:
+            return True
+        row2 = db.fetch_one(
+            "SELECT id FROM su_kien_canh_bao WHERE tai_xe_id=%s AND duong_dan_anh LIKE %s LIMIT 1",
+            (tai_xe_id, pattern),
+        )
+        return row2 is not None
+    except Exception:
+        return False
+
+
+# P0-5: KIEM TRA TAI KHOAN CON HOAT DONG (THU HOI JWT/SESSION KHI KHOA)
+
+def kiem_tra_tai_khoan_hoat_dong(tai_khoan_id):
+    try:
+        row = db.fetch_one(
+            "SELECT trang_thai FROM tai_khoan WHERE id=%s LIMIT 1",
+            (tai_khoan_id,),
+        )
+        if not row:
+            return False
+        return row.get("trang_thai") != "khoa"
+    except Exception:
+        # Neu DB tam loi mang khong khoa nham user dang hop le
+        return True

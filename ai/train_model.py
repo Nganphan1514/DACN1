@@ -4,7 +4,14 @@ import os
 import joblib
 import pandas as pd
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
-from sklearn.model_selection import StratifiedKFold, cross_val_score, train_test_split
+from sklearn.model_selection import (
+    GroupKFold,
+    GroupShuffleSplit,
+    StratifiedKFold,
+    cross_val_score,
+    train_test_split,
+)
+from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 
@@ -74,9 +81,24 @@ def train():
     X = df[feature_cols]
     y = df["Label"].astype(int)
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42, stratify=y
-    )
+    # P0+ REV-10: Chong Data Leakage giua cac frame cung phien/nguoi bang GroupKFold
+    has_groups = "SessionId" in df.columns and df["SessionId"].nunique() >= 2
+    groups = df["SessionId"].astype(str) if has_groups else None
+
+    if has_groups:
+        gss = GroupShuffleSplit(n_splits=1, test_size=0.2, random_state=42)
+        train_idx, test_idx = next(gss.split(X, y, groups))
+        X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
+        y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
+        cv_splits = min(5, int(groups.nunique()))
+        cv = GroupKFold(n_splits=cv_splits)
+        cv_strategy = f"GroupKFold({cv_splits})_by_SessionId"
+    else:
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42, stratify=y
+        )
+        cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+        cv_strategy = "StratifiedKFold(5)_frame_level"
 
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)
@@ -92,20 +114,34 @@ def train():
         random_state=42,
     )
 
-    print("\nDang train model SVM (balanced)...")
+    print(f"\nDang train model SVM (balanced) | CV Strategy: {cv_strategy}...")
     model.fit(X_train_scaled, y_train)
 
     y_pred = model.predict(X_test_scaled)
     accuracy = accuracy_score(y_test, y_pred)
 
-    # Danh gia 5-fold CV de kiem tra do on dinh
-    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-    X_all_scaled = scaler.transform(X)
-    cv_scores = cross_val_score(model, X_all_scaled, y, cv=cv, scoring="f1_macro")
+    # Fit StandardScaler rieng trong moi fold qua Pipeline de khong ro ri thong ke
+    cv_pipe = make_pipeline(
+        StandardScaler(),
+        SVC(
+            kernel="rbf",
+            probability=True,
+            C=10,
+            gamma="scale",
+            class_weight="balanced",
+            random_state=42,
+        ),
+    )
+    cv_scores = (
+        cross_val_score(cv_pipe, X, y, cv=cv, groups=groups, scoring="f1_macro")
+        if has_groups
+        else cross_val_score(cv_pipe, X, y, cv=cv, scoring="f1_macro")
+    )
 
     print("\n===== KET QUA =====")
+    print(f"CV Strategy: {cv_strategy}")
     print(f"Test Accuracy: {accuracy * 100:.2f}%")
-    print(f"5-Fold Macro-F1: {cv_scores.mean() * 100:.2f}% (+/- {cv_scores.std() * 100:.2f}%)")
+    print(f"CV Macro-F1: {cv_scores.mean() * 100:.2f}% (+/- {cv_scores.std() * 100:.2f}%)")
     print("\n===== CLASSIFICATION REPORT =====")
     print(classification_report(y_test, y_pred, target_names=["Tinh tao (0)", "Met/Ngap (1)", "Buon ngu (2)"]))
     print("===== CONFUSION MATRIX =====")
@@ -117,6 +153,7 @@ def train():
     meta = {
         "dataset_mode": dataset_mode,
         "features": feature_cols,
+        "cv_strategy": cv_strategy,
         "num_samples": int(len(df)),
         "label_counts": {str(k): int(v) for k, v in y.value_counts().sort_index().items()},
         "test_accuracy": round(float(accuracy) * 100, 2),

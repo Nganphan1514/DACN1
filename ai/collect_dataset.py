@@ -33,7 +33,7 @@ AUTO_SAVE_INTERVAL = 0.15  # ~6-7 mau sach moi giay khi bat che do thu thap tu d
 def ensure_csv_files():
     if not os.path.exists(V2_CSV_PATH):
         with open(V2_CSV_PATH, mode="w", newline="", encoding="utf-8") as f:
-            csv.writer(f).writerow(["EAR", "MAR", "Pitch", "Yaw", "PERCLOS", "Label"])
+            csv.writer(f).writerow(["EAR", "MAR", "Pitch", "Yaw", "PERCLOS", "Label", "SessionId"])
 
     if not os.path.exists(LEGACY_CSV_PATH):
         with open(LEGACY_CSV_PATH, mode="w", newline="", encoding="utf-8") as f:
@@ -56,7 +56,7 @@ def count_existing_labels(csv_path):
     return counts
 
 
-def save_sample(ear, mar, pitch, yaw, perclos, label):
+def save_sample(ear, mar, pitch, yaw, perclos, label, session_id="sess-default"):
     with open(V2_CSV_PATH, mode="a", newline="", encoding="utf-8") as f:
         csv.writer(f).writerow([
             round(ear, 4),
@@ -65,6 +65,7 @@ def save_sample(ear, mar, pitch, yaw, perclos, label):
             round(yaw, 2),
             round(perclos, 4),
             int(label),
+            session_id,
         ])
 
     with open(LEGACY_CSV_PATH, mode="a", newline="", encoding="utf-8") as f:
@@ -107,6 +108,7 @@ def main():
     active_label = None  # None = dang tam dung ghi
     last_save_time = 0.0
     session_saved = 0
+    current_session_id = f"sess-{int(time.time())}"
 
     print("Da mo cong cu thu thap du lieu v2!", flush=True)
     print("Phim 0/A: Ghi TINH TAO | 1/Y: Ghi MET MOI | 2/D: Ghi BUON NGU | SPACE: Dung | R: Calib lai | Q: Thoat", flush=True)
@@ -146,7 +148,7 @@ def main():
                 and ear > 0
                 and (now - last_save_time) >= AUTO_SAVE_INTERVAL
             ):
-                save_sample(ear, mar, pitch, yaw, perclos, active_label)
+                save_sample(ear, mar, pitch, yaw, perclos, active_label, session_id=current_session_id)
                 counts[active_label] += 1
                 session_saved += 1
                 last_save_time = now
@@ -227,7 +229,8 @@ def main():
             active_label = None
             calibrator.reset()
             eye_window.clear()
-            print("Da reset Eye Calibration cho nguoi moi!", flush=True)
+            current_session_id = f"sess-{int(time.time())}"
+            print(f"Da reset Eye Calibration cho nguoi/phien moi ({current_session_id})!", flush=True)
 
     cap.release()
     cv2.destroyAllWindows()

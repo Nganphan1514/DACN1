@@ -1,7 +1,28 @@
 from functools import wraps
+import time
 
 from flask import g, jsonify, redirect, request, session
 from flask_jwt_extended import get_jwt, get_jwt_identity, verify_jwt_in_request
+
+from database.mysql_service import kiem_tra_tai_khoan_hoat_dong
+
+_ACCOUNT_STATUS_CACHE = {}
+_ACCOUNT_CACHE_TTL = 20.0
+
+
+def _is_account_active(user_id):
+    now = time.time()
+    cached = _ACCOUNT_STATUS_CACHE.get(user_id)
+    if cached and (now - cached[1]) < _ACCOUNT_CACHE_TTL:
+        return cached[0]
+
+    active = kiem_tra_tai_khoan_hoat_dong(user_id)
+    _ACCOUNT_STATUS_CACHE[user_id] = (active, now)
+    return active
+
+
+def invalidate_account_cache(user_id):
+    _ACCOUNT_STATUS_CACHE.pop(user_id, None)
 
 
 def _is_api_request():
@@ -11,15 +32,16 @@ def _is_api_request():
 def get_current_user():
     """
     Lay thong tin nguoi dung da xac thuc tu JWT (uu tien) hoac Flask session.
-    Tra ve dict: {"id": int, "ten_dang_nhap": str, "vai_tro": str, "tai_xe_id": int | None}
+    Kiem tra tai khoan chua bi khoa (P0-5: thu hoi hieu luc JWT/Session ngay khi khoa).
     """
+    user = None
     auth_header = request.headers.get("Authorization", "")
     if auth_header.startswith("Bearer "):
         try:
             verify_jwt_in_request(optional=False)
             identity = get_jwt_identity()
             claims = get_jwt()
-            return {
+            user = {
                 "id": int(identity),
                 "ten_dang_nhap": claims.get("ten_dang_nhap"),
                 "vai_tro": claims.get("vai_tro"),
@@ -27,12 +49,19 @@ def get_current_user():
             }
         except Exception:
             return None
+    else:
+        sess_user = session.get("user")
+        if isinstance(sess_user, dict) and sess_user.get("id") and sess_user.get("vai_tro"):
+            user = sess_user
 
-    user = session.get("user")
-    if isinstance(user, dict) and user.get("id") and user.get("vai_tro"):
-        return user
+    if not user:
+        return None
 
-    return None
+    if not _is_account_active(user["id"]):
+        session.clear()
+        return None
+
+    return user
 
 
 def require_auth(fn):

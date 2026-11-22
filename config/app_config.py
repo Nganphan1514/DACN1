@@ -25,6 +25,7 @@ for _suffix in ("/rest/v1", "/storage/v1"):
 SUPABASE_URL = _raw_supabase_url
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "").strip()
 SUPABASE_SNAPSHOT_BUCKET = os.getenv("SUPABASE_SNAPSHOT_BUCKET", "snapshots").strip()
+SUPABASE_BUCKET_PRIVATE = os.getenv("SUPABASE_BUCKET_PRIVATE", "false").lower() == "true"
 
 # Legacy MySQL XAMPP settings (chi dung cho script migrate du lieu)
 MYSQL_HOST = os.getenv("MYSQL_HOST", os.getenv("DB_HOST", "localhost"))

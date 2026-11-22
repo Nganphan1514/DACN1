@@ -23,6 +23,9 @@ from database.mysql_service import (
     lay_admin_analytics,
     lay_anh_canh_bao,
     lay_nguoi_la,
+    lay_danh_sach_su_kien_canh_bao,
+    cap_nhat_trang_thai_su_kien_canh_bao,
+    lay_danh_sach_thiet_bi_camera,
 )
 from services.storage_service import resolve_snapshot_url
 
@@ -87,6 +90,51 @@ def api_admin_snapshots():
     return jsonify({"success": True, "data": gallery[:24]})
 
 
+@admin_bp.route("/api/admin/alerts", methods=["GET"])
+@require_role("quan_ly")
+def api_admin_alerts():
+    trang_thai = request.args.get("trang_thai")
+    rows = lay_danh_sach_su_kien_canh_bao(trang_thai=trang_thai, limit=40)
+    for row in rows:
+        row["image_url"] = resolve_snapshot_url(row.get("duong_dan_anh"))
+    return jsonify({"success": True, "data": rows})
+
+
+from core.ops_rules import mask_sensitive_id
+
+
+@admin_bp.route("/api/admin/alerts/<int:canh_bao_id>", methods=["PUT"])
+@require_role("quan_ly")
+def api_update_admin_alert(canh_bao_id):
+    data = request.get_json(silent=True) or {}
+    trang_thai = (data.get("trang_thai") or "").strip()
+    ghi_chu = data.get("ghi_chu_xu_ly")
+    expected_status = (data.get("expected_status") or "").strip() or None
+
+    ok = cap_nhat_trang_thai_su_kien_canh_bao(
+        canh_bao_id=canh_bao_id,
+        trang_thai=trang_thai,
+        nguoi_xu_ly_id=g.current_user["id"],
+        ghi_chu_xu_ly=ghi_chu,
+        expected_status=expected_status,
+    )
+    return jsonify({
+        "success": ok,
+        "message": (
+            "Đã cập nhật trạng thái cảnh báo."
+            if ok
+            else "Chuyển trạng thái không hợp lệ hoặc cảnh báo đã được người khác xử lý."
+        ),
+    }), 200 if ok else 409
+
+
+@admin_bp.route("/api/admin/devices", methods=["GET"])
+@require_role("quan_ly")
+def api_admin_devices():
+    rows = lay_danh_sach_thiet_bi_camera(online_timeout_seconds=60)
+    return jsonify({"success": True, "data": rows})
+
+
 @admin_bp.route("/admin/drivers")
 @require_role("quan_ly")
 def admin_drivers_page():
@@ -97,6 +145,8 @@ def admin_drivers_page():
 @require_role("quan_ly")
 def api_admin_drivers():
     data = lay_danh_sach_tai_xe()
+    for item in data:
+        item["so_gplx_masked"] = mask_sensitive_id(item.get("so_gplx"))
 
     return jsonify({
         "success": True,
