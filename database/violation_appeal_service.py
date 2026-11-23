@@ -217,6 +217,39 @@ def quan_ly_bac_bo_su_kien_ai(su_kien_id, ly_do, actor_id, actor_role, trang_tha
         return False, 500, "Cập nhật sự kiện AI thất bại."
 
 
+def danh_gia_quyen_khieu_nai(
+    vi_pham_row,
+    so_khieu_nai_da_gui=0,
+    co_khieu_nai_dang_mo=False,
+    max_appeals=1,
+    deadline_hours=72,
+    now=None,
+):
+    """
+    FIX-04: Ham thuan danh gia tai xe co duoc gui khieu nai cho vi pham hay khong.
+    Tra ve (can_appeal: bool, block_reason: str | None, http_status: int).
+    """
+    if not isinstance(vi_pham_row, dict):
+        return False, "Không tìm thấy vi phạm.", 404
+
+    if vi_pham_row.get("trang_thai") == "DA_HUY_DO_KHIEU_NAI":
+        return False, "Vi phạm này đã được hủy do khiếu nại trước đó.", 409
+
+    if co_khieu_nai_dang_mo:
+        return False, "Vi phạm này đang có khiếu nại chờ xử lý.", 409
+
+    if int(so_khieu_nai_da_gui or 0) >= int(max_appeals or 1):
+        return False, f"Vi phạm này đã đạt giới hạn tối đa ({max_appeals} lần khiếu nại).", 409
+
+    xac_minh_at = vi_pham_row.get("xac_minh_at")
+    if isinstance(xac_minh_at, datetime):
+        ref_now = now or datetime.now()
+        if ref_now.replace(tzinfo=None) - xac_minh_at.replace(tzinfo=None) > timedelta(hours=int(deadline_hours or 72)):
+            return False, f"Đã quá thời hạn khiếu nại cho phép ({deadline_hours} giờ kể từ lúc xác minh).", 400
+
+    return True, None, 200
+
+
 def lay_danh_sach_vi_pham(scope=None, tai_xe_id=None, trang_thai=None, limit=100):
     try:
         where = ["1=1"]
@@ -242,7 +275,12 @@ def lay_danh_sach_vi_pham(scope=None, tai_xe_id=None, trang_thai=None, limit=100
             tk.ten_dang_nhap AS nguoi_xac_minh,
             sk.risk_score,
             sk.occurred_at,
-            (SELECT COUNT(*) FROM khieu_nai_vi_pham kn WHERE kn.vi_pham_id = vp.id) AS so_khieu_nai
+            (SELECT COUNT(*) FROM khieu_nai_vi_pham kn WHERE kn.vi_pham_id = vp.id) AS so_khieu_nai,
+            (
+                SELECT COUNT(*) > 0 FROM khieu_nai_vi_pham kn
+                WHERE kn.vi_pham_id = vp.id
+                  AND kn.trang_thai IN ('SUBMITTED', 'RECEIVED', 'UNDER_REVIEW', 'NEED_MORE_INFO')
+            ) AS co_khieu_nai_dang_mo
         FROM vi_pham vp
         LEFT JOIN tai_xe tx ON vp.tai_xe_id = tx.id
         LEFT JOIN xe x ON vp.xe_id = x.id
@@ -255,6 +293,13 @@ def lay_danh_sach_vi_pham(scope=None, tai_xe_id=None, trang_thai=None, limit=100
         rows = db.fetch_all(sql, tuple(params))
         for row in rows:
             row["image_url"] = resolve_snapshot_url(row.get("duong_dan_anh"))
+            can_ap, block_reason, _ = danh_gia_quyen_khieu_nai(
+                row,
+                so_khieu_nai_da_gui=row.get("so_khieu_nai", 0),
+                co_khieu_nai_dang_mo=bool(row.get("co_khieu_nai_dang_mo")),
+            )
+            row["can_appeal"] = can_ap
+            row["appeal_block_reason"] = block_reason
         return rows
     except Exception as e:
         print("Lay danh sach vi pham error:", e)
@@ -262,7 +307,7 @@ def lay_danh_sach_vi_pham(scope=None, tai_xe_id=None, trang_thai=None, limit=100
 
 
 # ============================================================
-# 2. KHIEU NAI VI PHAM (APP-01, APP-02)
+# 2. KHIEU NAI VI PHAM (APP-01, APP-02, FIX-04)
 # ============================================================
 
 def tai_xe_gui_khieu_nai(
@@ -271,7 +316,8 @@ def tai_xe_gui_khieu_nai(
     noi_dung_giai_trinh,
     minh_chung_urls=None,
     actor_id=None,
-    han_khieu_nai_ngay=7,
+    han_khieu_nai_gio=72,
+    max_appeals=1,
 ):
     noi_dung = (noi_dung_giai_trinh or "").strip()
     if len(noi_dung) < 5:
@@ -290,31 +336,36 @@ def tai_xe_gui_khieu_nai(
             if int(vp["tai_xe_id"]) != int(tai_xe_id):
                 return None, 403, "Bạn chỉ được khiếu nại vi phạm của chính mình."
 
-            if vp["trang_thai"] == "DA_HUY_DO_KHIEU_NAI":
-                return None, 409, "Vi phạm này đã được hủy do khiếu nại trước đó."
-
-            # Kiem tra thoi han khieu nai (mac dinh 7 ngay)
-            xac_minh_at = vp.get("xac_minh_at")
-            if isinstance(xac_minh_at, datetime):
-                if datetime.now() - xac_minh_at.replace(tzinfo=None) > timedelta(days=int(han_khieu_nai_ngay)):
-                    return None, 400, f"Đã quá thời hạn gửi khiếu nại ({han_khieu_nai_ngay} ngày kể từ khi xác minh)."
-
             cur.execute(
                 """
-                SELECT id FROM khieu_nai_vi_pham
-                WHERE vi_pham_id = %s AND trang_thai IN ('SUBMITTED', 'RECEIVED', 'UNDER_REVIEW', 'NEED_MORE_INFO')
-                LIMIT 1
+                SELECT
+                    COUNT(*) AS tong,
+                    COUNT(*) FILTER (WHERE trang_thai IN ('SUBMITTED', 'RECEIVED', 'UNDER_REVIEW', 'NEED_MORE_INFO')) AS dang_mo
+                FROM khieu_nai_vi_pham
+                WHERE vi_pham_id = %s
                 """,
                 (int(vi_pham_id),),
             )
-            if cur.fetchone():
-                return None, 409, "Vi phạm này đang có khiếu nại chờ xử lý."
+            cnt = cur.fetchone() or {}
+            so_da_gui = int(cnt.get("tong") or 0)
+            dang_mo = int(cnt.get("dang_mo") or 0) > 0
 
+            can_ap, block_reason, err_code = danh_gia_quyen_khieu_nai(
+                vp,
+                so_khieu_nai_da_gui=so_da_gui,
+                co_khieu_nai_dang_mo=dang_mo,
+                max_appeals=max_appeals,
+                deadline_hours=han_khieu_nai_gio,
+            )
+            if not can_ap:
+                return None, err_code, block_reason
+
+            lan_khieu_nai = so_da_gui + 1
             cur.execute(
                 """
                 INSERT INTO khieu_nai_vi_pham
-                (vi_pham_id, doi_xe_id, tai_xe_id, noi_dung_giai_trinh, minh_chung_urls, trang_thai)
-                VALUES (%s, %s, %s, %s, %s::jsonb, 'SUBMITTED')
+                (vi_pham_id, doi_xe_id, tai_xe_id, noi_dung_giai_trinh, minh_chung_urls, trang_thai, lan_khieu_nai)
+                VALUES (%s, %s, %s, %s, %s::jsonb, 'SUBMITTED', %s)
                 RETURNING id
                 """,
                 (
@@ -323,6 +374,7 @@ def tai_xe_gui_khieu_nai(
                     int(tai_xe_id),
                     noi_dung,
                     json.dumps(urls, ensure_ascii=False),
+                    lan_khieu_nai,
                 ),
             )
             kn_id = cur.fetchone()["id"]

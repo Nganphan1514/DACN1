@@ -1477,7 +1477,8 @@ def lay_thong_bao_tai_xe(tai_xe_id):
             gc.id,
             gc.noi_dung,
             gc.da_doc,
-            gc.created_at,
+            gc.thoi_gian AS created_at,
+            gc.thoi_gian,
 
             tk.ten_dang_nhap
             AS quan_ly

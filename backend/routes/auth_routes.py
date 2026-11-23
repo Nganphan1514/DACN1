@@ -2,7 +2,7 @@ from flask import Blueprint, g, jsonify, redirect, render_template, request, ses
 from flask_jwt_extended import create_access_token
 
 from backend.middleware.auth_guard import require_auth
-from core.ops_rules import ROLE_LABELS, lay_menu_theo_vai_tro
+from core.ops_rules import ROLE_LABELS, lay_menu_theo_vai_tro, lay_quyen_theo_vai_tro
 from database.mysql_service import (
     kiem_tra_dang_nhap,
     lay_tai_xe_theo_tai_khoan_id,
@@ -42,6 +42,7 @@ def api_login():
             if doi_xe_id is None:
                 doi_xe_id = tai_xe.get("doi_xe_id")
 
+    token_version = int(user.get("token_version") or 1)
     user_payload = {
         "id": user["id"],
         "ten_dang_nhap": user["ten_dang_nhap"],
@@ -51,6 +52,12 @@ def api_login():
         "cong_ty_id": user.get("cong_ty_id"),
         "chi_nhanh_id": user.get("chi_nhanh_id"),
         "doi_xe_id": doi_xe_id,
+        "scope": {
+            "cong_ty_id": user.get("cong_ty_id"),
+            "chi_nhanh_id": user.get("chi_nhanh_id"),
+            "doi_xe_id": doi_xe_id,
+        },
+        "permissions": lay_quyen_theo_vai_tro(user["vai_tro"]),
         "menu": lay_menu_theo_vai_tro(user["vai_tro"]),
     }
 
@@ -63,6 +70,7 @@ def api_login():
             "cong_ty_id": user.get("cong_ty_id"),
             "chi_nhanh_id": user.get("chi_nhanh_id"),
             "doi_xe_id": doi_xe_id,
+            "tv": token_version,
         },
     )
 
@@ -81,16 +89,26 @@ def api_login():
 def api_auth_me():
     user = g.current_user
     fresh = lay_pham_vi_tai_khoan(user["id"]) or user
+    role_val = fresh.get("vai_tro", user.get("vai_tro"))
+    cty_id = fresh.get("cong_ty_id", user.get("cong_ty_id"))
+    cn_id = fresh.get("chi_nhanh_id", user.get("chi_nhanh_id"))
+    dx_id = fresh.get("doi_xe_id", user.get("doi_xe_id"))
     payload = {
         "id": fresh.get("id", user["id"]),
         "ten_dang_nhap": fresh.get("ten_dang_nhap", user.get("ten_dang_nhap")),
-        "vai_tro": fresh.get("vai_tro", user.get("vai_tro")),
-        "vai_tro_label": ROLE_LABELS.get(fresh.get("vai_tro", user.get("vai_tro")), ""),
+        "vai_tro": role_val,
+        "vai_tro_label": ROLE_LABELS.get(role_val, ""),
         "tai_xe_id": fresh.get("tai_xe_id", user.get("tai_xe_id")),
-        "cong_ty_id": fresh.get("cong_ty_id", user.get("cong_ty_id")),
-        "chi_nhanh_id": fresh.get("chi_nhanh_id", user.get("chi_nhanh_id")),
-        "doi_xe_id": fresh.get("doi_xe_id", user.get("doi_xe_id")),
-        "menu": lay_menu_theo_vai_tro(fresh.get("vai_tro", user.get("vai_tro"))),
+        "cong_ty_id": cty_id,
+        "chi_nhanh_id": cn_id,
+        "doi_xe_id": dx_id,
+        "scope": {
+            "cong_ty_id": cty_id,
+            "chi_nhanh_id": cn_id,
+            "doi_xe_id": dx_id,
+        },
+        "permissions": lay_quyen_theo_vai_tro(role_val),
+        "menu": lay_menu_theo_vai_tro(role_val),
     }
     return jsonify({"success": True, "user": payload})
 

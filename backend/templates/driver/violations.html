@@ -3,382 +3,176 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lịch sử vi phạm</title>
+    <title>An toàn, Vi phạm & Khiếu nại — V4.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/design-system.css">
+    <script src="/static/js/ui-kit.js"></script>
 </head>
-
-<body class="bg-slate-950 text-white min-h-screen pb-[110px]">
+<body class="v4-body min-h-screen pb-[96px]">
 
 <div class="max-w-md mx-auto px-4 py-5">
-
-    <!-- HEADER -->
-    <div class="mb-5">
-        <a id="backDashboard"
-           href="/driver/dashboard"
-           class="text-cyan-400 text-sm flex items-center gap-1 mb-3">
-            <span class="material-icons-round text-base">arrow_back</span>
-            Quay lại Cabin
+    <div class="flex items-center justify-between mb-5">
+        <div>
+            <h1 class="text-2xl font-extrabold tracking-tight">An toàn & Khiếu nại</h1>
+            <p class="text-slate-400 text-xs mt-0.5">Tách bạch cảnh báo AI với vi phạm đã xác minh</p>
+        </div>
+        <a href="/driver/notifications" aria-label="Thông báo" class="w-11 h-11 rounded-2xl v4-surface flex items-center justify-center text-slate-200">
+            <span class="material-icons-round text-xl">notifications_none</span>
         </a>
-
-        <div class="flex items-start justify-between gap-3">
-            <div>
-                <h1 class="text-3xl font-black tracking-tight">Vi phạm AI</h1>
-                <p class="text-slate-400 text-sm mt-1">
-                    Lịch sử cảnh báo mệt mỏi và buồn ngủ
-                </p>
-            </div>
-
-            <div class="w-12 h-12 rounded-2xl bg-red-600/20 border border-red-500/30 flex items-center justify-center text-red-400">
-                <span class="material-icons-round">warning</span>
-            </div>
-        </div>
     </div>
 
-    <!-- SUMMARY -->
-    <div class="grid grid-cols-3 gap-3 mb-5">
-        <div class="rounded-2xl bg-slate-900 border border-slate-800 p-4 text-center">
-            <p class="text-xs text-slate-400">Tổng</p>
-            <h2 id="totalCount" class="text-2xl font-black mt-1">0</h2>
-        </div>
-
-        <div class="rounded-2xl bg-yellow-600/10 border border-yellow-500/30 p-4 text-center">
-            <p class="text-xs text-yellow-300">Mệt</p>
-            <h2 id="fatigueCount" class="text-2xl font-black mt-1 text-yellow-300">0</h2>
-        </div>
-
-        <div class="rounded-2xl bg-red-600/10 border border-red-500/30 p-4 text-center">
-            <p class="text-xs text-red-300">Buồn ngủ</p>
-            <h2 id="sleepCount" class="text-2xl font-black mt-1 text-red-300">0</h2>
-        </div>
+    <!-- SEGMENTED CONTROL 3 TAB -->
+    <div class="grid grid-cols-3 gap-1 p-1 rounded-2xl v4-surface mb-4">
+        <button onclick="switchTab('violations')" id="tab-violations" class="tab-btn py-2.5 rounded-xl bg-sky-500 text-slate-950 text-xs font-extrabold">Vi phạm</button>
+        <button onclick="switchTab('appeals')" id="tab-appeals" class="tab-btn py-2.5 rounded-xl text-slate-400 text-xs font-semibold">Khiếu nại</button>
+        <button onclick="switchTab('ai')" id="tab-ai" class="tab-btn py-2.5 rounded-xl text-slate-400 text-xs font-semibold">Cảnh báo AI</button>
     </div>
 
-    <!-- FILTER -->
-    <div class="mb-5">
-        <select id="statusFilter"
-                onchange="filterViolations()"
-                class="w-full p-4 rounded-2xl bg-slate-900 border border-slate-800 outline-none focus:border-cyan-500">
-            <option value="">Tất cả cảnh báo</option>
-            <option value="MET MOI">Mệt mỏi</option>
-            <option value="BUON NGU">Buồn ngủ</option>
-        </select>
+    <div id="aiInfoBanner" class="hidden mb-4 p-3 rounded-xl bg-sky-500/10 border border-sky-500/25 text-sky-200 text-xs leading-relaxed">
+        Các ghi nhận tự động từ AI chỉ hỗ trợ an toàn — chưa được tính là vi phạm chính thức.
     </div>
 
-    <!-- LIST -->
-    <div id="list" class="space-y-3"></div>
-
+    <div id="contentList" class="space-y-3"></div>
 </div>
 
-<!-- BOTTOM NAV -->
-<div class="fixed bottom-0 left-0 right-0 bg-slate-900/90 backdrop-blur-md border-t border-slate-800 py-2 z-50 shadow-2xl">
-    <div class="w-full max-w-md mx-auto flex justify-around items-center px-4">
-
-        <a id="navDashboard"
-           href="/driver/dashboard"
-           class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 text-xs">
-            <div class="w-12 h-8 flex items-center justify-center">
-                <span class="material-icons-round text-2xl">dashboard</span>
-            </div>
-            <span>Cabin</span>
+<!-- 4-TAB FLOATING BOTTOM NAV (V4.0) -->
+<nav class="fixed bottom-0 left-0 right-0 v4-glass border-t border-white/10 py-2.5 z-40">
+    <div class="w-full max-w-md mx-auto grid grid-cols-4 text-[11px] font-semibold">
+        <a href="/driver/dashboard" class="flex flex-col items-center gap-0.5 text-slate-400">
+            <span class="material-icons-round text-2xl">speed</span><span>Cabin</span>
         </a>
-
-        <a id="navSchedules"
-           href="/driver/schedules"
-           class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 text-xs">
-            <div class="w-12 h-8 flex items-center justify-center">
-                <span class="material-icons-round text-2xl">calendar_today</span>
-            </div>
-            <span>Lịch</span>
+        <a href="/driver/schedules" class="flex flex-col items-center gap-0.5 text-slate-400">
+            <span class="material-icons-round text-2xl">calendar_today</span><span>Lịch trình</span>
         </a>
-
-        <a id="navViolations"
-           href="/driver/violations"
-           class="flex flex-col items-center gap-1 text-blue-500 font-medium text-xs">
-            <div class="w-12 h-8 rounded-full bg-blue-500/10 flex items-center justify-center">
-                <span class="material-icons-round text-2xl">warning</span>
-            </div>
-            <span>Vi phạm</span>
+        <a href="/driver/violations" class="flex flex-col items-center gap-0.5 text-sky-400 font-bold">
+            <span class="material-icons-round text-2xl">verified_user</span><span>An toàn</span>
         </a>
-
-        <a id="navNotifications"
-           href="/driver/notifications"
-           class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 text-xs">
-            <div class="w-12 h-8 flex items-center justify-center">
-                <span class="material-icons-round text-2xl">notifications</span>
-            </div>
-            <span>Thông báo</span>
+        <a href="/driver/profile" class="flex flex-col items-center gap-0.5 text-slate-400">
+            <span class="material-icons-round text-2xl">account_circle</span><span>Cá nhân</span>
         </a>
-
-        <a id="navProfile"
-           href="/driver/profile"
-           class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 text-xs">
-            <div class="w-12 h-8 flex items-center justify-center">
-                <span class="material-icons-round text-2xl">account_circle</span>
-            </div>
-            <span>Cá nhân</span>
-        </a>
-
     </div>
-</div>
+</nav>
 
 <script>
-const params = new URLSearchParams(window.location.search);
-const user = JSON.parse(localStorage.getItem("user") || "{}");
+let currentTab = "violations";
 
-let taiXeId = params.get("tai_xe_id") || user.tai_xe_id || user.id || 1;
-let violations = [];
-
-function withDriverId(path) {
-    return `${path}?tai_xe_id=${taiXeId}`;
+function switchTab(tab) {
+    currentTab = tab;
+    document.querySelectorAll(".tab-btn").forEach(b => {
+        b.className = "tab-btn py-2.5 rounded-xl text-slate-400 text-xs font-semibold";
+    });
+    document.getElementById("tab-" + tab).className = "tab-btn py-2.5 rounded-xl bg-sky-500 text-slate-950 text-xs font-extrabold";
+    document.getElementById("aiInfoBanner").classList.toggle("hidden", tab !== "ai");
+    loadTab();
 }
 
-document.getElementById("backDashboard").href = withDriverId("/driver/dashboard");
-document.getElementById("navDashboard").href = withDriverId("/driver/dashboard");
-document.getElementById("navSchedules").href = withDriverId("/driver/schedules");
-document.getElementById("navViolations").href = withDriverId("/driver/violations");
-document.getElementById("navNotifications").href = withDriverId("/driver/notifications");
-document.getElementById("navProfile").href = withDriverId("/driver/profile");
+async function loadTab() {
+    const box = document.getElementById("contentList");
+    box.innerHTML = UI.skeletonRows(3);
 
-function statusStyle(status) {
-    if (status === "BUON NGU") {
-        return {
-            badge: "bg-red-500/20 text-red-300 border border-red-500/30",
-            card: "border-red-500/30 bg-red-600/10",
-            icon: "bedtime",
-            text: "Buồn ngủ"
-        };
-    }
-
-    if (status === "MET MOI") {
-        return {
-            badge: "bg-yellow-500/20 text-yellow-300 border border-yellow-500/30",
-            card: "border-yellow-500/30 bg-yellow-600/10",
-            icon: "sentiment_dissatisfied",
-            text: "Mệt mỏi"
-        };
-    }
-
-    return {
-        badge: "bg-slate-700 text-slate-300 border border-slate-600",
-        card: "border-slate-800 bg-slate-900",
-        icon: "info",
-        text: status || "Không rõ"
-    };
-}
-
-function formatNumber(value) {
-    if (value === null || value === undefined || value === "") return "0";
-    return Number(value).toFixed(2);
-}
-
-function updateSummary(rows) {
-    document.getElementById("totalCount").innerText = rows.length;
-    document.getElementById("fatigueCount").innerText = rows.filter(x => x.trang_thai === "MET MOI").length;
-    document.getElementById("sleepCount").innerText = rows.filter(x => x.trang_thai === "BUON NGU").length;
-}
-
-async function loadViolations() {
-    const box = document.getElementById("list");
-
-    box.innerHTML = `
-        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 text-slate-400">
-            Đang tải dữ liệu...
-        </div>
-    `;
-
-    try {
-        const res = await fetch(`/api/driver/violations/${taiXeId}`);
-        const json = await res.json();
-
-        violations = json.data || [];
-        updateSummary(violations);
-        renderViolations(violations);
-
-    } catch (error) {
-        box.innerHTML = `
-            <div class="bg-red-600/10 border border-red-500/30 rounded-3xl p-5 text-red-300">
-                Không thể tải lịch sử vi phạm.
-            </div>
-        `;
-    }
-}
-
-function renderViolations(rows) {
-    const box = document.getElementById("list");
-    box.innerHTML = "";
-
-    if (!rows || rows.length === 0) {
-        box.innerHTML = `
-            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 text-center">
-                <div class="w-14 h-14 mx-auto rounded-2xl bg-green-600/20 border border-green-500/30 flex items-center justify-center text-green-400 mb-3">
-                    <span class="material-icons-round text-3xl">verified</span>
-                </div>
-                <h2 class="font-bold text-lg">Chưa có cảnh báo</h2>
-                <p class="text-slate-400 text-sm mt-1">
-                    Hệ thống chưa ghi nhận vi phạm nào.
-                </p>
-            </div>
-        `;
-        return;
-    }
-
-    rows.forEach(item => {
-        const style = statusStyle(item.trang_thai);
-
-        box.innerHTML += `
-            <div class="violation-card rounded-3xl p-5 border ${style.card} shadow-lg"
-                 data-status="${item.trang_thai || ""}">
-                <div class="flex justify-between items-start gap-3 mb-4">
-                    <div class="flex items-center gap-3">
-                        <div class="w-12 h-12 rounded-2xl bg-slate-950/40 border border-slate-700 flex items-center justify-center">
-                            <span class="material-icons-round">${style.icon}</span>
-                        </div>
-
-                        <div>
-                            <h2 class="font-black text-lg">${style.text}</h2>
-                            <p class="text-sm text-slate-400">${item.bien_so || "Chưa có xe"}</p>
-                        </div>
+    if (currentTab === "violations") {
+        const j = await fetch("/api/driver/violations").then(r => r.json()).catch(() => ({ success: false }));
+        if (!j.success || !j.data.length) {
+            box.innerHTML = `<div class="p-8 rounded-2xl v4-surface text-center text-slate-400 text-sm">Tuyệt vời! Bạn không có vi phạm nào đã xác minh.</div>`;
+            return;
+        }
+        box.innerHTML = j.data.map(vp => {
+            const canAppeal = vp.can_appeal !== undefined ? Boolean(vp.can_appeal) : ["HIEU_LUC", "GIU_NGUYEN"].includes(vp.trang_thai);
+            return `
+                <div class="p-4 rounded-2xl v4-surface space-y-2.5">
+                    <div class="flex justify-between items-center gap-2">
+                        <span class="font-bold text-sm text-rose-300">${UI.escHtml(vp.loai_vi_pham)} • #${vp.id}</span>
+                        <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-500/15 text-amber-300">${UI.escHtml(vp.trang_thai)}</span>
                     </div>
-
-                    <span class="px-3 py-1 rounded-full text-xs font-bold ${style.badge}">
-                        ${item.trang_thai || "N/A"}
-                    </span>
-                </div>
-
-                <div class="text-sm text-slate-400 mb-4 flex items-center gap-1">
-                    <span class="material-icons-round text-base">schedule</span>
-                    ${item.thoi_gian || "Không rõ thời gian"}
-                </div>
-
-                <div class="grid grid-cols-3 gap-2 text-center text-sm">
-                    <div class="bg-slate-950/40 border border-slate-800 rounded-2xl p-3">
-                        <p class="text-slate-400 text-xs">EAR</p>
-                        <b class="text-slate-100">${formatNumber(item.ear)}</b>
+                    <div class="p-3 rounded-xl bg-[#090d16] border-l-4 border-sky-500 text-xs text-slate-200">
+                        <p class="text-[10px] text-slate-400 font-bold mb-0.5">Nhận xét của Quản lý:</p>
+                        ${UI.escHtml(vp.ly_do_xac_minh)}
                     </div>
-
-                    <div class="bg-slate-950/40 border border-slate-800 rounded-2xl p-3">
-                        <p class="text-slate-400 text-xs">MAR</p>
-                        <b class="text-slate-100">${formatNumber(item.mar)}</b>
-                    </div>
-
-                    <div class="bg-slate-950/40 border border-slate-800 rounded-2xl p-3">
-                        <p class="text-slate-400 text-xs">Risk</p>
-                        <b class="${item.risk_score >= 5 ? 'text-red-300' : 'text-yellow-300'}">
-                            ${item.risk_score || 0}
-                        </b>
-                    </div>
+                    ${vp.image_url ? `<img src="${UI.escHtml(vp.image_url)}" onclick="UI.openLightbox('${UI.escHtml(vp.image_url)}', 'Bằng chứng Vi phạm #${vp.id}')" class="w-full h-40 object-cover rounded-xl border border-white/10 cursor-zoom-in" />` : ""}
+                    <p class="text-[11px] text-slate-500 tabular-nums">Xác minh lúc: ${UI.escHtml(vp.xac_minh_at || "")}</p>
+                    ${canAppeal
+                        ? `<button onclick="openAppealDrawer(${vp.id})" class="w-full py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-xs font-bold">Gửi giải trình / Khiếu nại</button>`
+                        : (vp.appeal_block_reason ? `<p class="text-[11px] text-slate-500 italic">${UI.escHtml(vp.appeal_block_reason)}</p>` : "")}
                 </div>
-            </div>
-        `;
+            `;
+        }).join("");
+    } else if (currentTab === "appeals") {
+        const j = await fetch("/api/driver/appeals").then(r => r.json()).catch(() => ({ success: false }));
+        if (!j.success || !j.data.length) {
+            box.innerHTML = `<div class="p-8 rounded-2xl v4-surface text-center text-slate-400 text-sm">Bạn chưa gửi phiếu khiếu nại nào.</div>`;
+            return;
+        }
+        box.innerHTML = j.data.map(kn => {
+            const st = kn.trang_thai || "SUBMITTED";
+            const s2 = ["UNDER_REVIEW", "NEED_MORE_INFO", "ACCEPTED", "REJECTED", "CLOSED"].includes(st);
+            const s3 = ["ACCEPTED", "REJECTED", "CLOSED"].includes(st);
+            return `
+                <div class="p-4 rounded-2xl v4-surface space-y-2.5">
+                    <div class="flex justify-between items-center">
+                        <span class="font-bold text-sm">Khiếu nại #${kn.id} (VP #${kn.vi_pham_id})</span>
+                        <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-sky-500/15 text-sky-300">${UI.escHtml(st)}</span>
+                    </div>
+                    <div class="flex items-center justify-between px-3 text-[10px] font-bold">
+                        <span class="text-sky-400">● Đã gửi</span>
+                        <span class="flex-1 h-px bg-white/10 mx-2"></span>
+                        <span class="${s2 ? "text-sky-400" : "text-slate-500"}">● Xem xét</span>
+                        <span class="flex-1 h-px bg-white/10 mx-2"></span>
+                        <span class="${s3 ? (st === "ACCEPTED" ? "text-emerald-400" : "text-amber-400") : "text-slate-500"}">● Kết luận</span>
+                    </div>
+                    <div class="p-3 rounded-xl bg-[#090d16] border-l-4 border-sky-500 text-xs text-slate-200">
+                        <p class="text-[10px] text-slate-400 font-bold mb-0.5">🔒 Giải trình gốc (bất biến):</p>
+                        ${UI.escHtml(kn.noi_dung_giai_trinh)}
+                    </div>
+                    ${kn.ly_do_ket_luan ? `<p class="text-xs font-semibold ${st === "ACCEPTED" ? "text-emerald-400" : "text-amber-300"}">Kết luận QL: ${UI.escHtml(kn.ly_do_ket_luan)}</p>` : ""}
+                </div>
+            `;
+        }).join("");
+    } else {
+        const j = await fetch("/api/driver/ai-events").then(r => r.json()).catch(() => ({ success: false }));
+        if (!j.success || !j.data.length) {
+            box.innerHTML = `<div class="p-8 rounded-2xl v4-surface text-center text-slate-400 text-sm">Chưa có cảnh báo AI nào.</div>`;
+            return;
+        }
+        box.innerHTML = j.data.map(ev => {
+            const risk = Math.min(10, Math.max(0, Number(ev.risk_score || 0)));
+            return `
+                <div class="p-4 rounded-2xl v4-surface space-y-2">
+                    <div class="flex justify-between items-center">
+                        <span class="font-bold text-sm text-sky-300">${UI.escHtml(ev.loai_canh_bao)}</span>
+                        <span class="text-xs font-extrabold text-amber-400 tabular-nums">Risk ${risk}/10</span>
+                    </div>
+                    <div class="w-full h-1.5 rounded-full bg-[#090d16] overflow-hidden">
+                        <div class="h-1.5 rounded-full ${risk >= 7 ? "bg-rose-500" : "bg-amber-400"}" style="width:${risk * 10}%"></div>
+                    </div>
+                    <p class="text-xs text-slate-300">${UI.escHtml(ev.noi_dung || "")}</p>
+                    <p class="text-[11px] text-slate-500 tabular-nums">${UI.escHtml(ev.trang_thai)} • ${UI.escHtml(ev.thoi_gian_xay_ra || "")}</p>
+                </div>
+            `;
+        }).join("");
+    }
+}
+
+function openAppealDrawer(vpId) {
+    UI.confirmAction({
+        title: `Gửi khiếu nại Vi phạm #${vpId}`,
+        subtitle: "🔒 Nội dung giải trình gốc được lưu bất biến trong hệ thống để Quản lý đối chiếu.",
+        requireReason: true,
+        reasonPlaceholder: "Trình bày rõ bối cảnh và lý do giải trình...",
+        confirmLabel: "Gửi khiếu nại chính thức",
+        onConfirm: async (reason) => {
+            const j = await fetch(`/api/driver/violations/${vpId}/appeals`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ noi_dung_giai_trinh: reason, minh_chung_urls: [] }),
+            }).then(r => r.json());
+            UI.toast(j.message, j.success ? "success" : "error");
+            if (j.success) switchTab("appeals");
+        },
     });
 }
 
-function filterViolations() {
-    const status = document.getElementById("statusFilter").value;
-
-    if (!status) {
-        renderViolations(violations);
-        return;
-    }
-
-    renderViolations(violations.filter(item => item.trang_thai === status));
-}
-
-loadViolations();
+loadTab();
 </script>
-
 </body>
 </html>
-<!-- <!DOCTYPE html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <title>Lịch sử vi phạm</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-
-<body class="bg-slate-950 text-white min-h-screen p-4">
-
-<div class="max-w-md mx-auto">
-
-    <div class="flex justify-between items-center mb-5">
-        <div>
-            <h1 class="text-2xl font-bold">Lịch sử vi phạm</h1>
-            <p class="text-slate-400 text-sm">Các cảnh báo AI ghi nhận</p>
-        </div>
-
-        <a href="/driver/dashboard" class="bg-slate-800 px-4 py-2 rounded-xl">
-            Dashboard
-        </a>
-    </div>
-
-    <div id="list" class="space-y-3"></div>
-
-</div>
-
-<script>
-const user = JSON.parse(localStorage.getItem("user") || "{}");
-const taiXeId = user.tai_xe_id || user.id || 1;
-
-function statusColor(status) {
-    if (status === "BUON NGU") return "bg-red-500/20 text-red-300";
-    if (status === "MET MOI") return "bg-yellow-500/20 text-yellow-300";
-    return "bg-slate-700 text-slate-300";
-}
-
-async function loadViolations() {
-    const res = await fetch(`/api/driver/violations/${taiXeId}`);
-    const json = await res.json();
-
-    const box = document.getElementById("list");
-    box.innerHTML = "";
-
-    if (!json.data || json.data.length === 0) {
-        box.innerHTML = `
-            <div class="bg-slate-900 p-5 rounded-2xl text-slate-400">
-                Chưa có lịch sử vi phạm.
-            </div>
-        `;
-        return;
-    }
-
-    json.data.forEach(item => {
-        box.innerHTML += `
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4">
-                <div class="flex justify-between items-start">
-                    <div>
-                        <h2 class="font-bold">${item.bien_so || "Chưa có xe"}</h2>
-                        <p class="text-sm text-slate-400">${item.thoi_gian || ""}</p>
-                    </div>
-
-                    <span class="px-3 py-1 rounded-full text-sm ${statusColor(item.trang_thai)}">
-                        ${item.trang_thai}
-                    </span>
-                </div>
-
-                <div class="grid grid-cols-3 gap-2 mt-4 text-center text-sm">
-                    <div class="bg-slate-800 rounded-xl p-3">
-                        <p class="text-slate-400">EAR</p>
-                        <b>${item.ear}</b>
-                    </div>
-
-                    <div class="bg-slate-800 rounded-xl p-3">
-                        <p class="text-slate-400">MAR</p>
-                        <b>${item.mar}</b>
-                    </div>
-
-                    <div class="bg-slate-800 rounded-xl p-3">
-                        <p class="text-slate-400">Risk</p>
-                        <b>${item.risk_score}</b>
-                    </div>
-                </div>
-            </div>
-        `;
-    });
-}
-
-loadViolations();
-</script>
-
-</body>
-</html> -->

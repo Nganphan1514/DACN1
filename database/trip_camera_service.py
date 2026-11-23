@@ -107,6 +107,32 @@ def tai_xe_bat_dau_chuyen(lich_chay_id, tai_xe_id, actor_id, ghi_chu=None):
                 (int(lich_chay_id),),
             )
 
+            # FIX-05: Retroactive Linking — noi phien_lai_xe & lich_su_ket_noi_camera mo coi vao chuyen moi
+            cur.execute(
+                """
+                UPDATE phien_lai_xe
+                SET chuyen_thuc_te_id = %s, lich_chay_id = COALESCE(lich_chay_id, %s)
+                WHERE tai_xe_id = %s
+                  AND xe_id = %s
+                  AND chuyen_thuc_te_id IS NULL
+                  AND (
+                      trang_thai != 'DA_KET_THUC'
+                      OR ket_thuc >= NOW() - INTERVAL '30 minutes'
+                  )
+                """,
+                (chuyen_id, int(lich_chay_id), int(tai_xe_id), int(xe_id)),
+            )
+            cur.execute(
+                """
+                UPDATE lich_su_ket_noi_camera
+                SET chuyen_thuc_te_id = %s
+                WHERE xe_id = %s
+                  AND chuyen_thuc_te_id IS NULL
+                  AND bat_dau_at >= NOW() - INTERVAL '30 minutes'
+                """,
+                (chuyen_id, int(xe_id)),
+            )
+
         ghi_lich_su_thao_tac(
             nguoi_thuc_hien_id=actor_id,
             vai_tro="tai_xe",
@@ -309,32 +335,89 @@ def lay_danh_sach_chuyen_thuc_te(scope=None, trang_thai=None, tai_xe_id=None, li
 # 2. CAMERA MAT KET NOI DOC LAP (CAM-01, CAM-02, CAM-03)
 # ============================================================
 
-def ghi_nhan_camera_heartbeat_va_lich_su(device_id, xe_id=None, camera_ok=True, fps=0.0, outbox_pending=0):
+def ghi_nhan_camera_heartbeat_va_lich_su(
+    device_id,
+    xe_id=None,
+    camera_ok=True,
+    fps=0.0,
+    outbox_pending=0,
+    trang_thai_hoat_dong="DANG_CHAY",
+):
     """
-    Khi nhan heartbeat tu thiet bi Edge:
-    - Neu thiet bi dang co khoang OFFLINE/UNSTABLE mo trong lich_su_ket_noi_camera -> dong lai va tinh thoi_luong_giay.
-    - Neu camera_ok=False hoac fps < 8 -> ghi nhan UNSTABLE neu chua co.
+    FIX-02 & FIX-07:
+    - Khi nhan heartbeat: dong khoang OFFLINE/UNSTABLE neu ONLINE_HEALTHY.
+    - Theo doi Flapping (so_lan_mat_ket_noi_10p >= 3 trong 10 phut -> UNSTABLE).
+    - Theo doi PAUSED/STOPPED trong khi xe co chuyen DANG_CHAY (> 120s -> tra canh bao CAMERA_TAMPER_OR_PAUSED).
     """
     if not device_id:
-        return False
+        return None
+    tamper_alert = None
     try:
-        health = phan_loai_suc_khoe_thiet_bi(
-            seconds_since_seen=0,
-            camera_ok=camera_ok,
-            fps=fps,
-            outbox_pending=outbox_pending,
-        )
+        is_paused = str(trang_thai_hoat_dong or "").upper() in ("PAUSED", "STOPPED", "PROCESS_TERMINATED")
         with db.transaction() as cur:
-            # Tim chuyen dang chay cua xe (neu co)
-            chuyen_id = None
+            chuyen_row = None
             if xe_id:
                 cur.execute(
-                    "SELECT id FROM chuyen_thuc_te WHERE xe_id = %s AND trang_thai = 'DANG_CHAY' LIMIT 1",
+                    "SELECT id, tai_xe_id, doi_xe_id FROM chuyen_thuc_te WHERE xe_id = %s AND trang_thai = 'DANG_CHAY' LIMIT 1",
                     (int(xe_id),),
                 )
-                row_ct = cur.fetchone()
-                if row_ct:
-                    chuyen_id = row_ct["id"]
+                chuyen_row = cur.fetchone()
+            chuyen_id = chuyen_row["id"] if chuyen_row else None
+
+            # FIX-07: Dem so lan mat ket noi / unstable trong 10 phut gan nhat (Flapping)
+            cur.execute(
+                """
+                SELECT COUNT(*) AS c FROM lich_su_ket_noi_camera
+                WHERE device_id = %s
+                  AND trang_thai IN ('OFFLINE', 'UNSTABLE')
+                  AND bat_dau_at >= NOW() - INTERVAL '10 minutes'
+                """,
+                (device_id,),
+            )
+            flap_cnt = int((cur.fetchone() or {}).get("c") or 0)
+
+            paused_secs = 0
+            if is_paused and chuyen_id is not None:
+                cur.execute(
+                    """
+                    UPDATE thiet_bi_camera
+                    SET paused_since = COALESCE(paused_since, NOW()),
+                        so_lan_mat_ket_noi_10p = %s
+                    WHERE device_id = %s
+                    RETURNING EXTRACT(EPOCH FROM (NOW() - paused_since))::INT AS paused_secs
+                    """,
+                    (flap_cnt, device_id),
+                )
+                p_row = cur.fetchone()
+                paused_secs = int((p_row or {}).get("paused_secs") or 0)
+
+                if paused_secs > 120 or str(trang_thai_hoat_dong or "").upper() == "PROCESS_TERMINATED":
+                    tamper_alert = {
+                        "type": "CAMERA_TAMPER_OR_PAUSED",
+                        "device_id": device_id,
+                        "xe_id": xe_id,
+                        "tai_xe_id": chuyen_row["tai_xe_id"],
+                        "chuyen_thuc_te_id": chuyen_id,
+                        "paused_secs": paused_secs,
+                        "message": (
+                            f"Camera {device_id} bị tạm dừng/tắt ({trang_thai_hoat_dong}, {paused_secs}s) "
+                            f"trong khi chuyến #{chuyen_id} đang chạy!"
+                        ),
+                    }
+            else:
+                cur.execute(
+                    "UPDATE thiet_bi_camera SET paused_since = NULL, so_lan_mat_ket_noi_10p = %s WHERE device_id = %s",
+                    (flap_cnt, device_id),
+                )
+
+            health = phan_loai_suc_khoe_thiet_bi(
+                seconds_since_seen=0,
+                camera_ok=camera_ok,
+                fps=fps,
+                outbox_pending=outbox_pending,
+                flapping_count_10m=flap_cnt,
+                paused_seconds=paused_secs,
+            )
 
             if health == "ONLINE_HEALTHY":
                 cur.execute(
@@ -366,11 +449,55 @@ def ghi_nhan_camera_heartbeat_va_lich_su(device_id, xe_id=None, camera_ok=True, 
                         (device_id, xe_id, chuyen_thuc_te_id, trang_thai, ghi_chu)
                         VALUES (%s, %s, %s, 'UNSTABLE', %s)
                         """,
-                        (device_id, xe_id, chuyen_id, f"Camera suy giảm (fps={fps}, camera_ok={camera_ok}, outbox={outbox_pending})"),
+                        (
+                            device_id,
+                            xe_id,
+                            chuyen_id,
+                            f"Camera suy giảm (fps={fps}, flap10m={flap_cnt}, paused={paused_secs}s, outbox={outbox_pending})",
+                        ),
                     )
-        return True
+        return tamper_alert
     except Exception:
-        return False
+        return None
+
+
+def quet_chuyen_tre_gio():
+    """
+    FIX-08: Quet cac chuyen DANG_CHAY da vuot qua gio_ket_thuc du kien
+    (hoac sap dung lich ke tiep <= 15 phut) ma chua canh bao tre gio.
+    """
+    overrun_trips = []
+    try:
+        rows = db.fetch_all(
+            """
+            SELECT
+                ct.id AS chuyen_thuc_te_id,
+                ct.lich_chay_id,
+                ct.tai_xe_id,
+                ct.xe_id,
+                tx.ho_ten,
+                x.bien_so,
+                lc.tuyen_duong,
+                lc.gio_ket_thuc
+            FROM chuyen_thuc_te ct
+            JOIN lich_chay lc ON ct.lich_chay_id = lc.id
+            LEFT JOIN tai_xe tx ON ct.tai_xe_id = tx.id
+            LEFT JOIN xe x ON ct.xe_id = x.id
+            WHERE ct.trang_thai = 'DANG_CHAY'
+              AND COALESCE(ct.canh_bao_tre_gio, FALSE) = FALSE
+              AND lc.gio_ket_thuc IS NOT NULL
+              AND NOW() > lc.gio_ket_thuc
+            """
+        )
+        for r in rows:
+            db.execute(
+                "UPDATE chuyen_thuc_te SET canh_bao_tre_gio = TRUE WHERE id = %s",
+                (r["chuyen_thuc_te_id"],),
+            )
+            overrun_trips.append(r)
+    except Exception as e:
+        print("Quet chuyen tre gio error:", e)
+    return overrun_trips
 
 
 def quet_camera_mat_ket_noi(timeout_seconds=60):

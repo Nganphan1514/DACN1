@@ -3,6 +3,7 @@ import time
 import csv
 import os
 import queue
+import signal
 import socket
 import threading
 import uuid
@@ -161,8 +162,32 @@ def enqueue_db_task(fn, *args, **kwargs):
 
 
 DEVICE_ID = os.getenv("DEVICE_ID", f"cam-xe-{VEHICLE_ID}-{socket.gethostname()}")
+EDGE_KIOSK_MODE = os.getenv("EDGE_KIOSK_MODE", "false").lower() == "true"
 HEARTBEAT_INTERVAL = 20
 OUTBOX_FLUSH_INTERVAL = 15
+CAMERA_OCCLUSION_ALERT_SECONDS = 180  # AI-02: Canh bao che/mat camera sau 3 phut
+
+
+def _handle_process_termination(signum, _frame):
+    """FIX-02: Gui goi tin cuoi PROCESS_TERMINATED khi main.py bi tat dot ngot."""
+    try:
+        push_device_heartbeat(
+            device_id=DEVICE_ID,
+            xe_id=VEHICLE_ID,
+            camera_source=str(CAMERA_SOURCE),
+            fps=0.0,
+            status="PROCESS_TERMINATED",
+            outbox_pending=offline_outbox.count_pending(),
+            dead_letter_count=offline_outbox.count_dead_letter(),
+            firmware_version="edge-3.1",
+        )
+    except Exception:
+        pass
+    raise SystemExit(0)
+
+
+signal.signal(signal.SIGINT, _handle_process_termination)
+signal.signal(signal.SIGTERM, _handle_process_termination)
 
 
 def _send_or_queue_alert(
@@ -399,6 +424,7 @@ def reset_calibration_va_nhan_dien():
     global nguoi_lai_hop_le
     global unknown_start_time
     global face_missing_start_time
+    global occlusion_alert_sent
     global last_auth_check_time
     global auth_scan_start_time
     global auth_hits
@@ -414,6 +440,7 @@ def reset_calibration_va_nhan_dien():
     nguoi_lai_hop_le = False
     unknown_start_time = None
     face_missing_start_time = None
+    occlusion_alert_sent = False
     last_auth_check_time = 0
     auth_scan_start_time = None
     auth_hits = {}
@@ -637,6 +664,7 @@ auth_done = False
 auth_failed_logged = False
 
 face_missing_start_time = None
+occlusion_alert_sent = False
 
 
 # COUNTER
@@ -797,6 +825,27 @@ while True:
 
         if face_missing_start_time is None:
             face_missing_start_time = time.time()
+            occlusion_alert_sent = False
+
+        # AI-02: Canh bao som neu mat khuon mat / che camera lien tuc >= 3 phut khi xe dang chay
+        missing_elapsed = time.time() - face_missing_start_time
+        if missing_elapsed >= CAMERA_OCCLUSION_ALERT_SECONDS and not occlusion_alert_sent:
+            occlusion_alert_sent = True
+            enqueue_db_task(
+                _send_or_queue_alert,
+                event_type="CHE_CAMERA",
+                driver_name=ten_tai_xe,
+                vehicle_name=VEHICLE_NAME,
+                message=(
+                    f"Mất khuôn mặt / nghi che camera liên tục {int(missing_elapsed // 60)} phút "
+                    f"trên xe {VEHICLE_NAME}"
+                ),
+                snapshot_path=None,
+                risk_score=6,
+                tai_xe_id=tai_xe_hien_tai if nguoi_lai_hop_le else None,
+                xe_id=VEHICLE_ID,
+                phien_id=phien_hien_tai if nguoi_lai_hop_le else None,
+            )
 
         # Khi đã khóa tài xế thì KHÔNG nhận diện lại chỉ vì mất mặt vài giây.
         # Tài xế chỉ được nhận diện lại khi bấm phím 1 tạm dừng rồi phím 2 chạy lại.
@@ -855,6 +904,7 @@ while True:
             ear = eye_calibrator.normalize_ear(left_ear, right_ear)
 
         face_missing_start_time = None
+        occlusion_alert_sent = False
 
         # Tài xế quay lại thì reset mất dấu phiên
         if xe_dang_chay and phien_hien_tai:
@@ -1221,10 +1271,15 @@ while True:
     key = cv2.waitKey(1) & 0xFF
 
     if key == ord("q"):
-
-        break
+        if EDGE_KIOSK_MODE:
+            print("EDGE_KIOSK_MODE=true: Vo hieu hoa phim Q (khong cho phep tat camera khi dang giam sat).")
+        else:
+            break
 
     elif key == ord("1"):
+        if EDGE_KIOSK_MODE:
+            print("EDGE_KIOSK_MODE=true: Vo hieu hoa phim 1 (khong cho phep tam dung camera thu cong).")
+            continue
 
         xe_dang_chay = False
         status = "XE DUNG"

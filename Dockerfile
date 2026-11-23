@@ -38,6 +38,5 @@ RUN mkdir -p /app/snapshots /app/exports /app/logs
 
 EXPOSE 5000
 
-# Dung 1 worker + 8 threads de SSE realtime event broker chia se chung bo nho
-# va phuc vu dong thoi Web Admin + Mobile App Expo + Camera AI
-CMD ["gunicorn", "--workers", "1", "--threads", "8", "--timeout", "120", "--bind", "0.0.0.0:5000", "backend.app:app"]
+# Dung gevent async worker (--worker-connections 1000) de khong bi nghen thread khi nhieu Admin mo SSE dong thoi
+CMD ["gunicorn", "--workers", "1", "--worker-class", "gevent", "--worker-connections", "1000", "--timeout", "120", "--bind", "0.0.0.0:5000", "backend.app:app"]

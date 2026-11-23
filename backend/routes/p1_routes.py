@@ -31,16 +31,37 @@ def api_get_schedule_checklist(lich_chay_id):
     return jsonify({"success": True, "data": rows})
 
 
+@p1_bp.route("/api/driver/schedules/<int:lich_chay_id>/checklist-status", methods=["GET"])
+@require_auth
+def api_get_schedule_checklist_status(lich_chay_id):
+    """FIX-03: Tra trang thai checklist gan nhat (CHUA_LAM | DAT | KHONG_DAT) cho Mobile App."""
+    rows = lay_checklist_theo_lich(lich_chay_id)
+    status = rows[0].get("ket_qua_tong") if rows else "CHUA_LAM"
+    return jsonify({
+        "success": True,
+        "data": {
+            "lich_chay_id": lich_chay_id,
+            "checklist_status": status,
+            "require_checklist": True,
+            "latest": rows[0] if rows else None,
+        },
+    })
+
+
 @p1_bp.route("/api/driver/schedules/<int:lich_chay_id>/checklist", methods=["POST"])
+@p1_bp.route("/api/driver/checklists", methods=["POST"])
 @require_role(ROLE_TAI_XE)
-def api_submit_schedule_checklist(lich_chay_id):
+def api_submit_schedule_checklist(lich_chay_id=None):
     tai_xe_id = g.current_user.get("tai_xe_id")
     if not tai_xe_id:
         return jsonify({"success": False, "message": "Tài khoản chưa liên kết hồ sơ tài xế."}), 400
 
     data = request.get_json(silent=True) or {}
+    target_lich_id = lich_chay_id or data.get("lich_chay_id")
+    if not target_lich_id:
+        return jsonify({"success": False, "message": "Thiếu mã lịch chạy."}), 400
     res_data, status_code, message = tai_xe_gui_checklist_truoc_chuyen(
-        lich_chay_id=lich_chay_id,
+        lich_chay_id=target_lich_id,
         tai_xe_id=tai_xe_id,
         items=data.get("items") or [],
         ghi_chu=data.get("ghi_chu"),

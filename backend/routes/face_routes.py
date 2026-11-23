@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, render_template, request
 
-from backend.middleware.auth_guard import require_role, resolve_driver_id
+from backend.middleware.auth_guard import require_permission, require_role, resolve_driver_id
 from database.mysql_service import (
     lay_trang_thai_khuon_mat,
     luu_anh_khuon_mat,
@@ -16,7 +16,7 @@ face_bp = Blueprint("face_bp", __name__)
 
 @face_bp.route("/driver/register-face", methods=["GET"])
 @face_bp.route("/admin/drivers/<int:tai_xe_id>/register-face", methods=["GET"])
-@require_role("quan_ly")
+@require_permission("drivers:register_face")
 def register_face_page(tai_xe_id=None):
     target_id = tai_xe_id or request.args.get("tai_xe_id")
     resolved_id, allowed = resolve_driver_id(target_id)
@@ -51,7 +51,7 @@ def api_face_status(tai_xe_id):
 @face_bp.route("/api/driver/register-face", methods=["POST"])
 @face_bp.route("/api/admin/drivers/register-face", methods=["POST"])
 @face_bp.route("/api/register-face", methods=["POST"])
-@require_role("quan_ly")
+@require_permission("drivers:register_face")
 def api_register_face():
     """
     Chi QUAN LY moi duoc dang ky hoac dang ky lai khuon mat 128D cho tai xe

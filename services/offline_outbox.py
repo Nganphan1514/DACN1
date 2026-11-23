@@ -19,8 +19,9 @@ class OfflineOutbox:
     - Phan biet loi tam thoi (RETRY) va loi vinh vien 4xx / qua gioi han retry (DEAD_LETTER).
     """
 
-    def __init__(self, db_path=DEFAULT_OUTBOX_DB):
+    def __init__(self, db_path=DEFAULT_OUTBOX_DB, max_rows=5000):
         self.db_path = db_path
+        self.max_rows = max(1, int(max_rows))
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
         self._lock = threading.Lock()
         self._init_db()
@@ -63,6 +64,21 @@ class OfflineOutbox:
                 """,
                 (eid, task_type, json.dumps(body, ensure_ascii=False)),
             )
+            # AI-04: Gioi han dung luong toi da de chong tran o dia (uu tien xoa DEAD_LETTER truoc, roi den ban ghi cu nhat)
+            total = int(conn.execute("SELECT COUNT(*) FROM outbox_events").fetchone()[0])
+            excess = total - self.max_rows
+            if excess > 0:
+                conn.execute(
+                    """
+                    DELETE FROM outbox_events
+                    WHERE id IN (
+                        SELECT id FROM outbox_events
+                        ORDER BY CASE WHEN status = 'DEAD_LETTER' THEN 0 ELSE 1 END, id ASC
+                        LIMIT ?
+                    )
+                    """,
+                    (excess,),
+                )
             conn.commit()
         return eid
 

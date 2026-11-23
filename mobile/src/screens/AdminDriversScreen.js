@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { apiRequest } from "../config/api";
+import { useAuth } from "../context/AuthContext";
 import FaceRegisterScreen from "./FaceRegisterScreen";
 
 /**
@@ -48,6 +49,9 @@ function parseVietnamCCCDQr(rawData) {
 }
 
 export default function AdminDriversScreen() {
+  const { hasPermission } = useAuth();
+  const canWriteDriver = hasPermission("drivers:write");
+  const canRegisterFace = hasPermission("drivers:register_face");
   const [drivers, setDrivers] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -319,15 +323,17 @@ export default function AdminDriversScreen() {
     <View style={styles.container}>
       <View style={styles.topRow}>
         <Text style={styles.header}>Quản lý Tài xế</Text>
-        <TouchableOpacity
-          style={styles.addBtn}
-          onPress={() => {
-            resetForm();
-            setMode("create");
-          }}
-        >
-          <Text style={styles.addBtnText}>+ Thêm / Quét CCCD</Text>
-        </TouchableOpacity>
+        {canWriteDriver && (
+          <TouchableOpacity
+            style={styles.addBtn}
+            onPress={() => {
+              resetForm();
+              setMode("create");
+            }}
+          >
+            <Text style={styles.addBtnText}>+ Thêm / Quét CCCD</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <FlatList
@@ -344,21 +350,23 @@ export default function AdminDriversScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={styles.name}>{item.ho_ten || `Tài xế #${item.id}`}</Text>
                 <Text style={styles.meta}>
-                  ID #{item.id} • SĐT: {item.so_dien_thoai || "Chưa có"} • GPLX: {item.so_gplx || "Chưa có"}
+                  ID #{item.id} • SĐT: {item.so_dien_thoai || "Chưa có"} • GPLX: {item.so_gplx_masked || item.so_gplx || "Chưa có"}
                 </Text>
                 <Text style={styles.meta}>Địa chỉ: {item.dia_chi || "Chưa cập nhật"}</Text>
               </View>
             </View>
 
-            <TouchableOpacity
-              style={styles.faceBtn}
-              onPress={() => {
-                setSelectedDriver({ id: item.id, ho_ten: item.ho_ten });
-                setMode("register_face");
-              }}
-            >
-              <Text style={styles.faceBtnText}>📷 Đăng ký / Đăng ký lại khuôn mặt 128D</Text>
-            </TouchableOpacity>
+            {canRegisterFace && (
+              <TouchableOpacity
+                style={styles.faceBtn}
+                onPress={() => {
+                  setSelectedDriver({ id: item.id, ho_ten: item.ho_ten });
+                  setMode("register_face");
+                }}
+              >
+                <Text style={styles.faceBtnText}>📷 Đăng ký / Đăng ký lại khuôn mặt 128D</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
       />

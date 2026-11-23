@@ -6,26 +6,24 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 
 import { AuthProvider, useAuth } from "./src/context/AuthContext";
+import { COLORS } from "./src/theme/tokens";
 import LoginScreen from "./src/screens/LoginScreen";
 import DashboardScreen from "./src/screens/DashboardScreen";
-import MonitorScreen from "./src/screens/MonitorScreen";
 import AdminDriversScreen from "./src/screens/AdminDriversScreen";
+import AdminOpsScreen from "./src/screens/AdminOpsScreen";
 import SchedulesScreen from "./src/screens/SchedulesScreen";
 import ViolationsScreen from "./src/screens/ViolationsScreen";
-import NotificationsScreen from "./src/screens/NotificationsScreen";
-import ReportsScreen from "./src/screens/ReportsScreen";
 import ProfileScreen from "./src/screens/ProfileScreen";
 
 const Tab = createBottomTabNavigator();
 
 const TAB_ICONS = {
   Cabin: ["speedometer", "speedometer-outline"],
-  "AI Cam": ["eye", "eye-outline"],
-  "Tài xế": ["people", "people-outline"],
-  "Lịch": ["calendar", "calendar-outline"],
-  "Vi phạm": ["warning", "warning-outline"],
-  "T.Báo": ["notifications", "notifications-outline"],
-  "Sự cố": ["construct", "construct-outline"],
+  "Lịch trình": ["calendar", "calendar-outline"],
+  "An toàn": ["shield-checkmark", "shield-checkmark-outline"],
+  "Điều hành": ["pulse", "pulse-outline"],
+  "Đội ngũ": ["people", "people-outline"],
+  "Lịch & Sự cố": ["briefcase", "briefcase-outline"],
   "Cá nhân": ["person-circle", "person-circle-outline"],
 };
 
@@ -35,7 +33,7 @@ function AppNavigator() {
   if (loading) {
     return (
       <View style={styles.loader}>
-        <ActivityIndicator size="large" color="#22d3ee" />
+        <ActivityIndicator size="large" color={COLORS.primary} />
       </View>
     );
   }
@@ -53,39 +51,39 @@ function AppNavigator() {
           headerShown: false,
           tabBarIcon: ({ focused, color, size }) => {
             const pair = TAB_ICONS[route.name] || ["ellipse", "ellipse-outline"];
-            return <Ionicons name={focused ? pair[0] : pair[1]} size={size - 2} color={color} />;
+            return <Ionicons name={focused ? pair[0] : pair[1]} size={size} color={color} />;
           },
           tabBarStyle: {
-            backgroundColor: "#0f172a",
-            borderTopColor: "#1e293b",
-            height: 64,
-            paddingBottom: 8,
-            paddingTop: 6,
+            backgroundColor: COLORS.surfaceElevated,
+            borderTopColor: COLORS.borderElevated,
+            borderTopWidth: 1,
+            height: 68,
+            paddingBottom: 10,
+            paddingTop: 8,
           },
           tabBarLabelStyle: {
-            fontSize: 9.5,
+            fontSize: 11,
             fontWeight: "700",
           },
-          tabBarActiveTintColor: "#22d3ee",
-          tabBarInactiveTintColor: "#64748b",
+          tabBarActiveTintColor: COLORS.primary,
+          tabBarInactiveTintColor: COLORS.textMuted,
         })}
       >
-        <Tab.Screen name="Cabin" component={DashboardScreen} />
-        {!isDriver && (
-          <Tab.Screen name="Tài xế" component={AdminDriversScreen} />
+        {isDriver ? (
+          <>
+            <Tab.Screen name="Cabin" component={DashboardScreen} />
+            <Tab.Screen name="Lịch trình" component={SchedulesScreen} />
+            <Tab.Screen name="An toàn" component={ViolationsScreen} />
+            <Tab.Screen name="Cá nhân" component={ProfileScreen} />
+          </>
+        ) : (
+          <>
+            <Tab.Screen name="Điều hành" component={DashboardScreen} />
+            <Tab.Screen name="Đội ngũ" component={AdminDriversScreen} />
+            <Tab.Screen name="Lịch & Sự cố" component={AdminOpsScreen} />
+            <Tab.Screen name="Cá nhân" component={ProfileScreen} />
+          </>
         )}
-        {isDriver && (
-          <Tab.Screen name="AI Cam" component={MonitorScreen} />
-        )}
-        <Tab.Screen name="Lịch" component={SchedulesScreen} />
-        {isDriver && (
-          <Tab.Screen name="Vi phạm" component={ViolationsScreen} />
-        )}
-        {isDriver && (
-          <Tab.Screen name="T.Báo" component={NotificationsScreen} />
-        )}
-        <Tab.Screen name="Sự cố" component={ReportsScreen} />
-        <Tab.Screen name="Cá nhân" component={ProfileScreen} />
       </Tab.Navigator>
     </NavigationContainer>
   );
@@ -103,7 +101,7 @@ export default function App() {
 const styles = StyleSheet.create({
   loader: {
     flex: 1,
-    backgroundColor: "#020617",
+    backgroundColor: COLORS.bgCanvas,
     justifyContent: "center",
     alignItems: "center",
   },

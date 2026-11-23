@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
-  Alert,
   FlatList,
+  Image,
   Modal,
   RefreshControl,
   StyleSheet,
@@ -10,20 +10,28 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { apiRequest } from "../config/api";
 import { useAuth } from "../context/AuthContext";
+import { COLORS, RADIUS, TABULAR_NUMS } from "../theme/tokens";
+import BottomSheet from "../components/BottomSheet";
+import SkeletonCard from "../components/SkeletonCard";
+import ToastBanner from "../components/ToastBanner";
 
 export default function ViolationsScreen() {
   const { user } = useAuth();
-  const [tab, setTab] = useState("violations"); // 'violations' | 'ai' | 'appeals'
+  const [tab, setTab] = useState("violations"); // 'violations' | 'appeals' | 'ai'
   const [violations, setViolations] = useState([]);
   const [aiEvents, setAiEvents] = useState([]);
   const [appeals, setAppeals] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [toast, setToast] = useState(null);
 
-  const [appealModal, setAppealModal] = useState(false);
+  const [appealSheet, setAppealSheet] = useState(false);
   const [selectedViolation, setSelectedViolation] = useState(null);
   const [explanation, setExplanation] = useState("");
+  const [zoomImageUrl, setZoomImageUrl] = useState(null);
 
   const driverId = user?.tai_xe_id || user?.id;
 
@@ -36,18 +44,13 @@ export default function ViolationsScreen() {
         apiRequest("/api/driver/ai-events"),
         apiRequest("/api/driver/appeals"),
       ]);
-      if (vpRes.data?.success && Array.isArray(vpRes.data.data)) {
-        setViolations(vpRes.data.data);
-      }
-      if (aiRes.data?.success && Array.isArray(aiRes.data.data)) {
-        setAiEvents(aiRes.data.data);
-      }
-      if (apRes.data?.success && Array.isArray(apRes.data.data)) {
-        setAppeals(apRes.data.data);
-      }
+      if (vpRes.data?.success && Array.isArray(vpRes.data.data)) setViolations(vpRes.data.data);
+      if (aiRes.data?.success && Array.isArray(aiRes.data.data)) setAiEvents(aiRes.data.data);
+      if (apRes.data?.success && Array.isArray(apRes.data.data)) setAppeals(apRes.data.data);
     } catch (e) {
       console.warn("Load violations/appeals error:", e);
     } finally {
+      setLoading(false);
       setRefreshing(false);
     }
   }, [driverId]);
@@ -56,15 +59,15 @@ export default function ViolationsScreen() {
     loadAll();
   }, [loadAll]);
 
-  const openAppealModal = (vp) => {
+  function openAppealSheet(vp) {
     setSelectedViolation(vp);
     setExplanation("");
-    setAppealModal(true);
-  };
+    setAppealSheet(true);
+  }
 
-  const submitAppeal = async () => {
+  async function submitAppeal() {
     if (explanation.trim().length < 5) {
-      Alert.alert("Thiếu giải trình", "Vui lòng nhập nội dung giải trình (tối thiểu 5 ký tự).");
+      setToast({ type: "warning", message: "Vui lòng nhập nội dung giải trình (tối thiểu 5 ký tự)." });
       return;
     }
     const res = await apiRequest(`/api/driver/violations/${selectedViolation.id}/appeals`, {
@@ -74,211 +77,325 @@ export default function ViolationsScreen() {
         minh_chung_urls: [],
       }),
     });
-    setAppealModal(false);
-    Alert.alert(res.data?.success ? "Đã gửi khiếu nại" : "Thông báo", res.data?.message || "");
+    setAppealSheet(false);
+    setToast({
+      type: res.data?.success ? "success" : "error",
+      message: res.data?.message || (res.data?.success ? "Đã gửi khiếu nại." : "Thất bại."),
+    });
     if (res.data?.success) {
       setTab("appeals");
       loadAll();
     }
-  };
+  }
 
-  const activeData = tab === "violations" ? violations : tab === "ai" ? aiEvents : appeals;
+  const activeData = tab === "violations" ? violations : tab === "appeals" ? appeals : aiEvents;
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>Vi phạm & Khiếu nại</Text>
+      <ToastBanner toast={toast} onHide={() => setToast(null)} />
 
-      <View style={styles.tabs}>
-        <TouchableOpacity
-          style={[styles.tabBtn, tab === "violations" && styles.tabBtnActive]}
-          onPress={() => setTab("violations")}
-        >
-          <Text style={styles.tabText}>Vi phạm ({violations.length})</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tabBtn, tab === "appeals" && styles.tabBtnActive]}
-          onPress={() => setTab("appeals")}
-        >
-          <Text style={styles.tabText}>Khiếu nại ({appeals.length})</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tabBtn, tab === "ai" && styles.tabBtnActive]}
-          onPress={() => setTab("ai")}
-        >
-          <Text style={styles.tabText}>Cảnh báo AI ({aiEvents.length})</Text>
-        </TouchableOpacity>
+      <Text style={styles.header}>An toàn & Khiếu nại</Text>
+
+      {/* SEGMENTED CONTROL */}
+      <View style={styles.segmented}>
+        {[
+          { k: "violations", l: `Vi phạm (${violations.length})` },
+          { k: "appeals", l: `Khiếu nại (${appeals.length})` },
+          { k: "ai", l: `AI (${aiEvents.length})` },
+        ].map((t) => (
+          <TouchableOpacity
+            key={t.k}
+            style={[styles.segBtn, tab === t.k && styles.segBtnActive]}
+            onPress={() => setTab(t.k)}
+          >
+            <Text style={[styles.segText, tab === t.k && { color: "#fff" }]}>{t.l}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
-      <FlatList
-        data={activeData}
-        keyExtractor={(item, idx) => `${tab}-${item.id || idx}`}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={loadAll} tintColor="#22d3ee" />
-        }
-        contentContainerStyle={styles.list}
-        ListEmptyComponent={
-          <Text style={styles.empty}>
-            {tab === "violations"
-              ? "Không có vi phạm nào đã xác minh."
-              : tab === "appeals"
-              ? "Bạn chưa gửi khiếu nại nào."
-              : "Chưa có cảnh báo AI nào."}
+      {tab === "ai" && (
+        <View style={styles.infoBanner}>
+          <Ionicons name="information-circle" size={18} color={COLORS.primary} />
+          <Text style={styles.infoBannerText}>
+            Các ghi nhận tự động từ AI chỉ hỗ trợ an toàn — chưa được tính là vi phạm chính thức.
           </Text>
-        }
-        renderItem={({ item }) => {
-          if (tab === "violations") {
-            const canAppeal = ["HIEU_LUC", "GIU_NGUYEN"].includes(item.trang_thai);
-            return (
-              <View style={styles.card}>
-                <View style={styles.row}>
-                  <Text style={styles.title}>{item.loai_vi_pham} • #{item.id}</Text>
-                  <Text style={styles.statusBadge}>{item.trang_thai}</Text>
-                </View>
-                <Text style={styles.meta}>Lý do xác minh: {item.ly_do_xac_minh}</Text>
-                <Text style={styles.time}>Xác minh lúc: {item.xac_minh_at || ""}</Text>
-                {canAppeal && (
-                  <TouchableOpacity
-                    style={styles.appealBtn}
-                    onPress={() => openAppealModal(item)}
-                  >
-                    <Text style={styles.btnText}>Gửi khiếu nại / Giải trình</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            );
-          }
-
-          if (tab === "appeals") {
-            return (
-              <View style={styles.card}>
-                <View style={styles.row}>
-                  <Text style={styles.title}>Khiếu nại #{item.id} (VP #{item.vi_pham_id})</Text>
-                  <Text style={styles.statusBadge}>{item.trang_thai}</Text>
-                </View>
-                <Text style={styles.meta}>Giải trình gốc: {item.noi_dung_giai_trinh}</Text>
-                {item.ly_do_ket_luan ? (
-                  <Text style={styles.decision}>Kết luận QL: {item.ly_do_ket_luan}</Text>
-                ) : null}
-                <Text style={styles.time}>Gửi lúc: {item.created_at || ""}</Text>
-              </View>
-            );
-          }
-
-          return (
-            <View style={styles.card}>
-              <View style={styles.row}>
-                <Text style={styles.title}>{item.loai_canh_bao || "CANH_BAO"}</Text>
-                <Text style={styles.aiNote}>{item.trang_thai || "PENDING_REVIEW"}</Text>
-              </View>
-              <Text style={styles.meta}>{item.noi_dung || "Cảnh báo an toàn AI (chưa phải vi phạm)"}</Text>
-              <Text style={styles.time}>Risk: {item.risk_score ?? 0} • {item.thoi_gian_xay_ra || ""}</Text>
-            </View>
-          );
-        }}
-      />
-
-      <Modal visible={appealModal} transparent animationType="slide">
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>
-              Gửi khiếu nại Vi phạm #{selectedViolation?.id}
-            </Text>
-            <Text style={styles.modalHint}>
-              Nội dung giải trình gốc được lưu bất biến làm căn cứ để Quản lý xem xét lại.
-            </Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Nhập nội dung giải trình của bạn..."
-              placeholderTextColor="#64748b"
-              multiline
-              value={explanation}
-              onChangeText={setExplanation}
-            />
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.mBtn, { backgroundColor: "#334155" }]}
-                onPress={() => setAppealModal(false)}
-              >
-                <Text style={styles.btnText}>Đóng</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.mBtn, { backgroundColor: "#0891b2" }]}
-                onPress={submitAppeal}
-              >
-                <Text style={styles.btnText}>Gửi khiếu nại</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
         </View>
+      )}
+
+      {loading ? (
+        <View style={{ gap: 12 }}>
+          <SkeletonCard height={120} />
+          <SkeletonCard height={120} />
+        </View>
+      ) : (
+        <FlatList
+          data={activeData}
+          keyExtractor={(item, idx) => `${tab}-${item.id || idx}`}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={loadAll} tintColor={COLORS.primary} />
+          }
+          contentContainerStyle={{ gap: 12, paddingBottom: 32 }}
+          ListEmptyComponent={
+            <View style={styles.emptyWrap}>
+              <Ionicons name="shield-checkmark-outline" size={46} color={COLORS.safe} />
+              <Text style={styles.emptyTitle}>
+                {tab === "violations"
+                  ? "Tuyệt vời! Chưa có vi phạm nào."
+                  : tab === "appeals"
+                  ? "Chưa có phiếu khiếu nại nào."
+                  : "Chưa có cảnh báo AI nào."}
+              </Text>
+            </View>
+          }
+          renderItem={({ item }) => {
+            if (tab === "violations") {
+              const canAppeal =
+                item.can_appeal !== undefined
+                  ? Boolean(item.can_appeal)
+                  : ["HIEU_LUC", "GIU_NGUYEN"].includes(item.trang_thai);
+              return (
+                <View style={styles.card}>
+                  <View style={styles.rowBetween}>
+                    <Text style={styles.cardTitle}>{item.loai_vi_pham} • #{item.id}</Text>
+                    <View style={styles.badge}>
+                      <Text style={styles.badgeText}>{item.trang_thai}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.quoteBox}>
+                    <Text style={styles.quoteLabel}>Nhận xét của Quản lý:</Text>
+                    <Text style={styles.quoteText}>{item.ly_do_xac_minh}</Text>
+                  </View>
+
+                  {item.image_url ? (
+                    <TouchableOpacity onPress={() => setZoomImageUrl(item.image_url)}>
+                      <Image source={{ uri: item.image_url }} style={styles.thumb} />
+                      <Text style={styles.zoomHint}>Chạm vào ảnh để phóng to bằng chứng</Text>
+                    </TouchableOpacity>
+                  ) : null}
+
+                  <Text style={styles.time}>Xác minh lúc: {item.xac_minh_at || ""}</Text>
+
+                  {canAppeal ? (
+                    <TouchableOpacity style={styles.appealBtn} onPress={() => openAppealSheet(item)}>
+                      <Ionicons name="chatbox-ellipses-outline" size={16} color="#fff" />
+                      <Text style={styles.btnText}>Gửi giải trình / Khiếu nại</Text>
+                    </TouchableOpacity>
+                  ) : item.appeal_block_reason ? (
+                    <Text style={styles.blockHint}>{item.appeal_block_reason}</Text>
+                  ) : null}
+                </View>
+              );
+            }
+
+            if (tab === "appeals") {
+              const st = item.trang_thai || "SUBMITTED";
+              const step2 = ["UNDER_REVIEW", "NEED_MORE_INFO", "ACCEPTED", "REJECTED", "CLOSED"].includes(st);
+              const step3 = ["ACCEPTED", "REJECTED", "CLOSED"].includes(st);
+              return (
+                <View style={styles.card}>
+                  <View style={styles.rowBetween}>
+                    <Text style={styles.cardTitle}>Khiếu nại #{item.id} (VP #{item.vi_pham_id})</Text>
+                    <View style={styles.badge}>
+                      <Text style={styles.badgeText}>{st}</Text>
+                    </View>
+                  </View>
+
+                  {/* TIMELINE 3 MOC */}
+                  <View style={styles.timeline}>
+                    <TimelineDot label="Đã gửi" active />
+                    <View style={styles.tLine} />
+                    <TimelineDot label="Xem xét" active={step2} />
+                    <View style={styles.tLine} />
+                    <TimelineDot label="Kết luận" active={step3} color={st === "ACCEPTED" ? COLORS.safe : COLORS.primary} />
+                  </View>
+
+                  <View style={styles.quoteBox}>
+                    <Text style={styles.quoteLabel}>🔒 Nội dung giải trình gốc (bất biến):</Text>
+                    <Text style={styles.quoteText}>{item.noi_dung_giai_trinh}</Text>
+                  </View>
+
+                  {item.ly_do_ket_luan ? (
+                    <Text style={[styles.decision, { color: st === "ACCEPTED" ? COLORS.safe : COLORS.caution }]}>
+                      Kết luận QL: {item.ly_do_ket_luan}
+                    </Text>
+                  ) : null}
+                </View>
+              );
+            }
+
+            const risk = Math.min(10, Math.max(0, Number(item.risk_score || 0)));
+            return (
+              <View style={styles.card}>
+                <View style={styles.rowBetween}>
+                  <Text style={styles.cardTitle}>{item.loai_canh_bao || "CANH_BAO"}</Text>
+                  <Text style={[styles.riskTag, TABULAR_NUMS]}>Risk {risk}/10</Text>
+                </View>
+                <View style={styles.progressTrack}>
+                  <View
+                    style={[
+                      styles.progressFill,
+                      {
+                        width: `${risk * 10}%`,
+                        backgroundColor: risk >= 7 ? COLORS.danger : risk >= 4 ? COLORS.caution : COLORS.primary,
+                      },
+                    ]}
+                  />
+                </View>
+                <Text style={styles.meta}>{item.noi_dung || ""}</Text>
+                <Text style={styles.time}>
+                  Trạng thái: {item.trang_thai || "PENDING_REVIEW"} • {item.thoi_gian_xay_ra || ""}
+                </Text>
+              </View>
+            );
+          }}
+        />
+      )}
+
+      {/* BOTTOM SHEET GUI KHIEU NAI */}
+      <BottomSheet
+        visible={appealSheet}
+        title={`Gửi khiếu nại Vi phạm #${selectedViolation?.id || ""}`}
+        subtitle="🔒 Nội dung giải trình gốc được lưu bất biến trong hệ thống làm căn cứ để Quản lý xem xét."
+        onClose={() => setAppealSheet(false)}
+      >
+        <TextInput
+          style={styles.input}
+          placeholder="Trình bày rõ bối cảnh và lý do giải trình..."
+          placeholderTextColor={COLORS.textMuted}
+          multiline
+          value={explanation}
+          onChangeText={setExplanation}
+        />
+        <TouchableOpacity style={styles.submitBtn} onPress={submitAppeal}>
+          <Text style={styles.btnText}>GỬI KHIẾU NẠI CHÍNH THỨC</Text>
+        </TouchableOpacity>
+      </BottomSheet>
+
+      {/* LIGHTBOX ZOOM ANH BANG CHUNG */}
+      <Modal visible={Boolean(zoomImageUrl)} transparent animationType="fade" onRequestClose={() => setZoomImageUrl(null)}>
+        <TouchableOpacity style={styles.lightbox} activeOpacity={1} onPress={() => setZoomImageUrl(null)}>
+          {zoomImageUrl && <Image source={{ uri: zoomImageUrl }} style={styles.zoomImg} resizeMode="contain" />}
+          <Text style={styles.zoomClose}>Chạm bất kỳ đâu để đóng</Text>
+        </TouchableOpacity>
       </Modal>
     </View>
   );
 }
 
+function TimelineDot({ label, active, color = COLORS.primary }) {
+  return (
+    <View style={{ alignItems: "center", gap: 4 }}>
+      <View style={[styles.tDot, { backgroundColor: active ? color : COLORS.surfaceElevated }]} />
+      <Text style={{ color: active ? COLORS.textPrimary : COLORS.textMuted, fontSize: 10, fontWeight: "700" }}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#020617", padding: 18 },
-  header: { color: "#fff", fontSize: 24, fontWeight: "800", marginBottom: 12 },
-  tabs: { flexDirection: "row", gap: 6, marginBottom: 14 },
-  tabBtn: {
-    flex: 1,
-    paddingVertical: 9,
-    borderRadius: 12,
-    backgroundColor: "#0f172a",
+  container: { flex: 1, backgroundColor: COLORS.bgCanvas, paddingHorizontal: 18, paddingTop: 52 },
+  header: { color: COLORS.textPrimary, fontSize: 24, fontWeight: "800", marginBottom: 14 },
+  segmented: {
+    flexDirection: "row",
+    backgroundColor: COLORS.surfaceCard,
+    borderRadius: RADIUS.button,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: COLORS.borderSubtle,
+    marginBottom: 14,
+  },
+  segBtn: { flex: 1, paddingVertical: 10, borderRadius: 11, alignItems: "center" },
+  segBtnActive: { backgroundColor: COLORS.primary },
+  segText: { color: COLORS.textSecondary, fontSize: 11.5, fontWeight: "700" },
+  infoBanner: {
+    flexDirection: "row",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#1e293b",
-  },
-  tabBtnActive: { backgroundColor: "#0891b2", borderColor: "#22d3ee" },
-  tabText: { color: "#fff", fontSize: 11, fontWeight: "700" },
-  list: { gap: 12, paddingBottom: 30 },
-  empty: { color: "#64748b", textAlign: "center", marginTop: 40 },
-  card: {
-    backgroundColor: "#0f172a",
-    borderRadius: 16,
-    padding: 15,
-    borderWidth: 1,
-    borderColor: "#1e293b",
-  },
-  row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  title: { color: "#fff", fontWeight: "800", fontSize: 14 },
-  statusBadge: { color: "#fbbf24", fontSize: 11, fontWeight: "800" },
-  aiNote: { color: "#38bdf8", fontSize: 11, fontWeight: "700" },
-  meta: { color: "#cbd5e1", fontSize: 13, marginTop: 8, lineHeight: 18 },
-  decision: { color: "#6ee7b7", fontSize: 13, marginTop: 6, fontWeight: "600" },
-  time: { color: "#64748b", fontSize: 11, marginTop: 6 },
-  appealBtn: {
-    marginTop: 10,
-    backgroundColor: "#b45309",
-    paddingVertical: 9,
-    borderRadius: 10,
-    alignItems: "center",
-  },
-  btnText: { color: "#fff", fontSize: 12, fontWeight: "700" },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.75)",
-    justifyContent: "center",
-    padding: 20,
-  },
-  modalCard: {
-    backgroundColor: "#0f172a",
-    borderRadius: 20,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: "#334155",
-  },
-  modalTitle: { color: "#fff", fontSize: 17, fontWeight: "800" },
-  modalHint: { color: "#94a3b8", fontSize: 12, marginTop: 4, marginBottom: 12 },
-  input: {
-    backgroundColor: "#020617",
-    color: "#fff",
+    gap: 8,
+    backgroundColor: COLORS.primaryTint,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#334155",
     padding: 12,
-    minHeight: 90,
+    marginBottom: 12,
+  },
+  infoBannerText: { color: COLORS.textPrimary, fontSize: 12, flex: 1, lineHeight: 17 },
+  card: {
+    backgroundColor: COLORS.surfaceCard,
+    borderRadius: RADIUS.card,
+    borderWidth: 1,
+    borderColor: COLORS.borderSubtle,
+    padding: 16,
+  },
+  rowBetween: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
+  cardTitle: { color: COLORS.textPrimary, fontSize: 15, fontWeight: "700", flex: 1 },
+  badge: { backgroundColor: COLORS.cautionTint, paddingHorizontal: 10, paddingVertical: 4, borderRadius: RADIUS.pill },
+  badgeText: { color: COLORS.caution, fontSize: 10.5, fontWeight: "800" },
+  quoteBox: {
+    marginTop: 10,
+    backgroundColor: COLORS.bgCanvas,
+    borderLeftWidth: 3,
+    borderLeftColor: COLORS.primary,
+    borderRadius: 10,
+    padding: 11,
+  },
+  quoteLabel: { color: COLORS.textMuted, fontSize: 11, fontWeight: "700", marginBottom: 4 },
+  quoteText: { color: COLORS.textPrimary, fontSize: 13, lineHeight: 19 },
+  thumb: { width: "100%", height: 150, borderRadius: 12, marginTop: 10 },
+  zoomHint: { color: COLORS.primary, fontSize: 11, textAlign: "center", marginTop: 4 },
+  time: { color: COLORS.textMuted, fontSize: 11.5, marginTop: 8 },
+  meta: { color: COLORS.textSecondary, fontSize: 13, marginTop: 8, lineHeight: 18 },
+  appealBtn: {
+    marginTop: 12,
+    height: 46,
+    borderRadius: RADIUS.button,
+    backgroundColor: COLORS.cautionDark,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  blockHint: { color: COLORS.textMuted, fontSize: 12, marginTop: 8, fontStyle: "italic" },
+  btnText: { color: "#fff", fontSize: 13, fontWeight: "700" },
+  timeline: { flexDirection: "row", alignItems: "center", marginTop: 12, paddingHorizontal: 10 },
+  tDot: { width: 14, height: 14, borderRadius: 7 },
+  tLine: { flex: 1, height: 2, backgroundColor: COLORS.borderElevated, marginHorizontal: 6, marginBottom: 14 },
+  decision: { fontSize: 13, fontWeight: "700", marginTop: 10 },
+  riskTag: { color: COLORS.caution, fontSize: 12, fontWeight: "800" },
+  progressTrack: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: COLORS.bgCanvas,
+    marginTop: 10,
+    overflow: "hidden",
+  },
+  progressFill: { height: 6, borderRadius: 3 },
+  emptyWrap: { alignItems: "center", marginTop: 64, gap: 10 },
+  emptyTitle: { color: COLORS.textSecondary, fontSize: 14, fontWeight: "600" },
+  input: {
+    backgroundColor: COLORS.bgCanvas,
+    color: COLORS.textPrimary,
+    borderRadius: RADIUS.input,
+    borderWidth: 1,
+    borderColor: COLORS.borderElevated,
+    padding: 14,
+    minHeight: 96,
     textAlignVertical: "top",
   },
-  modalActions: { flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 12 },
-  mBtn: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10 },
+  submitBtn: {
+    marginTop: 14,
+    height: 52,
+    borderRadius: RADIUS.button,
+    backgroundColor: COLORS.primary,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  lightbox: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.92)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 16,
+  },
+  zoomImg: { width: "100%", height: "78%" },
+  zoomClose: { color: COLORS.textSecondary, fontSize: 12, marginTop: 14 },
 });

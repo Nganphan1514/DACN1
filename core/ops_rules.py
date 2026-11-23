@@ -36,6 +36,8 @@ def phan_loai_suc_khoe_thiet_bi(
     outbox_pending=0,
     dead_letter_count=0,
     online_timeout_seconds=60,
+    flapping_count_10m=0,
+    paused_seconds=0,
 ):
     secs = float(seconds_since_seen if seconds_since_seen is not None else 9999)
     if secs > online_timeout_seconds:
@@ -45,6 +47,8 @@ def phan_loai_suc_khoe_thiet_bi(
         or float(fps or 0.0) < 8.0
         or int(outbox_pending or 0) > 0
         or int(dead_letter_count or 0) > 0
+        or int(flapping_count_10m or 0) >= 3
+        or float(paused_seconds or 0) > 300
     ):
         return "ONLINE_DEGRADED"
     return "ONLINE_HEALTHY"
@@ -327,3 +331,81 @@ def can_xac_nhan_lai_lich(lich_cu, tai_xe_moi, xe_moi, gio_bd_moi, gio_kt_moi):
     if gio_kt_moi is not None and _norm(gio_kt_moi) != _norm(lich_cu.get("gio_ket_thuc")):
         return True
     return False
+
+
+# ============================================================
+# V3.1 - FIX-01 (PERMISSION MATRIX) & FIX-09 (ENUM NORMALIZER)
+# ============================================================
+
+ROLE_PERMISSIONS = {
+    ROLE_ADMIN_HE_THONG: [
+        "dashboard:view", "org:manage", "accounts:manage", "audit:view",
+        "drivers:view", "drivers:write", "vehicles:view", "vehicles:write",
+        "schedules:view", "schedules:write", "devices:view", "ai_events:view",
+        "reports:view", "analytics:view",
+    ],
+    ROLE_QUAN_TRI_CONG_TY: [
+        "dashboard:view", "org:manage", "accounts:manage", "audit:view",
+        "drivers:view", "drivers:write", "vehicles:view", "vehicles:write",
+        "schedules:view", "schedules:write", "schedules:cancel",
+        "change_requests:decide", "devices:view", "ai_events:view",
+        "violations:verify", "appeals:view", "appeals:decide",
+        "trips:view", "trips:force_complete", "reports:view", "reports:resolve",
+        "analytics:view",
+    ],
+    ROLE_QUAN_LY: [
+        "dashboard:view", "fleets:manage", "audit:view",
+        "drivers:view", "drivers:write", "drivers:register_face",
+        "vehicles:view", "vehicles:write",
+        "schedules:view", "schedules:write", "schedules:cancel",
+        "change_requests:decide", "devices:view", "ai_events:view",
+        "violations:verify", "appeals:view", "appeals:decide",
+        "trips:view", "trips:force_complete", "reports:view", "reports:resolve",
+        "analytics:view",
+    ],
+    ROLE_DIEU_PHOI_VIEN: [
+        "dashboard:view", "drivers:view", "vehicles:view",
+        "schedules:view", "schedules:write", "trips:view", "reports:view",
+    ],
+    ROLE_GIAM_SAT: [
+        "dashboard:view", "drivers:view", "vehicles:view",
+        "devices:view", "ai_events:view", "trips:view", "reports:view",
+    ],
+    ROLE_TAI_XE: [
+        "driver:dashboard", "driver:schedules", "driver:checklist",
+        "driver:trips", "driver:violations", "driver:appeals",
+        "driver:reports", "driver:profile",
+    ],
+}
+
+
+def lay_quyen_theo_vai_tro(vai_tro):
+    return list(ROLE_PERMISSIONS.get(str(vai_tro or "").strip(), []))
+
+
+def co_quyen(vai_tro, permission):
+    return permission in ROLE_PERMISSIONS.get(str(vai_tro or "").strip(), [])
+
+
+LEGACY_SCHEDULE_STATUS_MAP = {
+    "sap_chay": "CHO_XAC_NHAN",
+    "cho_xac_nhan": "CHO_XAC_NHAN",
+    "nhap": "CHO_XAC_NHAN",
+    "da_xac_nhan": "DA_XAC_NHAN",
+    "bi_tu_choi": "BI_TU_CHOI",
+    "dang_chay": "DANG_THUC_HIEN",
+    "dang_thuc_hien": "DANG_THUC_HIEN",
+    "tam_ngung": "DANG_THUC_HIEN",
+    "hoan_thanh": "HOAN_THANH",
+    "huy": "DA_HUY",
+    "da_huy": "DA_HUY",
+    "ket_thuc_ngoai_le": "KET_THUC_NGOAI_LE",
+}
+
+
+def normalize_schedule_status(status):
+    """FIX-09: Chuan hoa trang thai lich chay tu legacy chu thuong -> chuan V3 CHU HOA."""
+    if not status:
+        return None
+    key = str(status).strip().lower()
+    return LEGACY_SCHEDULE_STATUS_MAP.get(key, str(status).strip().upper())

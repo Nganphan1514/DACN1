@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request
 
-from backend.middleware.auth_guard import require_role, resolve_driver_id
+from backend.middleware.auth_guard import require_permission, require_role, resolve_driver_id
 from core.ops_rules import ADMIN_PANEL_ROLES, MANAGER_CONTROL_ROLES
 from database.mysql_service import (
     tao_bao_cao_su_co,
@@ -70,7 +70,7 @@ def api_admin_reports():
 
 
 @report_bp.route("/api/admin/reports/<int:bao_cao_id>", methods=["PUT"])
-@require_role(*MANAGER_CONTROL_ROLES)
+@require_permission("reports:resolve")
 def api_update_report(bao_cao_id):
     data = request.get_json(silent=True) or {}
 

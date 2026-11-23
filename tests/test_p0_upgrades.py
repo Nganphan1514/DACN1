@@ -163,3 +163,46 @@ def test_alert_state_machine_and_device_health_and_masking():
     # Sensitive CCCD/GPLX masking
     assert mask_sensitive_id("079203012345") == "079******345"
     assert mask_sensitive_id("1234") == "1234"
+
+
+def test_eye_calibration_p75_and_scale_clamp():
+    from detection.eye_calibration import EyeCalibration
+
+    # AI-01: Blinks during calibration shouldn't drag down baseline (p75 ignores low outliers)
+    cal = EyeCalibration(duration=0.0, reference_ear=0.30, min_samples=8)
+    for ear in [0.10, 0.12, 0.28, 0.29, 0.30, 0.30, 0.31, 0.31]:
+        cal.update(ear, ear)
+    assert cal.ready is True
+    assert cal.left_baseline >= 0.30
+
+    # Extreme squinting during calibration cannot exceed max_scale=1.50
+    squint_cal = EyeCalibration(duration=0.0, reference_ear=0.30, min_samples=5, max_scale=1.50)
+    for _ in range(5):
+        squint_cal.update(0.10, 0.10)
+    assert squint_cal.ready is True
+    # 0.10 * 1.50 = 0.15 (< 0.20 drowsy threshold, so drowsiness is still caught)
+    assert squint_cal.normalize_ear(0.10, 0.10) == 0.15
+
+
+def test_offline_outbox_max_rows_fifo_pruning(tmp_path):
+    db_file = tmp_path / "capped_outbox.db"
+    outbox = OfflineOutbox(db_path=str(db_file), max_rows=3)
+
+    for i in range(5):
+        outbox.enqueue("alert_event", {"i": i}, event_id=f"evt-cap-{i}")
+
+    assert outbox.count_pending() == 3
+
+
+def test_enhance_low_light_frame_brightens_dark_image():
+    import numpy as np
+    from detection.mediapipe_detector import enhance_low_light_frame
+
+    # Dark synthetic cabin frame (non-uniform low-light pattern so CLAHE boosts contrast)
+    dark = np.zeros((64, 64, 3), dtype=np.uint8)
+    dark[:, :32] = 15
+    dark[:, 32:] = 35
+    enhanced = enhance_low_light_frame(dark, brightness_threshold=65.0)
+    assert enhanced.shape == dark.shape
+    assert float(enhanced.mean()) > float(dark.mean())
+

@@ -1,570 +1,315 @@
-
 <!DOCTYPE html>
 <html lang="vi">
-
 <head>
     <meta charset="UTF-8">
-
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0">
-
-    <title>Lịch trình</title>
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lịch trình & Chuyến đi — V4.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
-
-    <link
-        href="https://fonts.googleapis.com/icon?family=Material+Icons+Round"
-        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/design-system.css">
+    <script src="/static/js/ui-kit.js"></script>
 </head>
-
-<body class="bg-slate-950 text-white min-h-screen pb-[110px]">
+<body class="v4-body min-h-screen pb-[96px]">
 
 <div class="max-w-md mx-auto px-4 py-5">
-
-    <!-- ================================================= -->
     <!-- HEADER -->
-    <!-- ================================================= -->
-    <div class="mb-5">
-
-        <a
-            href="/driver/dashboard?tai_xe_id={{ tai_xe_id }}"
-            class="text-cyan-400 text-sm flex items-center gap-1 mb-3">
-
-            <span class="material-icons-round text-base">
-                arrow_back
-            </span>
-
-            Quay lại Cabin
+    <div class="flex items-center justify-between mb-5">
+        <div>
+            <h1 class="text-2xl font-extrabold tracking-tight">Lịch trình & Chuyến đi</h1>
+            <p class="text-slate-400 text-xs mt-0.5">Xác nhận → Checklist 6 mục → Khởi hành</p>
+        </div>
+        <a href="/driver/notifications?tai_xe_id={{ tai_xe_id }}" aria-label="Thông báo" class="w-11 h-11 rounded-2xl v4-surface flex items-center justify-center text-slate-200 hover:border-sky-500/40">
+            <span class="material-icons-round text-xl">notifications_none</span>
         </a>
-
-        <div class="flex items-start justify-between gap-3">
-
-            <div>
-                <h1 class="text-3xl font-black tracking-tight">
-                    Lịch trình
-                </h1>
-
-                <p class="text-slate-400 text-sm mt-1">
-                    Các chuyến xe được phân công
-                </p>
-            </div>
-
-            <div class="w-12 h-12 rounded-2xl bg-cyan-600/20 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
-
-                <span class="material-icons-round">
-                    route
-                </span>
-
-            </div>
-
-        </div>
-
     </div>
 
-    <!-- ================================================= -->
-    <!-- THỐNG KÊ -->
-    <!-- ================================================= -->
-    <div class="grid grid-cols-2 gap-3 mb-5">
-
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 text-center">
-
-            <p class="text-xs text-slate-400">
-                Tổng lịch
-            </p>
-
-            <h2 class="text-2xl font-black mt-1">
-                {{ schedules|length }}
-            </h2>
-
-        </div>
-
-        <div class="bg-green-600/10 border border-green-500/30 rounded-2xl p-4 text-center">
-
-            <p class="text-xs text-green-300">
-                Đang chạy
-            </p>
-
-            <h2 class="text-2xl font-black mt-1 text-green-300">
-                {{ schedules|selectattr("trang_thai", "equalto", "dang_chay")|list|length }}
-            </h2>
-
-        </div>
-
-        <div class="bg-cyan-600/10 border border-cyan-500/30 rounded-2xl p-4 text-center">
-
-            <p class="text-xs text-cyan-300">
-                Sắp chạy
-            </p>
-
-            <h2 class="text-2xl font-black mt-1 text-cyan-300">
-                {{ schedules|selectattr("trang_thai", "equalto", "sap_chay")|list|length }}
-            </h2>
-
-        </div>
-
-        <div class="bg-yellow-600/10 border border-yellow-500/30 rounded-2xl p-4 text-center">
-
-            <p class="text-xs text-yellow-300">
-                Tạm ngưng
-            </p>
-
-            <h2 class="text-2xl font-black mt-1 text-yellow-300">
-                {{ schedules|selectattr("trang_thai", "equalto", "tam_ngung")|list|length }}
-            </h2>
-
-        </div>
-
+    <!-- CAMERA STATUS BANNER -->
+    <div id="cameraBanner" class="mb-4 p-4 rounded-2xl v4-surface text-xs text-slate-300">
+        Đang kiểm tra trạng thái Camera Cabin...
     </div>
 
-    <!-- ================================================= -->
-    <!-- EMPTY STATE -->
-    <!-- ================================================= -->
-    {% if schedules|length == 0 %}
-
-    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-8 text-center">
-
-        <div class="w-14 h-14 mx-auto rounded-2xl bg-cyan-600/20 border border-cyan-500/30 flex items-center justify-center text-cyan-400 mb-4">
-
-            <span class="material-icons-round text-3xl">
-                event_busy
+    <!-- ACTIVE TRIP HERO -->
+    <div id="activeTripBox" class="hidden mb-5 p-4 rounded-2xl v4-elevated border-emerald-500/40 space-y-2">
+        <div class="flex justify-between items-center">
+            <span class="text-[11px] font-extrabold text-emerald-400 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> CHUYẾN ĐANG CHẠY
             </span>
-
+            <span id="activeTripId" class="text-xs text-slate-300 tabular-nums font-bold"></span>
         </div>
-
-        <h2 class="font-bold text-lg">
-            Chưa có lịch chạy
-        </h2>
-
-        <p class="text-slate-400 text-sm mt-1">
-            Khi quản lý phân công chuyến mới, lịch sẽ hiển thị tại đây.
-        </p>
-
+        <p id="activeTripRoute" class="text-base font-extrabold text-white"></p>
+        <p id="activeTripMeta" class="text-xs text-slate-400 tabular-nums"></p>
+        <button onclick="openCompleteTripConfirm()" class="w-full py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-xs font-bold mt-1">
+            Kết thúc chuyến đi (khi xe đã dừng an toàn)
+        </button>
     </div>
 
-    {% endif %}
-
-    <!-- ================================================= -->
-    <!-- DANH SÁCH LỊCH -->
-    <!-- ================================================= -->
-    <div class="space-y-4">
+    <!-- SCHEDULES LIST -->
+    <div class="space-y-3.5">
+        {% if not schedules %}
+        <div class="p-8 rounded-2xl v4-surface text-center text-slate-400 text-sm">
+            Chưa có lịch chạy nào được phân công.
+        </div>
+        {% endif %}
 
         {% for item in schedules %}
-
-        <div class="rounded-[28px] p-5 border transition-all duration-300
-
-            {% if item.trang_thai == 'dang_chay' %}
-
-                bg-green-600/10
-                border-green-500/40
-                shadow-lg
-                shadow-green-500/5
-
-            {% elif item.trang_thai == 'sap_chay' %}
-
-                bg-cyan-600/10
-                border-cyan-500/40
-                shadow-lg
-                shadow-cyan-500/5
-
-            {% elif item.trang_thai == 'tam_ngung' %}
-
-                bg-yellow-600/10
-                border-yellow-500/40
-                shadow-lg
-                shadow-yellow-500/5
-
-            {% elif item.trang_thai == 'da_huy' %}
-
-                bg-red-600/10
-                border-red-500/30
-                shadow-lg
-                shadow-red-500/5
-
-            {% elif item.trang_thai == 'hoan_thanh' %}
-
-                bg-slate-900/60
-                border-slate-700
-
-            {% else %}
-
-                bg-slate-900/60
-                border-slate-800
-
-            {% endif %}
-        ">
-
-            <!-- ================================================= -->
-            <!-- HEADER CARD -->
-            <!-- ================================================= -->
-            <div class="flex justify-between items-start gap-4 mb-4">
-
-                <div class="flex items-start gap-3 flex-1 min-w-0">
-
-                    <div class="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0
-
-                        {% if item.trang_thai == 'dang_chay' %}
-
-                            bg-green-600/20
-                            text-green-400
-                            border
-                            border-green-500/30
-
-                        {% elif item.trang_thai == 'sap_chay' %}
-
-                            bg-cyan-600/20
-                            text-cyan-400
-                            border
-                            border-cyan-500/30
-
-                        {% elif item.trang_thai == 'tam_ngung' %}
-
-                            bg-yellow-600/20
-                            text-yellow-400
-                            border
-                            border-yellow-500/30
-
-                        {% elif item.trang_thai == 'da_huy' %}
-
-                            bg-red-600/20
-                            text-red-400
-                            border
-                            border-red-500/30
-
-                        {% elif item.trang_thai == 'hoan_thanh' %}
-
-                            bg-slate-800
-                            text-slate-300
-                            border
-                            border-slate-700
-
-                        {% else %}
-
-                            bg-slate-800
-                            text-slate-400
-                            border
-                            border-slate-700
-
-                        {% endif %}
-                    ">
-
-                        <span class="material-icons-round">
-
-                            {% if item.trang_thai == 'dang_chay' %}
-
-                                directions_car
-
-                            {% elif item.trang_thai == 'sap_chay' %}
-
-                                schedule
-
-                            {% elif item.trang_thai == 'tam_ngung' %}
-
-                                pause_circle
-
-                            {% elif item.trang_thai == 'da_huy' %}
-
-                                cancel
-
-                            {% elif item.trang_thai == 'hoan_thanh' %}
-
-                                check_circle
-
-                            {% else %}
-
-                                help_outline
-
-                            {% endif %}
-
-                        </span>
-
-                    </div>
-
-                    <div class="flex-1 min-w-0">
-
-                        <h2 class="text-xl font-black tracking-tight text-slate-100 break-words whitespace-normal">
-
-                            {{ item.tuyen_duong or "Chưa có tuyến" }}
-
-                        </h2>
-
-                        <p class="text-slate-400 text-sm mt-1 flex items-center gap-1">
-
-                            <span class="material-icons-round text-base text-slate-500">
-                                directions_car
-                            </span>
-
-                            Xe:
-
-                            <span class="font-mono font-bold text-slate-300">
-                                {{ item.bien_so or "Chưa phân xe" }}
-                            </span>
-
-                        </p>
-
-                    </div>
-
-                </div>
-
-                <!-- ================================================= -->
-                <!-- BADGE TRẠNG THÁI -->
-                <!-- ================================================= -->
-                <div class="flex-shrink-0 pt-1">
-
-                    {% if item.trang_thai == 'dang_chay' %}
-
-                    <span class="bg-green-500/20 text-green-400 border border-green-500/30 px-2.5 py-1 rounded-full text-xs font-black tracking-wider animate-pulse">
-
-                        ĐANG CHẠY
-
-                    </span>
-
-                    {% elif item.trang_thai == 'sap_chay' %}
-
-                    <span class="bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 px-2.5 py-1 rounded-full text-xs font-black tracking-wider">
-
-                        SẮP CHẠY
-
-                    </span>
-
-                    {% elif item.trang_thai == 'tam_ngung' %}
-
-                    <span class="bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 px-2.5 py-1 rounded-full text-xs font-black tracking-wider">
-
-                        TẠM NGƯNG
-
-                    </span>
-
-                    {% elif item.trang_thai == 'hoan_thanh' %}
-
-                    <span class="bg-slate-800 text-slate-300 border border-slate-700 px-2.5 py-1 rounded-full text-xs font-bold tracking-wider">
-
-                        HOÀN THÀNH
-
-                    </span>
-
-                    {% elif item.trang_thai == 'da_huy' %}
-
-                    <span class="bg-red-500/20 text-red-400 border border-red-500/30 px-2.5 py-1 rounded-full text-xs font-black tracking-wider">
-
-                        ĐÃ HỦY
-
-                    </span>
-
-                    {% else %}
-
-                    <span class="bg-slate-800 text-slate-400 border border-slate-700 px-2.5 py-1 rounded-full text-xs font-bold tracking-wider">
-
-                        CHƯA XÁC ĐỊNH
-
-                    </span>
-
-                    {% endif %}
-
-                </div>
-
+        {% set st = (item.trang_thai or 'CHO_XAC_NHAN')|upper %}
+        {% set done1 = st in ['DA_XAC_NHAN', 'DANG_THUC_HIEN', 'HOAN_THANH'] %}
+        {% set done3 = st in ['DANG_THUC_HIEN', 'HOAN_THANH'] %}
+        <div class="p-4 rounded-2xl v4-surface space-y-3">
+            <div class="flex justify-between items-start gap-2">
+                <h3 class="font-bold text-base leading-snug">{{ item.tuyen_duong or 'Chưa rõ tuyến' }}</h3>
+                <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-sky-500/15 text-sky-300 whitespace-nowrap">{{ st }}</span>
             </div>
+            <p class="text-xs text-slate-400 tabular-nums">
+                Xe <b class="text-slate-200">{{ item.bien_so or 'N/A' }}</b> • Lịch #{{ item.id }} • {{ item.gio_bat_dau or 'N/A' }}
+            </p>
 
-            <!-- ================================================= -->
-            <!-- CHI TIẾT THỜI GIAN -->
-            <!-- ================================================= -->
-            <div class="space-y-3 border-t border-slate-800/60 pt-4">
-
-                <div class="bg-slate-950/40 border border-slate-800 rounded-2xl p-3">
-
-                    <div class="flex items-center gap-1.5 text-sm text-slate-400">
-
-                        <span class="material-icons-round text-base text-slate-500">
-                            schedule
-                        </span>
-
-                        <span>
-                            Xuất phát
-                        </span>
-
-                    </div>
-
-                    <p class="font-bold text-slate-200 mt-1">
-
-                        {% if item.gio_bat_dau %}
-
-                            {{ item.gio_bat_dau.strftime('%d/%m/%Y %H:%M') }}
-
-                        {% else %}
-
-                            --:--
-
-                        {% endif %}
-
-                    </p>
-
+            {% if st not in ['DA_HUY', 'BI_TU_CHOI'] %}
+            <!-- MINI 3-STEP STEPPER -->
+            <div class="flex items-center justify-between px-2 pt-1 text-[10px] font-semibold">
+                <div class="flex flex-col items-center gap-1">
+                    <span class="w-6 h-6 rounded-full flex items-center justify-center font-bold {{ 'bg-emerald-500 text-slate-950' if done1 else 'bg-white/10 text-slate-400' }}">{{ '✓' if done1 else '1' }}</span>
+                    <span class="{{ 'text-white' if done1 else 'text-slate-500' }}">Xác nhận</span>
                 </div>
-
-                <div class="bg-slate-950/40 border border-slate-800 rounded-2xl p-3">
-
-                    <div class="flex items-center gap-1.5 text-sm text-slate-400">
-
-                        <span class="material-icons-round text-base text-slate-500">
-                            flag
-                        </span>
-
-                        <span>
-                            Kết thúc dự kiến
-                        </span>
-
-                    </div>
-
-                    <p class="font-bold text-slate-200 mt-1">
-
-                        {% if item.gio_ket_thuc %}
-
-                            {{ item.gio_ket_thuc.strftime('%d/%m/%Y %H:%M') }}
-
-                        {% else %}
-
-                            Chưa xác định
-
-                        {% endif %}
-
-                    </p>
-
+                <div class="flex-1 h-px bg-white/10 mx-2 mb-4"></div>
+                <div class="flex flex-col items-center gap-1">
+                    <span id="chk-step-{{ item.id }}" class="w-6 h-6 rounded-full flex items-center justify-center font-bold {{ 'bg-emerald-500 text-slate-950' if done3 else 'bg-white/10 text-slate-400' }}">{{ '✓' if done3 else '2' }}</span>
+                    <span class="text-slate-400">Checklist</span>
                 </div>
-
-                {% if item.tong_phut %}
-
-                <div class="bg-slate-950/40 border border-slate-800 rounded-2xl p-3 flex justify-between items-center">
-
-                    <div>
-
-                        <p class="text-sm text-slate-400">
-                            Thời lượng dự kiến
-                        </p>
-
-                        <p class="font-bold text-slate-200 mt-1">
-                            {{ item.tong_phut }} phút
-                        </p>
-
-                    </div>
-
-                    <span class="material-icons-round text-slate-500">
-                        timer
-                    </span>
-
+                <div class="flex-1 h-px bg-white/10 mx-2 mb-4"></div>
+                <div class="flex flex-col items-center gap-1">
+                    <span class="w-6 h-6 rounded-full flex items-center justify-center font-bold {{ 'bg-emerald-500 text-slate-950' if done3 else 'bg-white/10 text-slate-400' }}">{{ '✓' if done3 else '3' }}</span>
+                    <span class="{{ 'text-white' if done3 else 'text-slate-500' }}">Khởi hành</span>
                 </div>
+            </div>
+            {% endif %}
 
+            <div class="flex flex-wrap gap-2 pt-1">
+                {% if st in ['CHO_XAC_NHAN', 'SAP_CHAY'] %}
+                <button onclick="confirmSchedule({{ item.id }})" class="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-bold">Xác nhận lịch</button>
+                <button onclick="openRejectDrawer({{ item.id }})" class="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-xs font-bold">Từ chối</button>
                 {% endif %}
 
-            </div>
+                {% if st in ['DA_XAC_NHAN', 'SAP_CHAY'] %}
+                <button onclick="openChecklistDrawer({{ item.id }})" class="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-xs font-bold">Checklist xe (6 mục)</button>
+                <button onclick="startTrip({{ item.id }})" class="flex-1 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 text-xs font-extrabold">Bắt đầu chuyến</button>
+                {% endif %}
 
+                {% if st in ['CHO_XAC_NHAN', 'DA_XAC_NHAN', 'SAP_CHAY'] %}
+                <button onclick="openChangeDrawer({{ item.id }})" class="w-full py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold">Gửi yêu cầu đổi lịch / đổi xe</button>
+                {% endif %}
+            </div>
         </div>
-
         {% endfor %}
-
     </div>
-
 </div>
 
-<!-- ================================================= -->
-<!-- BOTTOM NAV -->
-<!-- ================================================= -->
-<div class="fixed bottom-0 left-0 right-0 bg-slate-900/90 backdrop-blur-md border-t border-slate-800 py-2 z-50 shadow-2xl">
-
-    <div class="w-full max-w-md mx-auto flex justify-around items-center px-4">
-
-        <a
-            href="/driver/dashboard?tai_xe_id={{ tai_xe_id }}"
-            class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 text-xs">
-
-            <div class="w-12 h-8 flex items-center justify-center">
-
-                <span class="material-icons-round text-2xl">
-                    dashboard
-                </span>
-
-            </div>
-
-            <span>
-                Cabin
-            </span>
-
+<!-- 4-TAB FLOATING BOTTOM NAV (V4.0) -->
+<nav class="fixed bottom-0 left-0 right-0 v4-glass border-t border-white/10 py-2.5 z-40">
+    <div class="w-full max-w-md mx-auto grid grid-cols-4 text-[11px] font-semibold">
+        <a href="/driver/dashboard?tai_xe_id={{ tai_xe_id }}" class="flex flex-col items-center gap-0.5 text-slate-400">
+            <span class="material-icons-round text-2xl">speed</span><span>Cabin</span>
         </a>
-
-        <a
-            href="/driver/schedules?tai_xe_id={{ tai_xe_id }}"
-            class="flex flex-col items-center gap-1 text-blue-500 font-medium text-xs">
-
-            <div class="w-12 h-8 rounded-full bg-blue-500/10 flex items-center justify-center">
-
-                <span class="material-icons-round text-2xl">
-                    calendar_today
-                </span>
-
-            </div>
-
-            <span>
-                Lịch
-            </span>
-
+        <a href="/driver/schedules?tai_xe_id={{ tai_xe_id }}" class="flex flex-col items-center gap-0.5 text-sky-400 font-bold">
+            <span class="material-icons-round text-2xl">calendar_today</span><span>Lịch trình</span>
         </a>
-
-        <a
-            href="/driver/violations?tai_xe_id={{ tai_xe_id }}"
-            class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 text-xs">
-
-            <div class="w-12 h-8 flex items-center justify-center">
-
-                <span class="material-icons-round text-2xl">
-                    warning
-                </span>
-
-            </div>
-
-            <span>
-                Vi phạm
-            </span>
-
+        <a href="/driver/violations?tai_xe_id={{ tai_xe_id }}" class="flex flex-col items-center gap-0.5 text-slate-400">
+            <span class="material-icons-round text-2xl">verified_user</span><span>An toàn</span>
         </a>
-
-        <a
-            href="/driver/notifications?tai_xe_id={{ tai_xe_id }}"
-            class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 text-xs">
-
-            <div class="w-12 h-8 flex items-center justify-center">
-
-                <span class="material-icons-round text-2xl">
-                    notifications
-                </span>
-
-            </div>
-
-            <span>
-                Thông báo
-            </span>
-
+        <a href="/driver/profile?tai_xe_id={{ tai_xe_id }}" class="flex flex-col items-center gap-0.5 text-slate-400">
+            <span class="material-icons-round text-2xl">account_circle</span><span>Cá nhân</span>
         </a>
-
-        <a
-            href="/driver/profile?tai_xe_id={{ tai_xe_id }}"
-            class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 text-xs">
-
-            <div class="w-12 h-8 flex items-center justify-center">
-
-                <span class="material-icons-round text-2xl">
-                    account_circle
-                </span>
-
-            </div>
-
-            <span>
-                Cá nhân
-            </span>
-
-        </a>
-
     </div>
+</nav>
 
-</div>
+<script>
+let currentActiveTripId = null;
 
+async function loadLiveContext() {
+    try {
+        const [camRes, tripRes] = await Promise.all([
+            fetch("/api/driver/camera-status").then(r => r.json()).catch(() => ({})),
+            fetch("/api/driver/trips").then(r => r.json()).catch(() => ({})),
+        ]);
+        const banner = document.getElementById("cameraBanner");
+        if (camRes.success && camRes.data) {
+            const st = camRes.data.health_status || camRes.data.status || "UNKNOWN";
+            if (st === "OFFLINE") {
+                banner.className = "mb-4 p-4 rounded-2xl bg-rose-500/15 border border-rose-500/40 text-xs text-rose-200 leading-relaxed";
+                banner.innerHTML = "<b>CẢNH BÁO: CAMERA CABIN MẤT KẾT NỐI!</b><br>Chuyến đi vẫn tiếp tục ghi nhận (không tự kết thúc). Quản lý đã được thông báo; kiểm tra thiết bị khi dừng xe an toàn.";
+            } else if (st === "ONLINE_HEALTHY") {
+                banner.className = "mb-4 p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-200 tabular-nums";
+                banner.textContent = `Camera Cabin đang hoạt động tốt (${camRes.data.device_id || "OK"} • ${Number(camRes.data.fps || 0).toFixed(1)} FPS)`;
+            } else {
+                banner.textContent = `Trạng thái Camera Cabin: ${st}`;
+            }
+        }
+        if (tripRes.success && Array.isArray(tripRes.data)) {
+            const running = tripRes.data.find(t => t.trang_thai === "DANG_CHAY");
+            if (running) {
+                currentActiveTripId = running.id;
+                document.getElementById("activeTripBox").classList.remove("hidden");
+                document.getElementById("activeTripId").textContent = `#${running.id}`;
+                document.getElementById("activeTripRoute").textContent = running.tuyen_duong || "";
+                document.getElementById("activeTripMeta").textContent = `Xe ${running.bien_so || ""} • Bắt đầu: ${running.started_at || ""}`;
+            }
+        }
+    } catch (e) {}
+}
+
+async function confirmSchedule(id) {
+    const j = await fetch(`/api/driver/schedules/${id}/confirm`, { method: "POST" }).then(r => r.json());
+    UI.toast(j.message, j.success ? "success" : "error");
+    if (j.success) setTimeout(() => location.reload(), 700);
+}
+
+function openRejectDrawer(id) {
+    UI.confirmAction({
+        title: `Từ chối Lịch #${id}`,
+        subtitle: "Điều phối viên sẽ nhận thông báo để phân công lại.",
+        requireReason: true,
+        danger: true,
+        confirmLabel: "Xác nhận Từ chối",
+        chips: ["Kẹt lịch cá nhân đột xuất", "Sức khỏe chưa đảm bảo an toàn", "Xe có dấu hiệu lỗi kỹ thuật"],
+        onConfirm: async (reason) => {
+            const j = await fetch(`/api/driver/schedules/${id}/reject`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ ly_do: reason }),
+            }).then(r => r.json());
+            UI.toast(j.message, j.success ? "success" : "error");
+            if (j.success) setTimeout(() => location.reload(), 700);
+        },
+    });
+}
+
+function openChangeDrawer(id) {
+    UI.openDrawer({
+        title: `Yêu cầu đổi lịch / đổi xe — Lịch #${id}`,
+        subtitle: "Lịch gốc vẫn giữ nguyên cho tới khi Quản lý phê duyệt.",
+        html: `
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">Loại yêu cầu</label>
+                    <select id="chg-type" class="w-full p-3 rounded-xl bg-[#090d16] border border-white/15 text-sm text-white">
+                        <option value="DOI_THOI_GIAN">Đổi khung giờ chạy (DOI_THOI_GIAN)</option>
+                        <option value="DOI_XE">Đề nghị đổi phương tiện (DOI_XE)</option>
+                        <option value="HUY_LICH">Xin hủy lịch chạy (HUY_LICH)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">Lý do chi tiết (bắt buộc)</label>
+                    <textarea id="chg-reason" rows="4" placeholder="Nhập lý do..." class="w-full p-3 rounded-xl bg-[#090d16] border border-white/15 text-sm text-white"></textarea>
+                </div>
+                <button onclick="submitChangeReq(${id})" class="w-full py-3 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-sm">Gửi yêu cầu</button>
+            </div>
+        `,
+    });
+}
+
+async function submitChangeReq(id) {
+    const loai = document.getElementById("chg-type").value;
+    const lyDo = document.getElementById("chg-reason").value.trim();
+    if (!lyDo) { UI.toast("Vui lòng nhập lý do.", "warning"); return; }
+    const j = await fetch(`/api/driver/schedules/${id}/change-requests`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ loai_yeu_cau: loai, du_lieu_de_xuat: {}, ly_do: lyDo }),
+    }).then(r => r.json());
+    UI.closeDrawer();
+    UI.toast(j.message, j.success ? "success" : "error");
+}
+
+let chkState = {};
+async function openChecklistDrawer(lichId) {
+    const tpl = await fetch("/api/driver/checklist/template").then(r => r.json());
+    const items = tpl.data || [];
+    chkState = {};
+    items.forEach(x => { chkState[x.ma_hang_muc] = "DAT"; });
+
+    const rowsHtml = items.map(x => `
+        <div class="p-3 rounded-xl bg-[#090d16] border border-white/[0.08] flex items-center justify-between gap-2">
+            <span class="text-xs font-semibold text-slate-200">${UI.escHtml(x.ten_hang_muc)}</span>
+            <div class="flex gap-1.5 shrink-0">
+                <button type="button" id="btn-ok-${x.ma_hang_muc}" onclick="setChk('${x.ma_hang_muc}','DAT')" class="px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white text-[11px] font-bold">✓ Đạt</button>
+                <button type="button" id="btn-err-${x.ma_hang_muc}" onclick="setChk('${x.ma_hang_muc}','KHONG_DAT')" class="px-2.5 py-1.5 rounded-lg bg-white/5 text-slate-400 text-[11px] font-bold">✕ Lỗi</button>
+            </div>
+        </div>
+    `).join("");
+
+    UI.openDrawer({
+        title: `Checklist 6 hạng mục — Lịch #${lichId}`,
+        subtitle: "Nếu có hạng mục Lỗi, hệ thống sẽ tự tạo báo cáo sự cố và tạm khóa khởi hành.",
+        html: `
+            <div class="space-y-3">
+                ${rowsHtml}
+                <textarea id="chk-note" rows="3" placeholder="Ghi chú (bắt buộc nếu có mục Lỗi)..." class="w-full p-3 rounded-xl bg-[#090d16] border border-white/15 text-xs text-white"></textarea>
+                <button onclick="submitChecklist(${lichId})" class="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-sm">Xác nhận Checklist</button>
+            </div>
+        `,
+    });
+}
+
+function setChk(ma, val) {
+    chkState[ma] = val;
+    document.getElementById("btn-ok-" + ma).className = val === "DAT"
+        ? "px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white text-[11px] font-bold"
+        : "px-2.5 py-1.5 rounded-lg bg-white/5 text-slate-400 text-[11px] font-bold";
+    document.getElementById("btn-err-" + ma).className = val === "KHONG_DAT"
+        ? "px-2.5 py-1.5 rounded-lg bg-rose-600 text-white text-[11px] font-bold"
+        : "px-2.5 py-1.5 rounded-lg bg-white/5 text-slate-400 text-[11px] font-bold";
+}
+
+async function submitChecklist(lichId) {
+    const items = Object.keys(chkState).map(k => ({ ma_hang_muc: k, ket_qua: chkState[k] }));
+    const hasErr = items.some(x => x.ket_qua === "KHONG_DAT");
+    const note = document.getElementById("chk-note").value.trim();
+    if (hasErr && !note) { UI.toast("Có mục Lỗi — vui lòng nhập mô tả lỗi để báo Quản lý.", "warning"); return; }
+
+    const j = await fetch(`/api/driver/schedules/${lichId}/checklist`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items, ghi_chu: note }),
+    }).then(r => r.json());
+    UI.closeDrawer();
+    UI.toast(j.message, !j.success ? "error" : (hasErr ? "warning" : "success"));
+    const stepEl = document.getElementById("chk-step-" + lichId);
+    if (stepEl && j.success) {
+        stepEl.className = `w-6 h-6 rounded-full flex items-center justify-center font-bold ${hasErr ? "bg-rose-600 text-white" : "bg-emerald-500 text-slate-950"}`;
+        stepEl.textContent = hasErr ? "!" : "✓";
+    }
+}
+
+async function startTrip(id) {
+    const j = await fetch("/api/driver/trips/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lich_chay_id: id }),
+    }).then(r => r.json());
+    UI.toast(j.message, j.success ? "success" : "error");
+    if (j.success) setTimeout(() => location.reload(), 700);
+}
+
+function openCompleteTripConfirm() {
+    if (!currentActiveTripId) return;
+    UI.confirmAction({
+        title: `Kết thúc Chuyến #${currentActiveTripId}`,
+        warning: "Vui lòng đảm bảo xe đã dừng hẳn ở vị trí an toàn trước khi xác nhận kết thúc chuyến đi.",
+        danger: true,
+        confirmLabel: "Xác nhận Kết thúc chuyến",
+        onConfirm: async () => {
+            const j = await fetch(`/api/driver/trips/${currentActiveTripId}/complete`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({}),
+            }).then(r => r.json());
+            UI.toast(j.message, j.success ? "success" : "error");
+            if (j.success) setTimeout(() => location.reload(), 700);
+        },
+    });
+}
+
+loadLiveContext();
+</script>
 </body>
-
 </html>

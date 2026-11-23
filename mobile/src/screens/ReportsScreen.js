@@ -13,14 +13,15 @@ import { apiRequest } from "../config/api";
 import { useAuth } from "../context/AuthContext";
 
 export default function ReportsScreen() {
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
   const [reports, setReports] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const isAdmin = user?.vai_tro === "quan_ly";
+  const isAdmin = user?.vai_tro !== "tai_xe";
+  const canResolve = hasPermission("reports:resolve");
   const driverId = user?.tai_xe_id || user?.id;
 
   const loadReports = useCallback(async () => {
@@ -136,7 +137,7 @@ export default function ReportsScreen() {
             {item.phan_hoi_quan_ly ? (
               <Text style={styles.reply}>Phản hồi: {item.phan_hoi_quan_ly}</Text>
             ) : null}
-            {isAdmin && item.trang_thai !== "DA_XU_LY" && (
+            {canResolve && item.trang_thai !== "DA_XU_LY" && (
               <TouchableOpacity
                 style={styles.doneBtn}
                 onPress={() => handleMarkDone(item.id)}

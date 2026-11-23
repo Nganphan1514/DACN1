@@ -586,13 +586,19 @@ def cap_nhat_tai_khoan_va_quyen(
         cn_moi = chuyen_int_hoac_none(chi_nhanh_id) if chi_nhanh_id is not None else cu.get("chi_nhanh_id")
         dx_moi = chuyen_int_hoac_none(doi_xe_id) if doi_xe_id is not None else cu.get("doi_xe_id")
 
+        bump_tv = (tt_moi == "khoa") or (role_moi != cu["vai_tro"])
         db.execute(
             """
             UPDATE tai_khoan
-            SET vai_tro = %s, trang_thai = %s, cong_ty_id = %s, chi_nhanh_id = %s, doi_xe_id = %s
+            SET vai_tro = %s,
+                trang_thai = %s,
+                cong_ty_id = %s,
+                chi_nhanh_id = %s,
+                doi_xe_id = %s,
+                token_version = token_version + %s
             WHERE id = %s
             """,
-            (role_moi, tt_moi, cty_moi, cn_moi, dx_moi, tai_khoan_id),
+            (role_moi, tt_moi, cty_moi, cn_moi, dx_moi, 1 if bump_tv else 0, tai_khoan_id),
         )
 
         ghi_lich_su_thao_tac(
@@ -631,7 +637,10 @@ def doi_mat_khau_tai_khoan(tai_khoan_id, mat_khau_cu, mat_khau_moi):
             return False, "Mật khẩu hiện tại không đúng."
 
         new_hash = hash_password(str(mat_khau_moi).strip())
-        db.execute("UPDATE tai_khoan SET mat_khau = %s WHERE id = %s", (new_hash, tai_khoan_id))
+        db.execute(
+            "UPDATE tai_khoan SET mat_khau = %s, token_version = token_version + 1 WHERE id = %s",
+            (new_hash, tai_khoan_id),
+        )
 
         ghi_lich_su_thao_tac(
             nguoi_thuc_hien_id=tai_khoan_id,

@@ -20,12 +20,17 @@ export async function registerForPushNotificationsAsync() {
     }
 
     if (Platform.OS === "android") {
-      await Notifications.setNotificationChannelAsync("alerts", {
-        name: "Cảnh báo khẩn cấp DACN1",
-        importance: Notifications.AndroidImportance.MAX,
-        vibrationPattern: [0, 300, 200, 300],
-        lightColor: "#ef4444",
-      });
+      try {
+        await Notifications.setNotificationChannelAsync("alerts", {
+          name: "Cảnh báo khẩn cấp DACN1",
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 300, 200, 300],
+          lightColor: "#ef4444",
+        });
+      } catch (_channelErr) {
+        // Expo Go Android SDK 53+ khong ho tro day du remote push channel -> bo qua nhe nhang
+        return null;
+      }
     }
 
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -55,7 +60,10 @@ export async function registerForPushNotificationsAsync() {
 
     return expoPushToken;
   } catch (e) {
-    console.warn("Register push token error:", e);
+    // Trong Expo Go Android SDK 53+, remote push chi hoat dong o Development Build / APK
+    if (__DEV__) {
+      console.log("Push notifications skipped in Expo Go:", e?.message || e);
+    }
     return null;
   }
 }

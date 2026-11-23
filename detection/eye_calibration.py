@@ -13,11 +13,29 @@ class EyeCalibration:
     - Khi chạy realtime: chuẩn hoá EAR theo baseline để giảm lỗi mắt híp/mắt nhỏ.
     """
 
-    def __init__(self, duration=3.0, reference_ear=0.30, min_samples=20):
+    def __init__(
+        self,
+        duration=3.0,
+        reference_ear=0.30,
+        min_samples=20,
+        min_scale=0.75,
+        max_scale=1.50,
+    ):
         self.duration = duration
         self.reference_ear = reference_ear
         self.min_samples = min_samples
+        self.min_scale = min_scale
+        self.max_scale = max_scale
         self.reset()
+
+    @staticmethod
+    def _percentile(samples, pct=75.0):
+        ordered = sorted(samples)
+        if not ordered:
+            return 0.0
+        idx = int(round((pct / 100.0) * (len(ordered) - 1)))
+        idx = max(0, min(len(ordered) - 1, idx))
+        return ordered[idx]
 
     def reset(self):
         self.start_time = None
@@ -45,11 +63,12 @@ class EyeCalibration:
         elapsed = time.time() - self.start_time
 
         if elapsed >= self.duration and len(self.left_samples) >= self.min_samples:
-            self.left_baseline = sum(self.left_samples) / len(self.left_samples)
-            self.right_baseline = sum(self.right_samples) / len(self.right_samples)
+            # AI-01: Dung phan vi 75% de loai bo frame chop mat / nheo mat trong 3s dau
+            self.left_baseline = self._percentile(self.left_samples, 75.0)
+            self.right_baseline = self._percentile(self.right_samples, 75.0)
             self.ready = True
 
-            print("Eye calibration done")
+            print("Eye calibration done (p75)")
             print("Left EAR baseline:", round(self.left_baseline, 4))
             print("Right EAR baseline:", round(self.right_baseline, 4))
 
@@ -69,7 +88,10 @@ class EyeCalibration:
         if not self.ready or not baseline or baseline <= 0:
             return ear
 
-        return ear / baseline * self.reference_ear
+        # AI-01: Kep he so scale trong [min_scale, max_scale] tranh nheo mat pha hong nguong
+        scale = self.reference_ear / baseline
+        scale = max(self.min_scale, min(self.max_scale, scale))
+        return ear * scale
 
     def normalize_ear(self, left_ear, right_ear):
         if not self.ready:

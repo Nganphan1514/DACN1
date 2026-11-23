@@ -1,7 +1,7 @@
 from flask import Blueprint, g, jsonify, render_template, request
 
 from backend.middleware.auth_guard import get_current_scope, require_role
-from core.ops_rules import DISPATCH_ROLES, MANAGER_CONTROL_ROLES, ROLE_TAI_XE
+from core.ops_rules import DISPATCH_ROLES, MANAGER_CONTROL_ROLES, ROLE_TAI_XE, normalize_schedule_status
 from database.mysql_service import (
     lay_danh_sach_tai_xe,
     lay_danh_sach_xe_admin,
@@ -36,7 +36,7 @@ def admin_scheduler_page():
 @scheduler_bp.route("/api/dispatch/schedules", methods=["GET"])
 @require_role(*DISPATCH_ROLES)
 def api_admin_schedules():
-    trang_thai = request.args.get("trang_thai")
+    trang_thai = normalize_schedule_status(request.args.get("trang_thai"))
     data = lay_danh_sach_lich_chay_v3(scope=get_current_scope(), trang_thai=trang_thai)
     return jsonify({
         "success": True,

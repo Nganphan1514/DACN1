@@ -1,8 +1,9 @@
 # TÀI LIỆU RÀ SOÁT LOGIC HOẠT ĐỘNG & CHỨC NĂNG HỆ THỐNG DACN1
 
-> **Hệ thống Giám sát Tài xế, Xác thực Khuôn mặt 128D & Cảnh báo Buồn ngủ bằng AI**
-> Kiến trúc đa nền tảng: **Camera AI Edge (Windows/RTSP + SQLite Outbox) + Backend API & Web (Flask/Docker) + App Di động (Expo SDK 58) + Supabase (PostgreSQL 16 bảng & Storage)**.
-> *Phiên bản cập nhật sau khi hoàn thiện trọn bộ 5 hạng mục nâng cấp cốt lõi (P0-1 → P0-5).*
+> **Hệ thống Quản lý Đội xe Đa chi nhánh, Điều phối Tài xế, Xác thực Khuôn mặt 128D & Giám sát An toàn bằng AI**
+> Kiến trúc đa nền tảng: **Camera AI Edge (Windows/RTSP + SQLite Outbox) + Backend API & Web (Flask/Docker) + App Di động (Expo SDK 58) + Supabase (PostgreSQL 29 bảng & Storage)**.
+> *Phiên bản V3.0 — Hoàn thiện trọn bộ P0 (5 hạng mục cốt lõi + 4 Sprint V3) & P1 (Checklist trước chuyến + Thống kê đa cấp).*
+> *Tài liệu liên quan:* [DACN1_DAC_TA_VA_TRIEN_KHAI_V3.md](DACN1_DAC_TA_VA_TRIEN_KHAI_V3.md) | [DACN1_UI_UX_WEB_V3.md](DACN1_UI_UX_WEB_V3.md) | [DACN1_UI_UX_MOBILE_APP_V3.md](DACN1_UI_UX_MOBILE_APP_V3.md)
 
 ---
 
@@ -10,7 +11,7 @@
 
 ```mermaid
 flowchart LR
-    CAM["Camera AI trên xe\n(main.py - Windows/RTSP)"] -->|"1. Ghi log AI & phiên lái"| DB[("Supabase PostgreSQL\n16 bảng")]
+    CAM["Camera AI trên xe\n(main.py - Windows/RTSP)"] -->|"1. Ghi log AI & phiên lái"| DB[("Supabase PostgreSQL\n29 bảng (16 gốc + 13 V3)")]
     CAM <-->|"Khi mất mạng / khởi động lại"| OB[("SQLite Offline Outbox\nlogs/offline_outbox.db")]
     CAM -->|"2. Upload ảnh vi phạm"| ST[("Supabase Storage\nBucket: snapshots\nPublic / Private Signed URL")]
     CAM -->|"3. Alert Event (UUID event_id)\n& Device Heartbeat 20s\n(X-Internal-Key)"| BE["Backend API & Web\n(Flask / Gunicorn / Docker)"]
@@ -25,7 +26,7 @@ flowchart LR
 2. **Backend API & Web Application (`backend/`)**: Viết bằng Flask, đóng gói sẵn Docker (`Dockerfile`, `docker-compose.yml`), chạy bằng Gunicorn (`1 worker, 8 threads`) để phục vụ song song Web, App Expo, SSE Realtime và vòng đời cảnh báo.
 3. **Ứng dụng Di động (`mobile/`)**: Viết bằng Expo React Native (**SDK 58**), hỗ trợ Expo Go và build `.apk` / `.aab` qua `eas.json`.
 4. **Cơ sở dữ liệu & Lưu trữ Cloud (Supabase)**:
-   * **PostgreSQL**: **16 bảng** chuẩn hóa có khóa ngoại, ràng buộc `CHECK`/`UNIQUE` (bao gồm `su_kien_canh_bao` và `thiet_bi_camera`).
+   * **PostgreSQL**: **29 bảng** chuẩn hóa (16 bảng gốc + 13 bảng V3.0 qua `database/migrations/v3_001..v3_005.sql`) có khóa ngoại `ON DELETE RESTRICT`, ràng buộc `CHECK`/`UNIQUE`, partial unique index và 2 trigger khóa bất biến dữ liệu AI & giải trình khiếu nại.
    * **Supabase Storage**: Bucket `snapshots` hỗ trợ cả chế độ công khai lẫn **Private Bucket Signed URL** có thời hạn (`SUPABASE_BUCKET_PRIVATE=true`).
 
 ---
@@ -193,38 +194,59 @@ MOI  ──►  DA_TIEP_NHAN  ──►  DANG_XU_LY  ──►  DA_DONG
 
 ---
 
-## 6. Cơ sở dữ liệu Supabase (16 bảng + Storage)
+## 6. Cơ sở dữ liệu Supabase (29 bảng + Storage)
 
-File định nghĩa: `database/schema_postgres.sql` | Dữ liệu mẫu: `database/seed_data_postgres.sql`.
+File định nghĩa gốc: `database/schema_postgres.sql` | 5 Migration V3: `database/migrations/v3_001..v3_005.sql` | Script chạy tự động: `scripts/run_v3_migrations.py`.
 
-1. `tai_khoan`: Tài khoản (`quan_ly` / `tai_xe`), mật khẩu `bcrypt`, trạng thái `hoat_dong` / `khoa`.
-2. `tai_xe`: Hồ sơ tài xế (họ tên, SĐT, GPLX unique, địa chỉ, trạng thái).
-3. `xe`: Thông tin xe (biển số unique, model, loại xe, trạng thái, `tai_xe_mac_dinh_id`).
-4. `lich_chay`: Lịch phân công chuyến đi (có kiểm tra chống trùng ca tài xế/xe).
-5. `phien_lai_xe`: Phiên lái thực tế (chống trùng phiên mở, tự gắn `lich_chay_id`).
+### 6.1. 16 bảng nền tảng gốc
+1. `tai_khoan`: Tài khoản **6 vai trò RBAC** (`admin_he_thong`, `quan_tri_cong_ty`, `quan_ly`, `dieu_phoi_vien`, `giam_sat`, `tai_xe`), mật khẩu `bcrypt`, trạng thái `hoat_dong` / `khoa`, kèm phạm vi `cong_ty_id`, `chi_nhanh_id`, `doi_xe_id`.
+2. `tai_xe`: Hồ sơ tài xế (họ tên, SĐT, GPLX unique, địa chỉ, trạng thái, `doi_xe_id`).
+3. `xe`: Thông tin xe (biển số unique, model, loại xe, trạng thái, `tai_xe_mac_dinh_id`, `doi_xe_id`).
+4. `lich_chay`: Lịch phân công chuyến đi (xác nhận bắt buộc `CHO_XAC_NHAN` → `DA_XAC_NHAN`, từ chối có lý do, chống trùng ca trong transaction có `pg_advisory_xact_lock`).
+5. `phien_lai_xe`: Phiên lái kỹ thuật (chống trùng phiên mở, gắn `lich_chay_id` và `chuyen_thuc_te_id`, `AUTO_MAT_DAU_30P` không đóng chuyến thực tế).
 6. `nhat_ky_phat_hien`: Log AI (`ear`, `mar`, `risk_score`, `trang_thai`, `thoi_gian`).
 7. `anh_canh_bao`: URL Supabase Storage ảnh chụp cảnh báo buồn ngủ.
 8. `nguoi_la`: Ảnh chụp & ghi chú khi phát hiện người lạ hoặc tài xế sai xe.
-9. `ghi_chu`: Thông báo quản lý gửi cho tài xế (`da_doc`).
-10. `bao_cao_su_co`: Báo cáo sự cố từ tài xế & phản hồi từ quản lý.
-11. `lich_su_thao_tac`: Audit log mọi thao tác quản trị (kể cả xử lý cảnh báo).
+9. `ghi_chu`: Thông báo quản lý & hệ thống gửi cho tài xế (`da_doc`, `thoi_gian`).
+10. `bao_cao_su_co`: Báo cáo sự cố từ tài xế (bao gồm sự cố tự động sinh khi Checklist `KHONG_DAT`) & phản hồi từ quản lý.
+11. `lich_su_thao_tac`: Audit log bất biến kèm `du_lieu_truoc (JSONB)`, `du_lieu_sau (JSONB)` và `ly_do`.
 12. `du_lieu_khuon_mat`: Vector khuôn mặt **128 chiều** dạng JSON.
 13. `anh_khuon_mat`: Bản sao nhị phân ảnh khuôn mặt đăng ký (`BYTEA`).
-14. `thiet_bi_thong_bao`: `expo_push_token` theo tài khoản & vai trò.
-15. `su_kien_canh_bao` *(Mới — P0-2)*: Quản lý vòng đời cảnh báo (`event_id` UUID `UNIQUE`, trạng thái `MOI` → `DA_TIEP_NHAN` → `DANG_XU_LY` → `DA_DONG`/`CANH_BAO_SAI`, người xử lý, ghi chú).
-16. `thiet_bi_camera` *(Mới — P0-3)*: Theo dõi trạng thái thiết bị camera biên (`device_id` `UNIQUE`, `xe_id`, `fps`, `status`, `active_driver_id`, `active_phien_id`, `outbox_pending`, `last_seen`).
+14. `thiet_bi_thong_bao`: `expo_push_token` theo tài khoản & vai trò (hỗ trợ push đích danh tới từng tài khoản).
+15. `su_kien_canh_bao`: Quản lý vòng đời sự kiện AI (`event_id` UUID `UNIQUE`, có trigger `trg_su_kien_canh_bao_immutable` khóa bất biến dữ liệu AI gốc).
+16. `thiet_bi_camera`: Theo dõi trạng thái thiết bị camera biên (`device_id` `UNIQUE`, `xe_id`, `doi_xe_id`, `fps`, `outbox_pending`, `dead_letter_count`, `lan_cuoi_ket_noi`).
+
+### 6.2. 13 bảng mở rộng V3.0 (P0 + P1)
+17. `cong_ty`: Thông tin công ty & `cau_hinh_jsonb` (5 tham số nghiệp vụ cấu hình động).
+18. `chi_nhanh`: Danh sách chi nhánh trực thuộc công ty.
+19. `doi_xe`: Danh sách đội xe trực thuộc chi nhánh (trục lọc Data Scope).
+20. `lich_su_chuyen_doi_xe`: Nhật ký điều chuyển tài xế/phương tiện giữa các đội xe (bắt buộc lý do).
+21. `yeu_cau_thay_doi_lich`: Yêu cầu đổi giờ/đổi xe/hủy lịch của tài xế chờ quản lý duyệt (không sửa lịch gốc khi `CHO_DUYET`).
+22. `lich_su_phan_cong`: Lịch sử thay đổi tài xế, xe, khung giờ trên từng lịch chạy.
+23. `chuyen_thuc_te`: Vòng đời chuyến đi thực tế độc lập với phiên kỹ thuật (2 partial unique index chặn 2 chuyến `DANG_CHAY` cùng lúc; hỗ trợ kết thúc ngoại lệ có lý do).
+24. `lich_su_ket_noi_camera`: Nhật ký các khoảng `ONLINE`/`UNSTABLE`/`OFFLINE`/`RECOVERING` kèm `thoi_luong_giay` gắn theo chuyến (Camera Offline Watcher cảnh báo 2 phía, không tự kết thúc chuyến).
+25. `vi_pham`: Vi phạm chính thức do Quản lý xác minh có bằng chứng & lý do (`UNIQUE(su_kien_canh_bao_id)`).
+26. `khieu_nai_vi_pham`: Khiếu nại & giải trình của tài xế (có trigger `trg_khieu_nai_immutable` khóa bất biến `noi_dung_giai_trinh` gốc; chấp nhận khiếu nại tự hủy vi phạm).
+27. `lich_su_khieu_nai`: Nhật ký từng bước chuyển trạng thái xử lý khiếu nại.
+28. `checklist_truoc_chuyen`: Kết quả kiểm tra an toàn xe trước chuyến (`DAT`/`KHONG_DAT`, tự liên kết `bao_cao_su_co_id` nếu không đạt).
+29. `checklist_truoc_chuyen_chi_tiet`: Chi tiết 6 hạng mục kiểm tra an toàn bắt buộc.
 * **Supabase Storage**: Bucket `snapshots` (hỗ trợ Public URL & Private Signed URL).
 
 ---
 
 ## 7. Kiểm thử tự động & Đóng gói triển khai
 
-* **Bộ test tự động (`tests/`, chạy bằng `pytest -v`) — 23 tests**:
+* **Bộ test tự động (`tests/`, chạy bằng `pytest -v`) — 38 tests**:
   * `tests/test_detection.py` (9 tests): EAR, MAR, EyeCalibration, 4 trạng thái `DrowsinessAnalyzer`, tần suất ngáp, hồi phục Fatigue Score, xác suất 3 lớp SVM.
   * `tests/test_auth_and_security.py` (4 tests): `bcrypt` hash/verify, auto-upgrade mật khẩu cũ, so khớp Face Embedding 128D, chặn `401` API quản trị & internal alert.
   * `tests/test_storage.py` (3 tests): Chuẩn hóa URL ảnh, fallback local và upload Supabase Storage.
   * `tests/test_expo_push.py` (2 tests): Định dạng Expo Push Token và gửi batch thông báo.
-  * `tests/test_p0_upgrades.py` (5 tests): `OfflineOutbox` bền vững/retry/chống trùng `event_id`/`DEAD_LETTER`, Event Contract & mã trạng thái `realtime_client`, `storage_service.create_signed_url` cho Private Bucket, `auth_guard` thu hồi tài khoản bị khóa & xóa cache, state machine cảnh báo + Device Health 3 mức + che CCCD/GPLX.
+  * `tests/test_p0_upgrades.py` (5 tests): `OfflineOutbox` bền vững/retry/chống trùng `event_id`/`DEAD_LETTER`, Event Contract, Private Bucket Signed URL, `auth_guard` thu hồi tài khoản khóa, state machine cảnh báo + Device Health 3 mức + che CCCD/GPLX.
+  * `tests/test_v3_sprint1_org_rbac.py` (3 tests): RBAC 6 vai trò, Data Scope isolation (Chi nhánh A vs B), phân tách quyền Điều phối viên / Giám sát / Quản trị công ty / Tài xế.
+  * `tests/test_v3_sprint2_schedules.py` (4 tests): Chống trùng lịch nửa mở `[start, end)`, bắt buộc xác nhận lại khi sửa lịch đã xác nhận, validate lý do từ chối/hủy/đổi lịch, phân quyền duyệt đổi lịch.
+  * `tests/test_v3_sprint3_trips_camera.py` (3 tests): Chuyến thực tế, kết thúc ngoại lệ bắt buộc lý do, Camera Offline cảnh báo 2 phía không kết thúc chuyến.
+  * `tests/test_v3_sprint4_violations_appeals.py` (3 tests): Xác minh sự kiện AI → Vi phạm (chống trùng `409`), Khiếu nại vi phạm & Mobile Backup ghi `su_kien_canh_bao`.
+  * `tests/test_v3_p1_checklist_analytics.py` (2 tests): Checklist kiểm tra xe trước chuyến (`DAT`/`KHONG_DAT`) & API Cảnh báo ưu tiên + Thống kê đa cấp V3.
 * **Đóng gói Docker**: `Dockerfile`, `docker-compose.yml`, `requirements-web.txt`, `.dockerignore`.
 * **Build App Android/iOS**: `mobile/eas.json` (`preview` xuất `.apk`, `production` xuất `.aab`).
 
@@ -245,24 +267,20 @@ File định nghĩa: `database/schema_postgres.sql` | Dữ liệu mẫu: `databa
 
 ## 9. Hướng dẫn khởi chạy nhanh
 
-1. **Cơ sở dữ liệu Supabase**: Chạy file `database/schema_postgres.sql` trong **Supabase SQL Editor** (đã tích hợp đủ 16 bảng + `IF NOT EXISTS`).
-2. **Backend Web & API**:
+1. **Cơ sở dữ liệu Supabase (29 bảng):**
    ```powershell
-   .\venv\Scripts\python.exe backend\app.py
+   .\venv\Scripts\python.exe scripts\run_v3_migrations.py
    ```
-   Truy cập Web: `http://127.0.0.1:5000` (hoặc qua Docker: `docker compose up -d --build`).
-3. **Camera AI Edge (Windows / RTSP)**:
+   *(Hoặc chạy `database/schema_postgres.sql` rồi lần lượt `database/migrations/v3_001..v3_005.sql` trong Supabase SQL Editor.)*
+2. **Backend Web & API:** Nhấp đúp **[run_web.bat](../run_web.bat)** (tự bind `0.0.0.0:5000` cho cả Web máy tính lẫn điện thoại trong cùng Wi-Fi).
+   - Web Quản trị: `http://127.0.0.1:5000/admin/dashboard` và Trung tâm Vận hành V3: `http://127.0.0.1:5000/admin/operations`.
+3. **Camera AI Edge (Windows / RTSP):**
    ```powershell
    .\venv\Scripts\python.exe main.py
    ```
    Phím điều khiển: `1` (Tạm dừng), `2` (Chạy lại & hiệu chuẩn/xác thực lại), `Q` (Thoát).
-4. **App Điện thoại Expo (SDK 58)**:
-   ```powershell
-   cd mobile
-   npx expo start
-   ```
-   Quét mã QR bằng **Expo Go (SDK 58)** trên điện thoại cùng mạng Wi-Fi với máy chạy Backend.
-5. **Chạy kiểm thử tự động**:
+4. **App Điện thoại Expo (SDK 58):** Nhấp đúp **[run_expo.bat](../run_expo.bat)** rồi quét mã QR bằng **Expo Go (SDK 58)** trên điện thoại cùng Wi-Fi và nhập `http://<IP_LAN>:5000` trong Server URL.
+5. **Chạy kiểm thử tự động (38 tests):**
    ```powershell
    .\venv\Scripts\python.exe -m pytest -v
    ```

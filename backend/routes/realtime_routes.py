@@ -22,6 +22,7 @@ from database.mysql_service import (
 from database.trip_camera_service import (
     ghi_nhan_camera_heartbeat_va_lich_su,
     quet_camera_mat_ket_noi,
+    quet_chuyen_tre_gio,
 )
 from services.expo_push_service import (
     is_valid_expo_token,
@@ -143,13 +144,39 @@ def api_internal_device_heartbeat():
         dead_letter_count=data.get("dead_letter_count", 0),
     )
     if ok:
-        ghi_nhan_camera_heartbeat_va_lich_su(
+        trang_thai_hd = data.get("trang_thai_hoat_dong") or data.get("status") or "DANG_CHAY"
+        tamper_alert = ghi_nhan_camera_heartbeat_va_lich_su(
             device_id=device_id,
             xe_id=data.get("xe_id"),
             camera_ok=data.get("camera_ok", True),
             fps=data.get("fps", 0.0),
             outbox_pending=data.get("outbox_pending", 0),
+            trang_thai_hoat_dong=trang_thai_hd,
         )
+        if tamper_alert:
+            evt_id = str(uuid.uuid4())
+            tao_su_kien_canh_bao(
+                event_id=evt_id,
+                loai_canh_bao=tamper_alert["type"],
+                noi_dung=tamper_alert["message"],
+                tai_xe_id=tamper_alert.get("tai_xe_id"),
+                xe_id=tamper_alert.get("xe_id"),
+                nguon="device_heartbeat",
+                muc_do="CAO",
+                risk_score=10,
+                device_id=device_id,
+            )
+            evt_payload = {
+                "event_id": evt_id,
+                "type": tamper_alert["type"],
+                "device_id": device_id,
+                "message": tamper_alert["message"],
+                "chuyen_thuc_te_id": tamper_alert.get("chuyen_thuc_te_id"),
+                "risk_score": 10,
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            }
+            broadcast_event(evt_payload)
+            send_alert_push_to_managers_async(evt_payload)
     return jsonify({"success": ok})
 
 
@@ -201,12 +228,25 @@ _watcher_started = False
 def _camera_offline_watcher_loop():
     import time
 
+    tick = 0
     while True:
         time.sleep(20)
+        tick += 1
         try:
             offline_events = quet_camera_mat_ket_noi(timeout_seconds=60)
             if offline_events:
                 dispatch_camera_offline_alerts(offline_events)
+            # FIX-08: Quet chuyen tre gio moi ~5 phut (15 x 20s)
+            if tick % 15 == 0:
+                for ov in quet_chuyen_tre_gio():
+                    broadcast_event({
+                        "type": "TRIP_OVERRUN",
+                        "chuyen_thuc_te_id": ov.get("chuyen_thuc_te_id"),
+                        "driver_name": ov.get("ho_ten") or "N/A",
+                        "vehicle_name": ov.get("bien_so") or "N/A",
+                        "message": f"Chuyến #{ov.get('chuyen_thuc_te_id')} ({ov.get('tuyen_duong')}) đã vượt quá giờ kết thúc dự kiến!",
+                        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    })
         except Exception:
             pass
 

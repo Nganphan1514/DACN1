@@ -23,6 +23,25 @@ face_mesh = mp_face_mesh.FaceMesh(
 
 
 
+_CLAHE = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
+
+
+def enhance_low_light_frame(frame, brightness_threshold=65.0):
+    """
+    AI-03: Tang sang thich nghi (CLAHE tren kenh L cua khong gian LAB)
+    khi cabin toi (ban dem 0h-5h) de MediaPipe bat landmark mat/mieng on dinh hon.
+    """
+    if frame is None or frame.size == 0:
+        return frame
+    lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
+    l_channel, a_channel, b_channel = cv2.split(lab)
+    if float(l_channel.mean()) >= brightness_threshold:
+        return frame
+    l_enhanced = _CLAHE.apply(l_channel)
+    merged = cv2.merge((l_enhanced, a_channel, b_channel))
+    return cv2.cvtColor(merged, cv2.COLOR_LAB2BGR)
+
+
 # DETECT FACE FEATURES
 
 def detect_face_features(frame, return_eye_detail=False):
@@ -37,7 +56,8 @@ def detect_face_features(frame, return_eye_detail=False):
     try:
         h, w, _ = frame.shape
 
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        processed = enhance_low_light_frame(frame)
+        rgb = cv2.cvtColor(processed, cv2.COLOR_BGR2RGB)
 
         results = face_mesh.process(rgb)
 

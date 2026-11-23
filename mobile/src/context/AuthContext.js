@@ -84,9 +84,19 @@ export function AuthProvider({ children }) {
     setUser(null);
   }
 
+  function hasPermission(perm) {
+    if (!user) return false;
+    if (Array.isArray(user.permissions)) {
+      return user.permissions.includes(perm);
+    }
+    // Fallback tuong thich nguoc cho phien cu chua co mang permissions
+    if (user.vai_tro === "quan_ly") return true;
+    return false;
+  }
+
   return (
     <AuthContext.Provider
-      value={{ user, token, pushToken, apiUrl, loading, login, logout, updateApiUrl }}
+      value={{ user, token, pushToken, apiUrl, loading, login, logout, updateApiUrl, hasPermission }}
     >
       {children}
     </AuthContext.Provider>

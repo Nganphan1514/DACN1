@@ -4,7 +4,7 @@ import time
 from flask import g, jsonify, redirect, request, session
 from flask_jwt_extended import get_jwt, get_jwt_identity, verify_jwt_in_request
 
-from core.ops_rules import ADMIN_PANEL_ROLES, ROLE_TAI_XE, co_quyen_trong_pham_vi
+from core.ops_rules import ADMIN_PANEL_ROLES, ROLE_TAI_XE, co_quyen, co_quyen_trong_pham_vi
 from database.mysql_service import kiem_tra_tai_khoan_hoat_dong
 
 _ACCOUNT_STATUS_CACHE = {}
@@ -20,6 +20,32 @@ def _is_account_active(user_id):
     active = kiem_tra_tai_khoan_hoat_dong(user_id)
     _ACCOUNT_STATUS_CACHE[user_id] = (active, now)
     return active
+
+
+def _is_token_version_valid(user_id, jwt_tv):
+    """
+    FIX-10: Kiem tra token_version truc tiep theo Primary Key (da worker khong lech cache).
+    Neu jwt_tv is None (token cu/session) -> bo qua kiem tra version.
+    """
+    if jwt_tv is None:
+        return True
+    try:
+        from database.mysql_service import db
+
+        row = db.fetch_one(
+            "SELECT trang_thai, token_version FROM tai_khoan WHERE id = %s LIMIT 1",
+            (int(user_id),),
+        )
+        if not row:
+            return False
+        if row.get("trang_thai") == "khoa":
+            return False
+        db_tv = row.get("token_version")
+        if db_tv is not None and int(db_tv) != int(jwt_tv):
+            return False
+        return True
+    except Exception:
+        return True
 
 
 def invalidate_account_cache(user_id):
@@ -51,6 +77,7 @@ def get_current_user():
                 "cong_ty_id": claims.get("cong_ty_id"),
                 "chi_nhanh_id": claims.get("chi_nhanh_id"),
                 "doi_xe_id": claims.get("doi_xe_id"),
+                "tv": claims.get("tv"),
             }
         except Exception:
             return None
@@ -63,6 +90,10 @@ def get_current_user():
         return None
 
     if not _is_account_active(user["id"]):
+        session.clear()
+        return None
+
+    if not _is_token_version_valid(user["id"], user.get("tv")):
         session.clear()
         return None
 
@@ -134,6 +165,38 @@ def require_role(*allowed_roles):
                 tai_xe_id = user.get("tai_xe_id")
                 if tai_xe_id:
                     return redirect(f"/driver/dashboard?tai_xe_id={tai_xe_id}")
+                return redirect("/login")
+
+            g.current_user = user
+            return fn(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
+def require_permission(permission):
+    """FIX-01: Decorator kiem tra quyen chi tiet (Permission-Based RBAC)."""
+    def decorator(fn):
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            user = get_current_user()
+            if not user:
+                if _is_api_request():
+                    return jsonify({
+                        "success": False,
+                        "message": "Vui lòng đăng nhập để tiếp tục."
+                    }), 401
+                return redirect("/login")
+
+            if not co_quyen(user.get("vai_tro"), permission):
+                if _is_api_request():
+                    return jsonify({
+                        "success": False,
+                        "message": f"Bạn không có quyền thực hiện thao tác này ({permission})."
+                    }), 403
+                if user.get("vai_tro") in ADMIN_PANEL_ROLES:
+                    return redirect("/admin/dashboard")
                 return redirect("/login")
 
             g.current_user = user
