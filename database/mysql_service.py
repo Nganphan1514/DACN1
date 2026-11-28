@@ -1394,31 +1394,19 @@ def lay_dashboard_tai_xe(tai_xe_id):
 
         WHERE tx.id = %s
 
-ORDER BY
-CASE
-
-    WHEN lc.trang_thai = 'dang_chay'
-    THEN 1
-
-    WHEN lc.trang_thai = 'tam_ngung'
-    THEN 2
-
-    WHEN lc.trang_thai = 'sap_chay'
-    THEN 3
-
-    WHEN lc.trang_thai = 'hoan_thanh'
-    THEN 4
-
-    WHEN lc.trang_thai = 'da_huy'
-    THEN 5
-
-    ELSE 6
-
-END,
-
-lc.gio_bat_dau DESC
-
-LIMIT 1
+        ORDER BY
+            CASE
+                WHEN LOWER(lc.trang_thai) IN ('dang_chay', 'dang_thuc_hien', 'tam_ngung') THEN 1
+                WHEN LOWER(lc.trang_thai) IN ('sap_chay', 'cho_xac_nhan', 'da_xac_nhan')
+                     AND lc.gio_bat_dau >= CURRENT_TIMESTAMP THEN 2
+                WHEN LOWER(lc.trang_thai) IN ('sap_chay', 'cho_xac_nhan', 'da_xac_nhan') THEN 3
+                ELSE 4
+            END,
+            CASE WHEN LOWER(lc.trang_thai) IN ('sap_chay', 'cho_xac_nhan', 'da_xac_nhan')
+                      AND lc.gio_bat_dau >= CURRENT_TIMESTAMP THEN lc.gio_bat_dau END ASC NULLS LAST,
+            lc.gio_bat_dau DESC NULLS LAST,
+            lc.id DESC
+        LIMIT 1
 
         """
 

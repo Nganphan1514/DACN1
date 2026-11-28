@@ -2,22 +2,25 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
+    <meta name="theme-color" content="#14211B">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>An toàn, Vi phạm & Khiếu nại — V4.0</title>
+    <title>An toàn, Vi phạm & Khiếu nại · Sleep Alert</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/design-system.css') }}">
+    <script src="{{ url_for('static', filename='js/sleep-alert-theme.js') }}"></script>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/design-system.css">
     <script src="/static/js/ui-kit.js"></script>
 </head>
-<body class="v4-body min-h-screen pb-[96px]">
+<body class="sa-workspace sa-driver-page v4-body min-h-screen">
 
 <div class="max-w-md mx-auto px-4 py-5">
-    <div class="flex items-center justify-between mb-5">
+    <div class="sa-page-heading flex items-center justify-between mb-5">
         <div>
             <h1 class="text-2xl font-extrabold tracking-tight">An toàn & Khiếu nại</h1>
+            <a href="/driver/reports?tai_xe_id={{ tai_xe_id }}" class="text-sm underline">Báo sự cố</a>
             <p class="text-slate-400 text-xs mt-0.5">Tách bạch cảnh báo AI với vi phạm đã xác minh</p>
         </div>
-        <a href="/driver/notifications" aria-label="Thông báo" class="w-11 h-11 rounded-2xl v4-surface flex items-center justify-center text-slate-200">
+        <a href="/driver/notifications?tai_xe_id={{ tai_xe_id }}" aria-label="Thông báo" class="w-11 h-11 rounded-2xl v4-surface flex items-center justify-center text-slate-200">
             <span class="material-icons-round text-xl">notifications_none</span>
         </a>
     </div>
@@ -36,23 +39,8 @@
     <div id="contentList" class="space-y-3"></div>
 </div>
 
-<!-- 4-TAB FLOATING BOTTOM NAV (V4.0) -->
-<nav class="fixed bottom-0 left-0 right-0 v4-glass border-t border-white/10 py-2.5 z-40">
-    <div class="w-full max-w-md mx-auto grid grid-cols-4 text-[11px] font-semibold">
-        <a href="/driver/dashboard" class="flex flex-col items-center gap-0.5 text-slate-400">
-            <span class="material-icons-round text-2xl">speed</span><span>Cabin</span>
-        </a>
-        <a href="/driver/schedules" class="flex flex-col items-center gap-0.5 text-slate-400">
-            <span class="material-icons-round text-2xl">calendar_today</span><span>Lịch trình</span>
-        </a>
-        <a href="/driver/violations" class="flex flex-col items-center gap-0.5 text-sky-400 font-bold">
-            <span class="material-icons-round text-2xl">verified_user</span><span>An toàn</span>
-        </a>
-        <a href="/driver/profile" class="flex flex-col items-center gap-0.5 text-slate-400">
-            <span class="material-icons-round text-2xl">account_circle</span><span>Cá nhân</span>
-        </a>
-    </div>
-</nav>
+
+{% include 'shared/driver_navigation.html' %}
 
 <script>
 let currentTab = "violations";
@@ -166,7 +154,7 @@ function openAppealDrawer(vpId) {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ noi_dung_giai_trinh: reason, minh_chung_urls: [] }),
             }).then(r => r.json());
-            UI.toast(j.message, j.success ? "success" : "error");
+            UI.notify(j.message, j.success ? "success" : "error");
             if (j.success) switchTab("appeals");
         },
     });

@@ -3,24 +3,23 @@
 
 <head>
     <meta charset="UTF-8">
+    <meta name="theme-color" content="#14211B">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Thông báo</title>
+    <title>Thông báo · Sleep Alert</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/design-system.css') }}">
+    <script src="{{ url_for('static', filename='js/sleep-alert-theme.js') }}"></script>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <script src="{{ url_for('static', filename='js/ui-kit.js') }}"></script>
 </head>
 
-<body class="bg-slate-950 text-white min-h-screen pb-[110px]">
+<body class="sa-workspace sa-driver-page bg-slate-950 text-white min-h-screen">
 
 <div class="max-w-md mx-auto px-4 py-5">
 
     <div class="mb-5">
-        <a href="/driver/dashboard?tai_xe_id={{ tai_xe_id }}"
-           class="text-cyan-400 text-sm flex items-center gap-1 mb-3">
-            <span class="material-icons-round text-base">arrow_back</span>
-            Quay lại Cabin
-        </a>
 
-        <div class="flex items-start justify-between gap-3">
+        <div class="sa-page-heading flex items-start justify-between gap-3">
             <div>
                 <h1 class="text-3xl font-black tracking-tight">Hộp thư nhắc nhở</h1>
                 <p class="text-slate-400 text-sm mt-1">
@@ -125,51 +124,8 @@
 
 </div>
 
-<div class="fixed bottom-0 left-0 right-0 bg-slate-900/90 backdrop-blur-md border-t border-slate-800 py-2 z-50 shadow-2xl">
-    <div class="w-full max-w-md mx-auto flex justify-around items-center px-4">
 
-        <a href="/driver/dashboard?tai_xe_id={{ tai_xe_id }}"
-           class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 text-xs">
-            <div class="w-12 h-8 flex items-center justify-center">
-                <span class="material-icons-round text-2xl">dashboard</span>
-            </div>
-            <span>Cabin</span>
-        </a>
-
-        <a href="/driver/schedules?tai_xe_id={{ tai_xe_id }}"
-           class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 text-xs">
-            <div class="w-12 h-8 flex items-center justify-center">
-                <span class="material-icons-round text-2xl">calendar_today</span>
-            </div>
-            <span>Lịch</span>
-        </a>
-
-        <a href="/driver/violations?tai_xe_id={{ tai_xe_id }}"
-           class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 text-xs">
-            <div class="w-12 h-8 flex items-center justify-center">
-                <span class="material-icons-round text-2xl">warning</span>
-            </div>
-            <span>Vi phạm</span>
-        </a>
-
-        <a href="/driver/notifications?tai_xe_id={{ tai_xe_id }}"
-           class="flex flex-col items-center gap-1 text-blue-500 font-medium text-xs">
-            <div class="w-12 h-8 rounded-full bg-blue-500/10 flex items-center justify-center">
-                <span class="material-icons-round text-2xl">notifications</span>
-            </div>
-            <span>Thông báo</span>
-        </a>
-
-        <a href="/driver/profile?tai_xe_id={{ tai_xe_id }}"
-           class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 text-xs">
-            <div class="w-12 h-8 flex items-center justify-center">
-                <span class="material-icons-round text-2xl">account_circle</span>
-            </div>
-            <span>Cá nhân</span>
-        </a>
-
-    </div>
-</div>
+{% include 'shared/driver_navigation.html' %}
 
 <script>
 async function markAsRead(button) {
@@ -189,7 +145,7 @@ async function markAsRead(button) {
         location.reload();
 
     } catch (error) {
-        alert("Không thể đánh dấu đã đọc.");
+        UI.notify("Không thể đánh dấu đã đọc.", "error");
         location.reload();
     }
 }
@@ -213,9 +169,6 @@ async function markAsRead(button) {
     <div class="max-w-md mx-auto p-4">
 
         <div class="mb-6">
-            <a href="/driver/dashboard?tai_xe_id={{ tai_xe_id }}" class="text-cyan-400 text-sm flex items-center gap-1">
-                <span class="material-icons-round text-base">arrow_back</span> Quay lại
-            </a>
             <h1 class="text-3xl font-bold mt-3">Hộp thư nhắc nhở</h1>
         </div>
 

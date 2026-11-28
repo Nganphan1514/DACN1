@@ -1,0 +1,50 @@
+{% macro nav_link(path, label) -%}
+<a class="ds-nav-link" href="{{ path }}"{% if request.path == path %} aria-current="page"{% endif %}>
+    {{ label }}
+    {% if operations_nav and path == '/admin/operations' %}<span id="sidebarPendingBadge" class="ds-nav-count">0</span>{% endif %}
+</a>
+{%- endmacro %}
+
+<header class="ds-topbar">
+    <button id="navToggle" class="ds-btn ds-btn--sm" type="button" aria-controls="sidebar" aria-expanded="false">Điều hướng</button>
+    <span class="ds-topbar__brand">Sleep Alert</span>
+</header>
+<div id="scrim" class="ds-scrim" aria-hidden="true"></div>
+
+<aside id="sidebar" class="ds-sidebar" aria-label="Điều hướng quản lý">
+    <div class="ds-brand">
+        <svg class="ds-logo" viewBox="0 0 48 48" aria-hidden="true">
+            <g class="ds-logo__eye">
+                <path d="M3 24C9 13 17 9 24 9s15 4 21 15c-6 11-14 15-21 15S9 35 3 24z" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"/>
+                <circle cx="24" cy="24" r="7" fill="currentColor"/>
+            </g>
+        </svg>
+        <div><strong>Sleep Alert</strong><span>Giám sát tài xế bằng AI</span></div>
+    </div>
+    <button id="navClose" class="ds-btn ds-btn--sm ds-nav-close" type="button" aria-controls="sidebar">Thu gọn menu</button>
+    <nav class="ds-nav" aria-label="Các trang quản lý">
+        <section class="ds-nav-group" aria-labelledby="nav-monitor">
+            <h2 id="nav-monitor" class="ds-nav__title">Giám sát</h2>
+            {{ nav_link('/admin/dashboard', 'Tổng quan') }}
+            {{ nav_link('/admin/operations', 'Vận hành') }}
+        </section>
+        <section class="ds-nav-group" aria-labelledby="nav-manage">
+            <h2 id="nav-manage" class="ds-nav__title">{{ 'Quản lý' if can_manage_fleet else 'Đội xe' }}</h2>
+            {{ nav_link('/admin/drivers', 'Tài xế') }}
+            {{ nav_link('/admin/vehicles', 'Xe') }}
+            {% if can_dispatch %}{{ nav_link('/admin/scheduler', 'Lịch chạy') }}{% endif %}
+        </section>
+        <section class="ds-nav-group" aria-labelledby="nav-reports">
+            <h2 id="nav-reports" class="ds-nav__title">Báo cáo</h2>
+            {{ nav_link('/admin/reports', 'Báo cáo sự cố') }}
+            {{ nav_link('/admin/analytics', 'Thống kê') }}
+        </section>
+    </nav>
+    {% if workspace_role %}
+    <div class="ds-nav-user">
+        <strong>{{ workspace_role }}</strong>
+    </div>
+    {% endif %}
+    <a class="ds-nav-link ds-nav-link--out" href="/logout">Đăng xuất</a>
+</aside>
+<script src="{{ url_for('static', filename='js/admin-navigation.js') }}" defer></script>

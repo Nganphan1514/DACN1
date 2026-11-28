@@ -2,88 +2,28 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
+    <meta name="theme-color" content="#14211B">
 
     <meta
         name="viewport"
         content="width=device-width, initial-scale=1.0">
 
-    <title>Quản lý xe</title>
+    <title>Quản lý xe · Sleep Alert</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/design-system.css') }}">
+    <script src="{{ url_for('static', filename='js/sleep-alert-theme.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/ui-kit.js') }}"></script>
 </head>
 
-<body class="bg-slate-950 text-white min-h-screen">
+<body class="ds-body sa-workspace bg-slate-950 text-white min-h-screen">
 
 <!-- ================================================= -->
 <!-- NAVBAR -->
 <!-- ================================================= -->
-<nav class="sticky top-0 z-50 bg-slate-950/90 backdrop-blur border-b border-slate-800">
-
-    <div class="max-w-7xl mx-auto px-4 py-4">
-
-        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-
-            <div>
-                <h1 class="text-xl font-bold">
-                    DACN1 Admin
-                </h1>
-
-                <p class="text-sm text-slate-400">
-                    Hệ thống giám sát tài xế bằng AI
-                </p>
-            </div>
-
-            <div class="flex gap-2 overflow-x-auto pb-1">
-
-                <a
-                    href="/admin/dashboard"
-                    class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">
-                    Dashboard
-                </a>
-
-                <a
-                    href="/admin/drivers"
-                    class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">
-                    Tài xế
-                </a>
-
-                <a
-                    href="/admin/vehicles"
-                    class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">
-                    Xe
-                </a>
-
-                <a
-                    href="/admin/scheduler"
-                    class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">
-                    Lịch chạy
-                </a>
-
-                <a
-                    href="/admin/reports"
-                    class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">
-                    Báo cáo
-                </a>
-
-                <a
-                    href="/admin/analytics"
-                    class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">
-                    Thống kê
-                </a>
-
-                <a
-                    href="/logout"
-                    class="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-sm whitespace-nowrap">
-                    Đăng xuất
-                </a>
-
-            </div>
-
-        </div>
-
-    </div>
-
-</nav>
+<div class="ds-shell">
+    {% include 'shared/admin_navigation.html' %}
+    <div class="sa-admin-content">
 
 <!-- ================================================= -->
 <!-- MAIN -->
@@ -91,7 +31,7 @@
 <main class="max-w-7xl mx-auto p-6">
 
     <!-- HEADER -->
-    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
+    <div class="sa-page-heading flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
 
         <div>
             <h1 class="text-3xl font-black">
@@ -103,18 +43,20 @@
             </p>
         </div>
 
+        {% if can_manage_fleet %}
         <button
             onclick="openCreateVehicleModal()"
             class="bg-blue-600 hover:bg-blue-700 px-5 py-3 rounded-xl font-bold transition">
             + Thêm xe
         </button>
+        {% endif %}
 
     </div>
 
     <!-- ================================================= -->
     <!-- THỐNG KÊ -->
     <!-- ================================================= -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+    <div class="sa-metrics grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
 
         <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
             <p class="text-slate-400 text-sm">
@@ -340,14 +282,6 @@ let drivers = [];
 /* ================================================= */
 /* ACTIVE MENU */
 /* ================================================= */
-document
-    .querySelectorAll(".admin-link")
-    .forEach(link => {
-        if (link.getAttribute("href") === currentPath) {
-            link.classList.remove("bg-slate-800");
-            link.classList.add("bg-blue-600");
-        }
-    });
 
 /* ================================================= */
 /* ESCAPE HTML */
@@ -576,7 +510,7 @@ async function loadVehicles() {
 
                     </div>
 
-                    <div class="space-y-3">
+                    <fieldset class="space-y-3"{% if not can_manage_fleet %} disabled{% endif %}>
 
                         <div>
                             <label class="text-xs text-slate-400 font-bold uppercase">
@@ -674,14 +608,16 @@ async function loadVehicles() {
                                 placeholder="Ghi chú thêm">${note}</textarea>
                         </div>
 
+                        {% if can_manage_fleet %}
                         <button
                             id="btn-${id}"
                             onclick="updateVehicle(${id})"
                             class="w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.99] transition p-3 rounded-xl font-bold">
                             Lưu thay đổi
                         </button>
+                        {% endif %}
 
-                    </div>
+                    </fieldset>
 
                 </div>
             `;
@@ -747,7 +683,7 @@ async function updateVehicle(id) {
         };
 
         if (!body.bien_so) {
-            alert("Biển số xe không được để trống.");
+            UI.notify("Biển số xe không được để trống.", "warning");
             return;
         }
 
@@ -773,20 +709,14 @@ async function updateVehicle(id) {
             );
         }
 
-        alert(
-            json.message ||
-            "Đã cập nhật xe."
-        );
+        UI.notify(json.message || "Đã cập nhật xe.", "success");
 
         await loadVehicles();
 
     } catch (error) {
         console.error(error);
 
-        alert(
-            error.message ||
-            "Không thể cập nhật xe."
-        );
+        UI.notify(error.message || "Không thể cập nhật xe.", "error");
 
     } finally {
         btn.innerText = "Lưu thay đổi";
@@ -871,7 +801,7 @@ async function createVehicle(event) {
         };
 
         if (!body.bien_so) {
-            alert("Biển số xe không được để trống.");
+            UI.notify("Biển số xe không được để trống.", "warning");
             return;
         }
 
@@ -897,10 +827,7 @@ async function createVehicle(event) {
             );
         }
 
-        alert(
-            json.message ||
-            "Đã thêm xe."
-        );
+        UI.notify(json.message || "Đã thêm xe.", "success");
 
         closeCreateVehicleModal();
 
@@ -909,10 +836,7 @@ async function createVehicle(event) {
     } catch (error) {
         console.error(error);
 
-        alert(
-            error.message ||
-            "Không thể thêm xe."
-        );
+        UI.notify(error.message || "Không thể thêm xe.", "error");
 
     } finally {
         btn.innerText = "Thêm xe";
@@ -965,6 +889,8 @@ async function initPage() {
 initPage();
 </script>
 
+    </div>
+</div>
 </body>
 </html>
 <!-- <!DOCTYPE html>

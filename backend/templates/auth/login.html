@@ -3,158 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Đăng nhập DACN1</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <meta name="theme-color" content="#5D7B6F">
+    <title>Đăng nhập · Sleep Alert</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/design-system.css') }}">
 </head>
+<body class="ds-body">
+<div class="ds-login">
+    <div class="ds-blob ds-blob--a" aria-hidden="true"></div>
+    <div class="ds-blob ds-blob--b" aria-hidden="true"></div>
+    <main class="ds-login__main">
+        <section>
+            <svg class="ds-login__logo" viewBox="0 0 48 48" aria-hidden="true"><g class="ds-logo__eye"><path d="M3 24C9 13 17 9 24 9s15 4 21 15c-6 11-14 15-21 15S9 35 3 24z" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"/><circle cx="24" cy="24" r="7" fill="currentColor"/></g></svg>
+            <h1 class="ds-login__title">Sleep Alert</h1>
+            <p class="ds-login__lead">Giám sát tài xế và cảnh báo buồn ngủ bằng AI cho đội xe của bạn.</p>
+        </section>
 
-<body class="min-h-screen bg-slate-950 text-white flex items-center justify-center px-4 overflow-hidden">
+        <section class="ds-login__card" aria-labelledby="login-title">
+            <h2 id="login-title" class="ds-display">Đăng nhập</h2>
+            <p>Dùng tài khoản được cấp để quản lý đội xe và tài xế.</p>
 
-    <!-- BACKGROUND EFFECT -->
-    <div class="fixed inset-0 pointer-events-none">
-        <div class="absolute -top-32 -left-32 w-80 h-80 bg-blue-600/20 rounded-full blur-3xl"></div>
-        <div class="absolute bottom-0 right-0 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl"></div>
-    </div>
-
-    <div class="relative w-full max-w-md">
-
-        <!-- LOGO / HEADER -->
-        <div class="text-center mb-6">
-            <div class="mx-auto mb-4 w-16 h-16 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center shadow-lg shadow-blue-600/10">
-                <span class="text-3xl">🚍</span>
-            </div>
-
-            <h1 class="text-4xl font-black tracking-tight">
-                DACN1
-            </h1>
-
-            <p class="text-slate-400 mt-2">
-                Hệ thống giám sát tài xế bằng AI
-            </p>
-        </div>
-
-        <!-- CARD -->
-        <div class="bg-slate-900/90 backdrop-blur border border-slate-800 p-7 rounded-3xl shadow-2xl">
-
-            <div class="mb-6">
-                <h2 class="text-2xl font-bold">Đăng nhập</h2>
-                <p class="text-slate-400 text-sm mt-1">
-                    Quản lý đội xe và tài xế an toàn hơn.
-                </p>
-            </div>
-
-            <div class="space-y-4">
-                <div>
-                    <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                        Tên đăng nhập
-                    </label>
-
-                    <input id="username"
-                           class="w-full mt-2 p-4 rounded-2xl bg-slate-800 border border-slate-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
-                           placeholder="Nhập tên đăng nhập">
+            <noscript><p>Hãy bật JavaScript để đăng nhập.</p></noscript>
+            <form id="loginForm" method="post" novalidate>
+                <div class="ds-field">
+                    <label class="ds-field__label" for="username">Tên đăng nhập</label>
+                    <input id="username" name="username" class="ds-input" type="text"
+                           placeholder="Nhập tên đăng nhập" autocomplete="username"
+                           autocapitalize="none" spellcheck="false" autofocus required>
                 </div>
 
-                <div>
-                    <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                        Mật khẩu
-                    </label>
-
-                    <input id="password"
-                           type="password"
-                           class="w-full mt-2 p-4 rounded-2xl bg-slate-800 border border-slate-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
-                           placeholder="Nhập mật khẩu">
+                <div class="ds-field">
+                    <label class="ds-field__label" for="password">Mật khẩu</label>
+                    <div class="ds-field__row">
+                        <input id="password" name="password" class="ds-input" type="password"
+                               placeholder="Nhập mật khẩu" autocomplete="current-password"
+                               required>
+                        <button id="togglePassword" class="ds-field__toggle" type="button"
+                                aria-controls="password" aria-pressed="false">Hiện</button>
+                    </div>
                 </div>
 
-                <button id="loginBtn"
-                        onclick="login()"
-                        class="w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.99] transition p-4 rounded-2xl font-bold shadow-lg shadow-blue-600/20">
-                    Đăng nhập
-                </button>
+                <button id="loginBtn" class="ds-btn ds-btn--primary ds-btn--block" type="submit">Đăng nhập</button>
 
-                <p id="message" class="min-h-[24px] text-center text-sm text-red-400"></p>
-            </div>
-        </div>
+                <p id="message" class="ds-form-msg" role="alert" aria-live="assertive"></p>
+            </form>
+        </section>
+    </main>
 
-        <p class="text-center text-xs text-slate-600 mt-5">
-            DACN1 Driver Monitoring System
-        </p>
-    </div>
-
-<script>
-const usernameInput = document.getElementById("username");
-const passwordInput = document.getElementById("password");
-const messageEl = document.getElementById("message");
-const loginBtn = document.getElementById("loginBtn");
-
-usernameInput.addEventListener("keydown", handleEnter);
-passwordInput.addEventListener("keydown", handleEnter);
-
-function handleEnter(event) {
-    if (event.key === "Enter") {
-        login();
-    }
-}
-
-function setLoading(isLoading) {
-    loginBtn.disabled = isLoading;
-
-    if (isLoading) {
-        loginBtn.innerText = "Đang đăng nhập...";
-        loginBtn.classList.add("opacity-70", "cursor-not-allowed");
-    } else {
-        loginBtn.innerText = "Đăng nhập";
-        loginBtn.classList.remove("opacity-70", "cursor-not-allowed");
-    }
-}
-
-async function login() {
-    const ten_dang_nhap = usernameInput.value.trim();
-    const mat_khau = passwordInput.value.trim();
-
-    messageEl.innerText = "";
-
-    if (!ten_dang_nhap || !mat_khau) {
-        messageEl.innerText = "Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu.";
-        return;
-    }
-
-    try {
-        setLoading(true);
-
-        const res = await fetch("/api/login", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                ten_dang_nhap,
-                mat_khau
-            })
-        });
-
-        const data = await res.json();
-
-        if (!data.success) {
-            messageEl.innerText = data.message || "Đăng nhập thất bại.";
-            return;
-        }
-
-        localStorage.setItem("token", data.token || "");
-        localStorage.setItem("user", JSON.stringify(data.user || {}));
-
-        if (data.user.vai_tro === "quan_ly") {
-            window.location.href = "/admin/dashboard";
-        } else {
-            const driverId = data.user.tai_xe_id || data.user.id;
-            window.location.href = `/driver/dashboard?tai_xe_id=${driverId}`;
-        }
-
-    } catch (error) {
-        messageEl.innerText = "Không kết nối được máy chủ.";
-    } finally {
-        setLoading(false);
-    }
-}
-</script>
-
+</div>
+<script src="{{ url_for('static', filename='js/login.js') }}"></script>
 </body>
 </html>

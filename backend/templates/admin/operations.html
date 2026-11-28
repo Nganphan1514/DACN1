@@ -2,96 +2,47 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
+    <meta name="theme-color" content="#14211B">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DACN1 V4.0 — Fleet Command Center</title>
+    <title>Vận hành · Sleep Alert</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="/static/css/design-system.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/design-system.css') }}">
+    <script src="{{ url_for('static', filename='js/sleep-alert-theme.js') }}"></script>
     <script src="/static/js/ui-kit.js"></script>
 </head>
-<body class="v4-body min-h-screen flex">
+<body class="ds-body sa-workspace v4-body min-h-screen">
 
-<!-- COLLAPSIBLE SIDEBAR (ADMIN V4) -->
-<aside id="sidebar" class="hidden md:flex flex-col w-64 shrink-0 bg-[#0f1623] border-r border-white/[0.07] sticky top-0 h-screen">
-    <div class="p-5 border-b border-white/[0.07] flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-sky-500/15 border border-sky-500/30 flex items-center justify-center text-sky-400 font-black">V4</div>
-        <div>
-            <h1 class="font-extrabold text-sm tracking-tight">DACN1 FLEET</h1>
-            <p class="text-[11px] text-slate-400">Command Center V4.0</p>
-        </div>
-    </div>
-
-    <nav class="flex-1 p-3 space-y-5 overflow-y-auto text-sm">
-        <div>
-            <p class="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">Giám sát</p>
-            <a href="/admin/dashboard" class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-slate-300 hover:bg-white/5">Tổng quan Live</a>
-        </div>
-
-        <div>
-            <p class="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">Vận hành</p>
-            <a href="/admin/operations" class="flex items-center justify-between px-3 py-2.5 rounded-xl bg-sky-500/15 text-sky-300 border border-sky-500/25 font-bold">
-                <span>Trung tâm V4</span>
-                <span id="sidebarPendingBadge" class="px-2 py-0.5 rounded-full bg-sky-500 text-slate-950 text-[10px] font-black tabular-nums">0</span>
-            </a>
-            <a href="/admin/scheduler" data-perm="schedules:view" class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-slate-300 hover:bg-white/5 mt-1">Điều phối Lịch</a>
-            <a href="/admin/reports" data-perm="reports:view" class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-slate-300 hover:bg-white/5 mt-1">Báo cáo Sự cố</a>
-        </div>
-
-        <div>
-            <p class="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">Quản trị</p>
-            <a href="/admin/drivers" data-perm="drivers:view" class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-slate-300 hover:bg-white/5">Hồ sơ Tài xế</a>
-            <a href="/admin/vehicles" data-perm="vehicles:view" class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-slate-300 hover:bg-white/5 mt-1">Phương tiện</a>
-            <a href="/admin/analytics" data-perm="analytics:view" class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-slate-300 hover:bg-white/5 mt-1">Thống kê & PDF</a>
-        </div>
-    </nav>
-
-    <div class="p-4 border-t border-white/[0.07]">
-        <p id="sidebarUser" class="text-xs font-bold text-white truncate">Đang tải...</p>
-        <p id="sidebarRole" class="text-[11px] text-sky-400 truncate mt-0.5"></p>
-        <a href="/logout" class="mt-3 block text-center py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25 text-rose-300 text-xs font-bold">Đăng xuất</a>
-    </div>
-</aside>
-
+{% set operations_nav = true %}
+<div class="ds-shell">
+    {% include 'shared/admin_navigation.html' %}
 <!-- MAIN CONTENT -->
-<div class="flex-1 flex flex-col min-w-0">
+<div class="sa-admin-content flex flex-col">
     <!-- TOP COMMAND BAR -->
-    <header class="sticky top-0 z-40 v4-glass border-b border-white/[0.07] px-5 py-3.5 flex flex-wrap items-center justify-between gap-3">
+    <header class="sa-operations-header sticky top-0 z-30 v4-glass border-b border-white/[0.07] px-5 py-3.5 flex flex-wrap items-center justify-between gap-3">
         <div class="flex items-center gap-3">
-            <a href="/admin/dashboard" class="md:hidden px-3 py-1.5 rounded-lg bg-white/5 text-xs">← Dashboard</a>
             <div>
-                <h2 class="text-base font-extrabold">Trung tâm Vận hành & Kiểm soát</h2>
-                <p id="scopeSubtitle" class="text-xs text-slate-400">Đồng bộ nghiệp vụ V3.0 + Hardening V3.1</p>
+                <h1 class="text-xl font-extrabold">Vận hành</h1>
+                <p class="text-sm text-slate-400">{{ workspace_role }}</p>
             </div>
         </div>
         <div class="flex items-center gap-2.5">
-            <span class="px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-xs font-bold flex items-center gap-1.5">
-                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> SSE Live
-            </span>
             <button onclick="refreshCurrentTab()" class="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold">Làm mới</button>
         </div>
     </header>
 
     <main class="p-5 max-w-[1440px] w-full mx-auto flex-1">
-        <!-- PRIORITY TABS WITH COUNTERS -->
-        <div class="flex flex-wrap gap-2 mb-5">
-            <button onclick="switchTab('ai')" id="tab-ai" class="tab-btn px-4 py-2.5 rounded-xl bg-sky-500 text-slate-950 font-bold text-xs">
-                1. Thẩm định AI → Vi phạm <span id="cnt-ai" class="ml-1 tabular-nums"></span>
+        <nav class="sa-operation-tabs" aria-label="Công việc vận hành">
+            {% for key, label in operation_tabs %}
+            <button type="button" id="tab-{{ key }}" data-operation-tab="{{ key }}"
+                    class="sa-operation-tab" aria-controls="panel-{{ key }}" aria-pressed="false"
+                    onclick="switchTab(this.dataset.operationTab)">
+                {{ label }} <span id="cnt-{{ key }}" class="tabular-nums"></span>
             </button>
-            <button onclick="switchTab('appeals')" id="tab-appeals" class="tab-btn px-4 py-2.5 rounded-xl bg-[#0f1623] border border-white/[0.08] text-slate-300 text-xs font-semibold">
-                2. Khiếu nại vi phạm <span id="cnt-appeals" class="ml-1 tabular-nums"></span>
-            </button>
-            <button onclick="switchTab('trips')" id="tab-trips" class="tab-btn px-4 py-2.5 rounded-xl bg-[#0f1623] border border-white/[0.08] text-slate-300 text-xs font-semibold">
-                3. Chuyến thực tế & Ngoại lệ
-            </button>
-            <button onclick="switchTab('requests')" id="tab-requests" class="tab-btn px-4 py-2.5 rounded-xl bg-[#0f1623] border border-white/[0.08] text-slate-300 text-xs font-semibold">
-                4. Duyệt Đổi lịch/xe <span id="cnt-req" class="ml-1 tabular-nums"></span>
-            </button>
-            <button onclick="switchTab('org')" id="tab-org" class="tab-btn px-4 py-2.5 rounded-xl bg-[#0f1623] border border-white/[0.08] text-slate-300 text-xs font-semibold">
-                5. Tổ chức & Audit Log
-            </button>
-        </div>
+            {% endfor %}
+        </nav>
 
         <!-- TAB 1: MASTER-DETAIL TRIAGE INBOX -->
-        <section id="panel-ai" class="panel grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <section id="panel-ai" class="panel hidden grid grid-cols-1 lg:grid-cols-12 gap-5">
             <div class="lg:col-span-5 v4-surface rounded-2xl p-4 flex flex-col max-h-[76vh]">
                 <div class="flex items-center justify-between mb-3">
                     <h3 class="text-sm font-bold">Hàng đợi Sự kiện AI</h3>
@@ -141,10 +92,12 @@
         </section>
     </main>
 </div>
+</div>
 
 <script>
 let currentUser = null;
-let currentTab = "ai";
+const operationButtons = [...document.querySelectorAll("[data-operation-tab]")];
+let currentTab;
 let aiEventsCache = [];
 let selectedAiId = null;
 
@@ -157,41 +110,39 @@ function refreshCurrentTab() {
 }
 
 function switchTab(tab) {
+    const button = operationButtons.find(item => item.dataset.operationTab === tab);
+    if (!button) return;
     currentTab = tab;
-    document.querySelectorAll(".panel").forEach(p => p.classList.add("hidden"));
-    document.querySelectorAll(".tab-btn").forEach(b => {
-        b.className = "tab-btn px-4 py-2.5 rounded-xl bg-[#0f1623] border border-white/[0.08] text-slate-300 text-xs font-semibold";
+    for (const item of operationButtons) {
+        const key = item.dataset.operationTab;
+        item.setAttribute("aria-pressed", String(key === tab));
+    }
+    document.querySelectorAll(".panel").forEach(panel => {
+        panel.classList.toggle("hidden", panel.id !== "panel-" + tab);
     });
-    document.getElementById("panel-" + tab).classList.remove("hidden");
-    document.getElementById("tab-" + tab).className = "tab-btn px-4 py-2.5 rounded-xl bg-sky-500 text-slate-950 font-bold text-xs";
     refreshCurrentTab();
 }
 
 async function initAuthAndPriority() {
-    try {
-        const [meRes, prioRes] = await Promise.all([
-            fetch("/api/auth/me").then(r => r.json()).catch(() => ({})),
-            fetch("/api/admin/priority-alerts").then(r => r.json()).catch(() => ({})),
-        ]);
-        if (meRes.success && meRes.user) {
-            currentUser = meRes.user;
-            document.getElementById("sidebarUser").textContent = currentUser.ten_dang_nhap;
-            document.getElementById("sidebarRole").textContent = currentUser.vai_tro_label || currentUser.vai_tro;
-            document.getElementById("scopeSubtitle").textContent =
-                `Vai trò: ${currentUser.vai_tro_label || currentUser.vai_tro} • Công ty #${currentUser.cong_ty_id || 1}`;
-            document.querySelectorAll("[data-perm]").forEach(el => {
-                if (!UI.hasPerm(currentUser, el.dataset.perm)) el.classList.add("hidden");
-            });
-        }
-        if (prioRes.success && prioRes.data) {
-            const p = prioRes.data;
-            const total = (p.su_kien_ai_cho_xac_minh || 0) + (p.khieu_nai_cho_xu_ly || 0) + (p.yeu_cau_doi_lich_cho_duyet || 0);
-            document.getElementById("sidebarPendingBadge").textContent = total;
-            document.getElementById("cnt-ai").textContent = p.su_kien_ai_cho_xac_minh ? `(${p.su_kien_ai_cho_xac_minh})` : "";
-            document.getElementById("cnt-appeals").textContent = p.khieu_nai_cho_xu_ly ? `(${p.khieu_nai_cho_xu_ly})` : "";
-            document.getElementById("cnt-req").textContent = p.yeu_cau_doi_lich_cho_duyet ? `(${p.yeu_cau_doi_lich_cho_duyet})` : "";
-        }
-    } catch (e) {}
+    const [me, priorities] = await Promise.all([
+        fetch("/api/auth/me").then(response => response.json()).catch(() => ({})),
+        fetch("/api/admin/priority-alerts").then(response => response.json()).catch(() => ({})),
+    ]);
+    if (me.success) currentUser = me.user;
+    if (!priorities.success || !priorities.data) return;
+    const counts = {
+        ai: priorities.data.su_kien_ai_cho_xac_minh || 0,
+        appeals: priorities.data.khieu_nai_cho_xu_ly || 0,
+        requests: priorities.data.yeu_cau_doi_lich_cho_duyet || 0,
+    };
+    let total = 0;
+    for (const button of operationButtons) {
+        const key = button.dataset.operationTab;
+        const count = counts[key] || 0;
+        document.getElementById("cnt-" + key).textContent = count ? `(${count})` : "";
+        total += count;
+    }
+    document.getElementById("sidebarPendingBadge").textContent = total;
 }
 
 async function loadAiEvents() {
@@ -226,7 +177,7 @@ function renderAiMaster() {
         const active = ev.id === selectedAiId;
         return `
             <button onclick="selectAiEvent(${ev.id})" class="w-full text-left p-3.5 rounded-xl border transition ${
-                active ? "bg-[#161f30] border-sky-500/60" : "bg-[#090d16]/70 border-white/[0.06] hover:border-white/15"
+                active ? "bg-[#23382f] border-sky-500/60" : "bg-[#14211b]/70 border-white/[0.06] hover:border-white/15"
             }">
                 <div class="flex justify-between items-center gap-2">
                     <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/15 text-rose-300">${UI.escHtml(ev.loai_canh_bao)}</span>
@@ -261,7 +212,7 @@ function renderAiDetail() {
                 </div>
             </div>
 
-            <div class="w-full h-2 rounded-full bg-[#090d16] overflow-hidden">
+            <div class="w-full h-2 rounded-full bg-[#14211b] overflow-hidden">
                 <div class="h-2 rounded-full ${riskPct >= 70 ? "bg-rose-500" : "bg-amber-400"}" style="width:${riskPct}%"></div>
             </div>
 
@@ -302,7 +253,7 @@ function openVerifyDialog(id) {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ ly_do_xac_minh: reason }),
             }).then(r => r.json());
-            UI.toast(res.message, res.success ? "success" : "error");
+            UI.notify(res.message, res.success ? "success" : "error");
             if (res.success) { loadAiEvents(); initAuthAndPriority(); }
         },
     });
@@ -321,7 +272,7 @@ function openRejectAiDialog(id) {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ trang_thai: "REJECTED", ly_do: reason }),
             }).then(r => r.json());
-            UI.toast(res.message, res.success ? "success" : "error");
+            UI.notify(res.message, res.success ? "success" : "error");
             if (res.success) { loadAiEvents(); initAuthAndPriority(); }
         },
     });
@@ -340,7 +291,7 @@ async function loadAppeals() {
                 <span class="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/15 text-amber-300">${UI.escHtml(kn.trang_thai)}</span>
             </div>
             <p class="text-xs text-slate-400">Tài xế: <b class="text-white">${UI.escHtml(kn.ho_ten || "N/A")}</b> • Trạng thái VP: <b class="text-sky-300">${UI.escHtml(kn.vi_pham_trang_thai)}</b></p>
-            <div class="p-3.5 rounded-xl bg-[#090d16] border-l-4 border-sky-500 text-xs text-slate-200">
+            <div class="p-3.5 rounded-xl bg-[#14211b] border-l-4 border-sky-500 text-xs text-slate-200">
                 <p class="text-[11px] text-slate-400 font-bold mb-1">🔒 Giải trình gốc của tài xế (bất biến):</p>
                 ${UI.escHtml(kn.noi_dung_giai_trinh)}
             </div>
@@ -372,7 +323,7 @@ function openAppealDialog(id, decision) {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ quyet_dinh: decision, ly_do_ket_luan: reason }),
             }).then(r => r.json());
-            UI.toast(res.message, res.success ? "success" : "error");
+            UI.notify(res.message, res.success ? "success" : "error");
             if (res.success) { loadAppeals(); initAuthAndPriority(); }
         },
     });
@@ -415,7 +366,7 @@ function openForceCompleteDialog(id) {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ ly_do_ngoai_le: reason }),
             }).then(r => r.json());
-            UI.toast(res.message, res.success ? "success" : "error");
+            UI.notify(res.message, res.success ? "success" : "error");
             if (res.success) loadTrips();
         },
     });
@@ -452,7 +403,7 @@ function decideReq(id, action) {
             confirmLabel: "Phê duyệt ngay",
             onConfirm: async () => {
                 const res = await fetch(`/api/admin/change-requests/${id}/approve`, { method: "POST" }).then(r => r.json());
-                UI.toast(res.message, res.success ? "success" : "error");
+                UI.notify(res.message, res.success ? "success" : "error");
                 if (res.success) { loadChangeRequests(); initAuthAndPriority(); }
             },
         });
@@ -469,7 +420,7 @@ function decideReq(id, action) {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ ly_do_tu_choi: reason }),
                 }).then(r => r.json());
-                UI.toast(res.message, res.success ? "success" : "error");
+                UI.notify(res.message, res.success ? "success" : "error");
                 if (res.success) { loadChangeRequests(); initAuthAndPriority(); }
             },
         });
@@ -484,15 +435,15 @@ async function loadOrgAndAudit() {
         fetch("/api/admin/audit-logs?limit=50").then(r => r.json()).catch(() => ({ success: false })),
     ]);
     document.getElementById("branchesList").innerHTML = bRes.success && bRes.data.length
-        ? bRes.data.map(b => `<div class="p-3 rounded-xl bg-[#090d16] border border-white/[0.06]"><b>${UI.escHtml(b.ma_chi_nhanh)}</b> — ${UI.escHtml(b.ten)} <span class="text-slate-400">(${b.so_doi_xe} đội xe)</span></div>`).join("")
+        ? bRes.data.map(b => `<div class="p-3 rounded-xl bg-[#14211b] border border-white/[0.06]"><b>${UI.escHtml(b.ma_chi_nhanh)}</b> — ${UI.escHtml(b.ten)} <span class="text-slate-400">(${b.so_doi_xe} đội xe)</span></div>`).join("")
         : `<p class="text-slate-500">Không có dữ liệu.</p>`;
     document.getElementById("fleetsList").innerHTML = fRes.success && fRes.data.length
-        ? fRes.data.map(f => `<div class="p-3 rounded-xl bg-[#090d16] border border-white/[0.06]"><b>${UI.escHtml(f.ma_doi_xe)}</b> — ${UI.escHtml(f.ten)} <span class="text-slate-400">(${UI.escHtml(f.ten_chi_nhanh)} • ${f.so_tai_xe} TX, ${f.so_xe} Xe)</span></div>`).join("")
+        ? fRes.data.map(f => `<div class="p-3 rounded-xl bg-[#14211b] border border-white/[0.06]"><b>${UI.escHtml(f.ma_doi_xe)}</b> — ${UI.escHtml(f.ten)} <span class="text-slate-400">(${UI.escHtml(f.ten_chi_nhanh)} • ${f.so_tai_xe} TX, ${f.so_xe} Xe)</span></div>`).join("")
         : `<p class="text-slate-500">Không có dữ liệu.</p>`;
     auditCache = (aRes.success && aRes.data) ? aRes.data : [];
     document.getElementById("auditList").innerHTML = auditCache.length
         ? auditCache.map((l, idx) => `
-            <div class="p-3 rounded-xl bg-[#090d16] border border-white/[0.06] flex justify-between items-center gap-3">
+            <div class="p-3 rounded-xl bg-[#14211b] border border-white/[0.06] flex justify-between items-center gap-3">
                 <div class="min-w-0">
                     <span class="text-sky-400 font-bold">${UI.escHtml(l.hanh_dong)}</span>
                     <span class="text-slate-400 ml-1">(${UI.escHtml(l.bang_du_lieu)}#${l.doi_tuong_id || ""})</span>
@@ -515,18 +466,22 @@ function openAuditDiff(idx) {
                 ${l.ly_do ? `<div class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-200"><b>Lý do:</b> ${UI.escHtml(l.ly_do)}</div>` : ""}
                 <div>
                     <p class="text-rose-300 font-bold mb-1">Dữ liệu TRƯỚC (Old)</p>
-                    <pre class="p-3 rounded-xl bg-[#090d16] border border-rose-500/20 overflow-x-auto text-slate-300">${UI.escHtml(JSON.stringify(l.du_lieu_truoc || null, null, 2))}</pre>
+                    <pre class="p-3 rounded-xl bg-[#14211b] border border-rose-500/20 overflow-x-auto text-slate-300">${UI.escHtml(JSON.stringify(l.du_lieu_truoc || null, null, 2))}</pre>
                 </div>
                 <div>
                     <p class="text-emerald-300 font-bold mb-1">Dữ liệu SAU (New)</p>
-                    <pre class="p-3 rounded-xl bg-[#090d16] border border-emerald-500/20 overflow-x-auto text-slate-300">${UI.escHtml(JSON.stringify(l.du_lieu_sau || null, null, 2))}</pre>
+                    <pre class="p-3 rounded-xl bg-[#14211b] border border-emerald-500/20 overflow-x-auto text-slate-300">${UI.escHtml(JSON.stringify(l.du_lieu_sau || null, null, 2))}</pre>
                 </div>
             </div>
         `,
     });
 }
 
-initAuthAndPriority().then(() => loadAiEvents());
+initAuthAndPriority().then(() => {
+    const requestedTab = new URLSearchParams(window.location.search).get("tab");
+    const selected = operationButtons.find(button => button.dataset.operationTab === requestedTab) || operationButtons[0];
+    switchTab(selected.dataset.operationTab);
+});
 </script>
 </body>
 </html>

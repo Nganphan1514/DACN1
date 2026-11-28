@@ -1,0 +1,17 @@
+{% set driver_items = [
+    ('dashboard', 'Tổng quan', 'dashboard', ['dashboard']),
+    ('schedules', 'Lịch chạy', 'calendar_today', ['schedules', 'history']),
+    ('violations', 'An toàn', 'verified_user', ['violations', 'reports']),
+    ('notifications', 'Thông báo', 'notifications', ['notifications']),
+    ('profile', 'Hồ sơ', 'account_circle', ['profile', 'register-face', 'update-profile'])
+] %}
+{% set current_view = request.path.rsplit('/', 1)[-1] %}
+{% if request.path.startswith('/admin/drivers/') %}{% set current_view = 'register-face' %}{% endif %}
+<nav class="sa-driver-nav" aria-label="Điều hướng tài xế">
+    {% for path, label, icon, views in driver_items %}
+    <a class="sa-driver-link" href="/driver/{{ path }}?tai_xe_id={{ tai_xe_id }}"{% if current_view in views %} aria-current="{{ 'page' if current_view == path else 'location' }}"{% endif %}>
+        <span class="material-icons-round" aria-hidden="true">{{ icon }}</span>
+        <span>{{ label }}</span>
+    </a>
+    {% endfor %}
+</nav>

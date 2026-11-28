@@ -1,6 +1,8 @@
 from flask import Blueprint, jsonify, render_template, request
 
 from backend.middleware.auth_guard import require_role, resolve_driver_id
+from core.ops_rules import normalize_schedule_status
+from database.trip_camera_service import lay_trang_thai_camera_cho_tai_xe
 from database.mysql_service import (
     lay_dashboard_tai_xe,
     lay_lich_chay_tai_xe,
@@ -23,7 +25,13 @@ def driver_dashboard():
         return "Không có quyền truy cập hồ sơ tài xế này.", 403
 
     data = lay_dashboard_tai_xe(tai_xe_id)
-    return render_template("driver/dashboard.html", data=data)
+    return render_template(
+        "driver/dashboard.html",
+        data=data,
+        tai_xe_id=tai_xe_id,
+        schedule_status=normalize_schedule_status(data.get("trang_thai")) if data else None,
+        camera=lay_trang_thai_camera_cho_tai_xe(tai_xe_id) or {},
+    )
 
 
 # DRIVER SCHEDULES
