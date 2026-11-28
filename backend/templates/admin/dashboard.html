@@ -3,523 +3,130 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <meta name="theme-color" content="#14211B">
+    <title>Tổng quan · Sleep Alert</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/design-system.css') }}">
+    <script src="{{ url_for('static', filename='js/ui-kit.js') }}"></script>
 </head>
+<body class="ds-body" data-monitor="{{ 'true' if can_monitor else 'false' }}" data-update-alerts="{{ 'true' if can_update_alerts else 'false' }}">
+<a class="ds-skip" href="#main">Bỏ qua điều hướng</a>
 
-<body class="bg-slate-950 text-white min-h-screen">
+<div class="ds-shell">
+    {% include 'shared/admin_navigation.html' %}
 
-<nav class="sticky top-0 z-50 bg-slate-950/90 backdrop-blur border-b border-slate-800">
-    <div class="max-w-7xl mx-auto px-4 py-4">
-        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+    <main id="main" class="ds-main">
+        <section class="ds-hero">
             <div>
-                <h1 class="text-xl font-bold">DACN1 Admin</h1>
-                <p class="text-sm text-slate-400">Hệ thống giám sát tài xế bằng AI</p>
+                <h1 class="ds-display">{{ workspace_role if staff_workspace else 'Tổng quan' }}</h1>
+                <p>Tổng số tài xế: <span id="tong_tai_xe">–</span></p>
             </div>
+            <span class="ds-sync" data-state="wait" data-sync><span class="ds-sync__dot"></span><span data-sync-text>Đang kết nối</span></span>
+        </section>
 
-            <div class="flex gap-2 overflow-x-auto pb-1">
-                <a href="/admin/dashboard" class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">Dashboard</a>
-                <a href="/admin/operations" class="admin-link px-4 py-2 rounded-xl bg-cyan-700 hover:bg-cyan-600 text-sm font-semibold whitespace-nowrap">Vận hành V3</a>
-                <a href="/admin/drivers" class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">Tài xế</a>
-                <a href="/admin/vehicles" class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">Xe</a>
-                <a href="/admin/scheduler" class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">Lịch chạy</a>
-                <a href="/admin/reports" class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">Báo cáo</a>
-                <a href="/admin/analytics" class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">Thống kê</a>
-                <a href="/logout" class="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-sm whitespace-nowrap">Đăng xuất</a>
+        {% if staff_workspace %}
+        <section class="sa-work-start" aria-labelledby="work-start">
+            <h2 id="work-start">Công việc chính</h2>
+            <div class="sa-work-links">
+                {% if can_dispatch %}
+                <a href="/admin/scheduler"><strong>Điều phối lịch chạy</strong><span>Phân công tài xế và xe cho từng lịch.</span></a>
+                <a href="/admin/operations?tab=requests"><strong>Yêu cầu đổi lịch</strong><span>Theo dõi yêu cầu đổi lịch hoặc đổi xe.</span></a>
+                {% else %}
+                <a href="/admin/operations?tab=ai"><strong>Theo dõi sự kiện AI</strong><span>Xem cảnh báo và bằng chứng của từng sự kiện.</span></a>
+                <a href="#h-cam"><strong>Kiểm tra camera</strong><span>Xem thiết bị trực tuyến và mất kết nối.</span></a>
+                {% endif %}
+                <a href="/admin/reports"><strong>Báo cáo sự cố</strong><span>Xem báo cáo từ tài xế.</span></a>
             </div>
-        </div>
-    </div>
-</nav>
+        </section>
+        {% endif %}
 
-<main class="max-w-7xl mx-auto p-6">
+        <section class="ds-stats" aria-label="Số liệu chính">
+            <article class="ds-stat ds-stat--safe">
+                <div class="ds-stat__label"><span aria-hidden="true">●</span> Xe đang chạy</div>
+                <div id="xe_dang_hoat_dong" class="ds-stat__value">0</div>
+                <div class="ds-stat__hint">trên tổng <span id="tong_xe">0</span> xe</div>
+            </article>
+            <article class="ds-stat ds-stat--danger">
+                <div class="ds-stat__label"><span aria-hidden="true">▲</span> Cảnh báo AI hôm nay</div>
+                <div id="canh_bao_hom_nay" class="ds-stat__value">0</div>
+                <div class="ds-stat__hint">Buồn ngủ, người lạ, sai xe</div>
+            </article>
+            <article class="ds-stat ds-stat--brand"{% if not can_monitor %} hidden{% endif %}>
+                <div class="ds-stat__label"><span aria-hidden="true">◉</span> Camera trực tuyến</div>
+                <div class="ds-stat__value"><span id="camera_online">–</span><small> / <span id="camera_total">–</span></small></div>
+                <div id="camera_hint" class="ds-stat__hint">Đang kiểm tra thiết bị</div>
+            </article>
+            <article class="ds-stat ds-stat--caution">
+                <div class="ds-stat__label"><span aria-hidden="true">◆</span> Báo cáo chờ xử lý</div>
+                <div id="bao_cao_chua_xu_ly" class="ds-stat__value">0</div>
+                <div class="ds-stat__hint">Phản ánh từ tài xế</div>
+            </article>
+        </section>
 
-    <div class="mb-6">
-        <h1 class="text-3xl font-black">Admin Dashboard</h1>
-        <p class="text-slate-400 mt-1">Giám sát tài xế, xe, cảnh báo AI và báo cáo sự cố</p>
-    </div>
-
-    <!-- STATS -->
-    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-        <div class="bg-slate-900 rounded-3xl p-5 border border-slate-800 shadow-xl">
-            <p class="text-slate-400 text-sm">👨‍✈️ Tài xế</p>
-            <h2 id="tong_tai_xe" class="text-4xl font-black mt-2">0</h2>
-        </div>
-
-        <div class="bg-slate-900 rounded-3xl p-5 border border-slate-800 shadow-xl">
-            <p class="text-slate-400 text-sm">🚛 Xe</p>
-            <h2 id="tong_xe" class="text-4xl font-black mt-2">0</h2>
-        </div>
-
-        <div class="bg-slate-900 rounded-3xl p-5 border border-slate-800 shadow-xl">
-            <p class="text-slate-400 text-sm">🟢 Xe đang hoạt động</p>
-            <h2 id="xe_dang_hoat_dong" class="text-4xl font-black mt-2 text-green-400">0</h2>
-        </div>
-
-        <div class="bg-slate-900 rounded-3xl p-5 border border-slate-800 shadow-xl">
-            <p class="text-slate-400 text-sm">🚨 Cảnh báo hôm nay</p>
-            <h2 id="canh_bao_hom_nay" class="text-4xl font-black mt-2 text-red-400">0</h2>
-        </div>
-
-        <div class="bg-slate-900 rounded-3xl p-5 border border-slate-800 shadow-xl">
-            <p class="text-slate-400 text-sm">📋 Báo cáo chờ xử lý</p>
-            <h2 id="bao_cao_chua_xu_ly" class="text-4xl font-black mt-2 text-yellow-400">0</h2>
-        </div>
-    </div>
-
-    <!-- QUICK ACTIONS -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <a href="/admin/drivers" class="rounded-3xl p-5 bg-blue-600 hover:bg-blue-700 transition shadow-lg">
-            <p class="text-2xl mb-2">👨‍✈️</p>
-            <h3 class="font-bold">Quản lý tài xế</h3>
-            <p class="text-sm text-blue-100 mt-1">Cập nhật hồ sơ, trạng thái</p>
-        </a>
-
-        <a href="/admin/vehicles" class="rounded-3xl p-5 bg-green-600 hover:bg-green-700 transition shadow-lg">
-            <p class="text-2xl mb-2">🚛</p>
-            <h3 class="font-bold">Quản lý xe</h3>
-            <p class="text-sm text-green-100 mt-1">Xe, biển số, phân công</p>
-        </a>
-
-        <a href="/admin/scheduler" class="rounded-3xl p-5 bg-purple-600 hover:bg-purple-700 transition shadow-lg">
-            <p class="text-2xl mb-2">📅</p>
-            <h3 class="font-bold">Lịch chạy</h3>
-            <p class="text-sm text-purple-100 mt-1">Tạo và cập nhật ca chạy</p>
-        </a>
-
-        <a href="/admin/reports" class="rounded-3xl p-5 bg-red-600 hover:bg-red-700 transition shadow-lg">
-            <p class="text-2xl mb-2">🛠️</p>
-            <h3 class="font-bold">Báo cáo sự cố</h3>
-            <p class="text-sm text-red-100 mt-1">Xử lý phản ánh tài xế</p>
-        </a>
-    </div>
-
-    <!-- LIVE MONITOR -->
-    <div class="bg-slate-900 rounded-3xl p-5 border border-slate-800 mb-6 shadow-xl">
-        <div class="flex justify-between items-center mb-4">
-            <div>
-                <h2 class="text-xl font-bold">Xe đang hoạt động</h2>
-                <p class="text-sm text-slate-400">Theo dõi phiên lái và trạng thái AI mới nhất</p>
-            </div>
-            <span class="text-xs bg-slate-800 px-3 py-1 rounded-full text-slate-400">Auto refresh 5s</span>
-        </div>
-
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-                <thead class="text-slate-400 border-b border-slate-700">
-                    <tr>
-                        <th class="text-left py-3">Biển số</th>
-                        <th class="text-left py-3">Tài xế</th>
-                        <th class="text-left py-3">Phiên</th>
-                        <th class="text-left py-3">AI Status</th>
-                        <th class="text-left py-3">Risk</th>
-                        <th class="text-left py-3">Thời gian AI</th>
-                    </tr>
-                </thead>
-                <tbody id="xe_live"></tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- P0-3: TRẠNG THÁI THIẾT BỊ CAMERA (HEARTBEAT) -->
-    <div class="bg-slate-900 rounded-3xl p-5 border border-slate-800 mb-6 shadow-xl">
-        <div class="flex justify-between items-center mb-4">
-            <div>
-                <h2 class="text-xl font-bold">📷 Trạng thái Thiết bị Camera (Heartbeat)</h2>
-                <p class="text-sm text-slate-400">Phát hiện mất kết nối camera/mạng theo thời gian thực (Offline sau 60s)</p>
-            </div>
-            <span class="text-xs bg-slate-800 px-3 py-1 rounded-full text-slate-400">Heartbeat 20s</span>
-        </div>
-        <div id="device_status_list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <p class="text-slate-400 text-sm">Đang kiểm tra thiết bị...</p>
-        </div>
-    </div>
-
-    <!-- P0-2: QUẢN LÝ VÒNG ĐỜI CẢNH BÁO (ALERT LIFECYCLE) -->
-    <div class="bg-slate-900 rounded-3xl p-5 border border-slate-800 mb-6 shadow-xl">
-        <div class="flex justify-between items-center mb-4">
-            <div>
-                <h2 class="text-xl font-bold">🚨 Quản lý Vòng đời Cảnh báo (Alert Lifecycle)</h2>
-                <p class="text-sm text-slate-400">Tiếp nhận, xử lý, đóng hoặc gắn cờ báo sai cho từng sự kiện cảnh báo</p>
-            </div>
-            <select id="alert_status_filter" onchange="loadAlertLifecycle()" class="bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm text-white">
-                <option value="">Tất cả trạng thái</option>
-                <option value="MOI">Mới (MOI)</option>
-                <option value="DA_TIEP_NHAN">Đã tiếp nhận</option>
-                <option value="DANG_XU_LY">Đang xử lý</option>
-                <option value="DA_DONG">Đã đóng</option>
-                <option value="CANH_BAO_SAI">Cảnh báo sai</option>
-            </select>
-        </div>
-        <div id="alert_lifecycle_list" class="space-y-3">
-            <p class="text-slate-400 text-sm">Đang tải danh sách sự kiện cảnh báo...</p>
-        </div>
-    </div>
-
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-        <div class="bg-slate-900 rounded-3xl p-5 border border-slate-800 shadow-xl">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-bold">Cảnh báo AI mới nhất</h2>
-                <a href="/admin/analytics" class="text-sm text-blue-400 hover:text-blue-300">Xem thống kê</a>
-            </div>
-            <div id="canh_bao_moi" class="space-y-3"></div>
-        </div>
-
-        <div class="bg-slate-900 rounded-3xl p-5 border border-slate-800 shadow-xl">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-bold">Báo cáo tài xế mới nhất</h2>
-                <a href="/admin/reports" class="text-sm text-blue-400 hover:text-blue-300">Xem tất cả</a>
-            </div>
-            <div id="bao_cao_moi" class="space-y-3"></div>
-        </div>
-
-    </div>
-
-    <!-- THƯ VIỆN ẢNH VI PHẠM & NGƯỜI LẠ (SUPABASE STORAGE) -->
-    <section class="mt-6 bg-slate-900 border border-slate-800 rounded-3xl p-6">
-        <div class="flex items-center justify-between mb-4">
-            <h2 class="text-xl font-bold">Thư viện ảnh vi phạm & Người lạ gần đây</h2>
-            <span class="text-xs text-slate-400">Đồng bộ từ Supabase Storage</span>
-        </div>
-        <div id="snapshot_gallery" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <p class="text-slate-400 text-sm">Đang tải ảnh...</p>
-        </div>
-    </section>
-
-</main>
-
-<script>
-const currentPath = window.location.pathname;
-
-document.querySelectorAll(".admin-link").forEach(link => {
-    if (link.getAttribute("href") === currentPath) {
-        link.classList.remove("bg-slate-800");
-        link.classList.add("bg-blue-600");
-    }
-});
-
-function statusColor(status) {
-    if (status === "BUON NGU") return "bg-red-500/20 text-red-300 border border-red-500/30";
-    if (status === "MET MOI") return "bg-yellow-500/20 text-yellow-300 border border-yellow-500/30";
-    if (status === "TINH TAO") return "bg-green-500/20 text-green-300 border border-green-500/30";
-    if (status === "CHO_XU_LY") return "bg-yellow-500/20 text-yellow-300 border border-yellow-500/30";
-    if (status === "DANG_XU_LY") return "bg-blue-500/20 text-blue-300 border border-blue-500/30";
-    if (status === "DA_XU_LY") return "bg-green-500/20 text-green-300 border border-green-500/30";
-    if (status === "MOI") return "bg-rose-500/20 text-rose-300 border border-rose-500/40";
-    if (status === "DA_TIEP_NHAN") return "bg-amber-500/20 text-amber-300 border border-amber-500/40";
-    if (status === "DA_DONG") return "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40";
-    if (status === "CANH_BAO_SAI") return "bg-slate-700/80 text-slate-300 border border-slate-600";
-    return "bg-slate-700 text-slate-300 border border-slate-600";
-}
-
-async function loadDashboard() {
-    try {
-        const res = await fetch("/api/admin/dashboard");
-        const json = await res.json();
-        const data = json.data || {};
-
-        document.getElementById("tong_tai_xe").innerText = data.tong_tai_xe || 0;
-        document.getElementById("tong_xe").innerText = data.tong_xe || 0;
-        document.getElementById("xe_dang_hoat_dong").innerText = data.xe_dang_hoat_dong || 0;
-        document.getElementById("canh_bao_hom_nay").innerText = data.canh_bao_hom_nay || 0;
-        document.getElementById("bao_cao_chua_xu_ly").innerText = data.bao_cao_chua_xu_ly || 0;
-
-        renderLive(data.xe_live || []);
-        renderAlerts(data.canh_bao_moi || []);
-        renderReports(data.bao_cao_moi || []);
-        loadSnapshots();
-        loadDevices();
-        loadAlertLifecycle();
-
-    } catch (error) {
-        console.error("Dashboard error:", error);
-    }
-}
-
-async function loadDevices() {
-    try {
-        const res = await fetch("/api/admin/devices");
-        const json = await res.json();
-        const rows = json.data || [];
-        const box = document.getElementById("device_status_list");
-        if (!box) return;
-
-        if (rows.length === 0) {
-            box.innerHTML = `<p class="text-slate-400 text-sm">Chưa có thiết bị camera nào gửi heartbeat.</p>`;
-            return;
-        }
-
-        box.innerHTML = rows.map(d => {
-            const health = d.health_status || (d.online ? "ONLINE_HEALTHY" : "OFFLINE");
-            let badge = `<span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40">🔴 OFFLINE (${d.seconds_since_seen ?? "?"}s)</span>`;
-            if (health === "ONLINE_HEALTHY") {
-                badge = `<span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">🟢 HEALTHY • ${Number(d.fps || 0).toFixed(0)} FPS</span>`;
-            } else if (health === "ONLINE_DEGRADED") {
-                badge = `<span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">🟡 DEGRADED • ${Number(d.fps || 0).toFixed(0)} FPS</span>`;
-            }
-            const outboxBadge = (d.outbox_pending || 0) > 0
-                ? `<span class="text-xs text-amber-300 ml-2">Outbox chờ: ${d.outbox_pending}</span>`
-                : "";
-            const dlqBadge = (d.dead_letter_count || 0) > 0
-                ? `<span class="text-xs text-rose-300 ml-2">Lỗi DLQ: ${d.dead_letter_count}</span>`
-                : "";
-            return `
-                <div class="bg-slate-800/80 border border-slate-700 rounded-2xl p-4">
-                    <div class="flex items-center justify-between gap-2">
-                        <h3 class="font-bold text-sm truncate">${d.device_id}</h3>
-                        ${badge}
-                    </div>
-                    <p class="text-xs text-slate-300 mt-2">Xe: <b>${d.bien_so || ("ID " + (d.xe_id || "N/A"))}</b> • Nguồn: ${d.nguon_camera || "0"}</p>
-                    <p class="text-xs text-slate-400 mt-1">Tài xế: ${d.ho_ten || "Chưa khóa"} ${outboxBadge} ${dlqBadge}</p>
-                    <p class="text-[11px] text-slate-500 mt-1">Heartbeat cuối: ${d.lan_cuoi_ket_noi || ""}</p>
+        <div class="ds-grid-2">
+            <section class="ds-card" aria-labelledby="h-live">
+                <div class="ds-card__head">
+                    <div><h2 id="h-live" class="ds-display">Xe đang chạy</h2><p>Phiên lái và trạng thái AI mới nhất</p></div>
                 </div>
-            `;
-        }).join("");
-    } catch (err) {
-        console.error("Load devices error:", err);
-    }
-}
-
-async function loadAlertLifecycle() {
-    try {
-        const filterEl = document.getElementById("alert_status_filter");
-        const statusParam = filterEl && filterEl.value ? `?trang_thai=${encodeURIComponent(filterEl.value)}&limit=15` : "?limit=15";
-        const res = await fetch(`/api/admin/alerts${statusParam}`);
-        const json = await res.json();
-        const rows = json.data || [];
-        const box = document.getElementById("alert_lifecycle_list");
-        if (!box) return;
-
-        if (rows.length === 0) {
-            box.innerHTML = `<p class="text-slate-400 text-sm">Chưa có sự kiện cảnh báo nào trong danh sách.</p>`;
-            return;
-        }
-
-        box.innerHTML = rows.map(item => `
-            <div class="bg-slate-800/80 border border-slate-700 rounded-2xl p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                <div class="min-w-0">
-                    <div class="flex flex-wrap items-center gap-2">
-                        <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-600/30 text-rose-200 border border-rose-500/40">${item.loai_canh_bao}</span>
-                        <span class="px-2.5 py-0.5 rounded-full text-xs ${statusColor(item.trang_thai)}">${item.trang_thai}</span>
-                        <span class="text-xs text-slate-400">${item.bien_so || ("Xe " + (item.xe_id || "N/A"))} • ${item.ho_ten || "Chưa xác định"}</span>
-                    </div>
-                    <p class="text-sm text-slate-200 mt-1.5">${item.noi_dung || ""}</p>
-                    <p class="text-[11px] text-slate-500 mt-1">
-                        Risk: ${item.risk_score || 0} • Nguồn: ${item.nguon || "edge"} • ${item.thoi_gian_xay_ra || ""}
-                        ${item.nguoi_xu_ly ? ` • Xử lý bởi: ${item.nguoi_xu_ly}` : ""}
-                        ${item.ghi_chu_xu_ly ? ` • Ghi chú: ${item.ghi_chu_xu_ly}` : ""}
-                    </p>
+                <div class="ds-table-wrap">
+                    <table class="ds-table">
+                        <thead><tr><th>Biển số</th><th>Tài xế</th><th>Phiên</th><th>Trạng thái AI</th><th>Điểm rủi ro</th><th>Cập nhật AI</th></tr></thead>
+                        <tbody id="xe_live"><tr><td colspan="6"><div class="ds-skeleton" style="height:48px"></div></td></tr></tbody>
+                    </table>
                 </div>
-                <div class="flex flex-wrap items-center gap-2 shrink-0">
-                    ${item.image_url ? `<a href="${item.image_url}" target="_blank" class="px-3 py-1.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-xs">Xem ảnh</a>` : ""}
-                    ${item.trang_thai === "MOI" ? `<button onclick="updateAlertStatus(${item.id}, 'DA_TIEP_NHAN', '${item.trang_thai}')" class="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-xs font-semibold">Tiếp nhận</button>` : ""}
-                    ${item.trang_thai !== "DA_DONG" && item.trang_thai !== "CANH_BAO_SAI" ? `
-                        <button onclick="updateAlertStatus(${item.id}, 'DA_DONG', '${item.trang_thai}')" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold">Đã đóng</button>
-                        <button onclick="updateAlertStatus(${item.id}, 'CANH_BAO_SAI', '${item.trang_thai}')" class="px-3 py-1.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-xs">Báo sai</button>
-                    ` : ""}
+            </section>
+
+            <section class="ds-card" aria-labelledby="h-cam"{% if not can_monitor %} hidden{% endif %}>
+                <div class="ds-card__head">
+                    <div><h2 id="h-cam" class="ds-display">Kết nối camera</h2><p>Mất kết nối sau 60 giây không có heartbeat</p></div>
                 </div>
-            </div>
-        `).join("");
-    } catch (err) {
-        console.error("Load alert lifecycle error:", err);
-    }
-}
-
-async function updateAlertStatus(alertId, newStatus, expectedStatus) {
-    try {
-        const res = await fetch(`/api/admin/alerts/${alertId}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                trang_thai: newStatus,
-                expected_status: expectedStatus || null,
-            }),
-        });
-        if (!res.ok) {
-            const errJson = await res.json().catch(() => ({}));
-            alert(errJson.message || "Không thể cập nhật trạng thái cảnh báo");
-            loadAlertLifecycle();
-            return;
-        }
-        loadAlertLifecycle();
-    } catch (err) {
-        console.error("Update alert status error:", err);
-    }
-}
-
-async function loadSnapshots() {
-    try {
-        const res = await fetch("/api/admin/snapshots");
-        const json = await res.json();
-        const rows = json.data || [];
-        const box = document.getElementById("snapshot_gallery");
-        if (!box) return;
-
-        if (rows.length === 0) {
-            box.innerHTML = `<p class="text-slate-400 text-sm">Chưa có ảnh vi phạm nào được lưu.</p>`;
-            return;
-        }
-
-        box.innerHTML = rows.slice(0, 8).map(item => `
-            <a href="${item.image_url}" target="_blank"
-               class="block bg-slate-800/80 border border-slate-700 hover:border-cyan-500 rounded-2xl overflow-hidden transition">
-                <img src="${item.image_url}" alt="Snapshot"
-                     class="w-full h-36 object-cover bg-slate-950"
-                     onerror="this.style.display='none'" />
-                <div class="p-3">
-                    <div class="flex items-center justify-between gap-2">
-                        <span class="text-xs font-bold ${item.type === 'BUON_NGU' ? 'text-rose-400' : 'text-amber-400'}">${item.type}</span>
-                        <span class="text-[11px] text-slate-400">${item.vehicle}</span>
-                    </div>
-                    <p class="text-sm font-semibold mt-1 truncate">${item.driver_name}</p>
-                    <p class="text-xs text-slate-400 truncate">${item.note || ""}</p>
-                    <p class="text-[11px] text-slate-500 mt-1">${item.thoi_gian || ""}</p>
-                </div>
-            </a>
-        `).join("");
-    } catch (err) {
-        console.error("Load snapshots error:", err);
-    }
-}
-
-function renderLive(rows) {
-    const liveBox = document.getElementById("xe_live");
-    liveBox.innerHTML = "";
-
-    if (rows.length === 0) {
-        liveBox.innerHTML = `
-            <tr>
-                <td colspan="6" class="py-5 text-slate-400">
-                    Chưa có xe đang hoạt động
-                </td>
-            </tr>
-        `;
-        return;
-    }
-
-    rows.forEach(item => {
-        liveBox.innerHTML += `
-            <tr class="border-b border-slate-800 hover:bg-slate-800/40">
-                <td class="py-3 font-mono">${item.bien_so || "N/A"}</td>
-                <td class="py-3">${item.ho_ten || "Chưa xác định"}</td>
-                <td class="py-3">${item.trang_thai_phien || "N/A"}</td>
-                <td class="py-3">
-                    <span class="px-3 py-1 rounded-full text-xs ${statusColor(item.ai_status)}">
-                        ${item.ai_status || "Chưa có"}
-                    </span>
-                </td>
-                <td class="py-3 font-bold">${item.risk_score || 0}</td>
-                <td class="py-3 text-slate-400">${item.thoi_gian || ""}</td>
-            </tr>
-        `;
-    });
-}
-
-function renderAlerts(rows) {
-    const alertBox = document.getElementById("canh_bao_moi");
-    alertBox.innerHTML = "";
-
-    if (rows.length === 0) {
-        alertBox.innerHTML = `<p class="text-slate-400">Chưa có cảnh báo AI</p>`;
-        return;
-    }
-
-    rows.forEach(item => {
-        alertBox.innerHTML += `
-            <div class="bg-slate-800/80 border border-slate-700 rounded-2xl p-4">
-                <div class="flex justify-between gap-3">
-                    <div>
-                        <h3 class="font-bold">${item.ho_ten || "Chưa xác định"}</h3>
-                        <p class="text-slate-400 text-sm">${item.bien_so || "N/A"}</p>
-                    </div>
-                    <span class="px-3 py-1 rounded-full text-xs h-fit ${statusColor(item.trang_thai)}">
-                        ${item.trang_thai}
-                    </span>
-                </div>
-                <p class="text-sm mt-3">Risk: <b>${item.risk_score || 0}</b> | EAR: ${item.ear || 0} | MAR: ${item.mar || 0}</p>
-                <p class="text-xs text-slate-500 mt-1">${item.thoi_gian || ""}</p>
-            </div>
-        `;
-    });
-}
-
-function renderReports(rows) {
-    const reportBox = document.getElementById("bao_cao_moi");
-    reportBox.innerHTML = "";
-
-    if (rows.length === 0) {
-        reportBox.innerHTML = `<p class="text-slate-400">Chưa có báo cáo tài xế</p>`;
-        return;
-    }
-
-    rows.forEach(item => {
-        reportBox.innerHTML += `
-            <div class="bg-slate-800/80 border border-slate-700 rounded-2xl p-4">
-                <div class="flex justify-between gap-3">
-                    <div>
-                        <h3 class="font-bold">${item.tieu_de || "Không có tiêu đề"}</h3>
-                        <p class="text-slate-400 text-sm">${item.ho_ten || "Tài xế ID " + item.tai_xe_id}</p>
-                    </div>
-                    <span class="px-3 py-1 rounded-full text-xs h-fit ${statusColor(item.trang_thai)}">
-                        ${item.trang_thai}
-                    </span>
-                </div>
-                <p class="text-sm mt-3">${item.loai_su_co || "KHAC"} - ${item.bien_so || "N/A"}</p>
-                <p class="text-xs text-slate-500 mt-1">${item.created_at || ""}</p>
-            </div>
-        `;
-    });
-}
-
-loadDashboard();
-setInterval(loadDashboard, 5000);
-
-// REALTIME SSE CANH BAO TU AI (main.py)
-const toastContainer = document.createElement("div");
-toastContainer.id = "realtimeToastContainer";
-toastContainer.className = "fixed bottom-5 right-5 z-50 flex flex-col gap-3 max-w-sm w-full pointer-events-none";
-document.body.appendChild(toastContainer);
-
-function showRealtimeAlertToast(eventData) {
-    const isCritical = ["BUON_NGU", "NGUOI_LA", "SAI_XE"].includes(eventData.type);
-    const borderClass = isCritical ? "border-rose-500/70 bg-slate-900/95" : "border-amber-500/70 bg-slate-900/95";
-    const badgeClass = isCritical ? "bg-rose-600 text-white" : "bg-amber-500 text-slate-950";
-
-    const toast = document.createElement("div");
-    toast.className = `pointer-events-auto rounded-2xl border ${borderClass} p-4 shadow-2xl backdrop-blur text-white transition-all`;
-
-    const imgHtml = eventData.snapshot_url
-        ? `<img src="${eventData.snapshot_url}" alt="Snapshot" class="mt-2 w-full h-32 object-cover rounded-xl border border-slate-700" />`
-        : "";
-
-    toast.innerHTML = `
-        <div class="flex items-center justify-between gap-2">
-            <span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${badgeClass}">${eventData.type}</span>
-            <span class="text-xs text-slate-400">${eventData.timestamp || ""}</span>
+                <div id="device_status_list" class="ds-card__body ds-stack"><div class="ds-skeleton" style="height:72px"></div></div>
+            </section>
         </div>
-        <p class="font-bold text-sm mt-2">${eventData.driver_name || "Chưa xác định"} • ${eventData.vehicle_name || "N/A"}</p>
-        <p class="text-xs text-slate-300 mt-1">${eventData.message || ""}</p>
-        ${imgHtml}
-    `;
 
-    toastContainer.prepend(toast);
-    setTimeout(() => toast.remove(), 12000);
-}
+        <section class="ds-card" style="margin-bottom:16px" aria-labelledby="h-life"{% if not can_monitor %} hidden{% endif %}>
+            <div class="ds-card__head">
+                <div><h2 id="h-life" class="ds-display">{{ 'Xử lý cảnh báo' if can_update_alerts else 'Theo dõi cảnh báo' }}</h2>
+                    <p>{{ 'Tiếp nhận, đóng hoặc gắn cờ báo sai từng sự kiện' if can_update_alerts else 'Xem nội dung và trạng thái xử lý từng sự kiện.' }}</p></div>
+                <label class="ds-sr" for="alert_status_filter">Lọc theo trạng thái</label>
+                <select id="alert_status_filter" class="ds-select">
+                    <option value="">Tất cả trạng thái</option>
+                    <option value="MOI">Mới</option>
+                    <option value="DA_TIEP_NHAN">Đã tiếp nhận</option>
+                    <option value="DANG_XU_LY">Đang xử lý</option>
+                    <option value="DA_DONG">Đã đóng</option>
+                    <option value="CANH_BAO_SAI">Cảnh báo sai</option>
+                </select>
+            </div>
+            <div id="alert_lifecycle_list" class="ds-card__body ds-stack"><div class="ds-skeleton" style="height:72px"></div></div>
+        </section>
 
-try {
-    const sse = new EventSource("/api/admin/events");
-    sse.addEventListener("alert", (e) => {
-        try {
-            const eventData = JSON.parse(e.data);
-            showRealtimeAlertToast(eventData);
-            loadDashboard();
-        } catch (err) {
-            console.error("Parse SSE alert error:", err);
-        }
-    });
-} catch (err) {
-    console.warn("SSE khong kha dung:", err);
-}
-</script>
+        <div class="ds-grid-eq">
+            <section class="ds-card" aria-labelledby="h-ai">
+                <div class="ds-card__head">
+                    <h2 id="h-ai" class="ds-display">Cảnh báo AI mới nhất</h2>
+                    <a class="ds-link" href="/admin/analytics">Xem thống kê</a>
+                </div>
+                <div id="canh_bao_moi" class="ds-card__body ds-stack"><div class="ds-skeleton" style="height:72px"></div></div>
+            </section>
+            <section class="ds-card" aria-labelledby="h-rp">
+                <div class="ds-card__head">
+                    <h2 id="h-rp" class="ds-display">Báo cáo tài xế mới nhất</h2>
+                    <a class="ds-link" href="/admin/reports">Xem tất cả</a>
+                </div>
+                <div id="bao_cao_moi" class="ds-card__body ds-stack"><div class="ds-skeleton" style="height:72px"></div></div>
+            </section>
+        </div>
 
+        <section class="ds-card" aria-labelledby="h-gal"{% if not can_monitor %} hidden{% endif %}>
+            <div class="ds-card__head">
+                <div><h2 id="h-gal" class="ds-display">Ảnh vi phạm và người lạ</h2><p>Đồng bộ từ Supabase Storage</p></div>
+            </div>
+            <div id="snapshot_gallery" class="ds-card__body ds-gallery"><div class="ds-skeleton" style="height:180px"></div></div>
+        </section>
+    </main>
+</div>
+
+<div id="realtimeToastContainer" class="ds-toast-stack" aria-live="polite"></div>
+<script src="{{ url_for('static', filename='js/admin-dashboard.js') }}"></script>
 </body>
+</html>

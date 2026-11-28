@@ -1,16 +1,10 @@
 /**
  * DACN1 V4.0 — Shared Web UI Kit (Zero alert/confirm/prompt)
- * Primitives: UI.toast, UI.openDrawer, UI.closeDrawer, UI.confirmAction,
+ * Primitives: UI.notify, UI.confirmDialog, UI.openDrawer, UI.closeDrawer, UI.confirmAction,
  *             UI.openLightbox, UI.skeletonRows, UI.hasPerm
  */
 (function (global) {
   function _ensureContainers() {
-    if (!document.getElementById("v4-toast-stack")) {
-      const stack = document.createElement("div");
-      stack.id = "v4-toast-stack";
-      stack.className = "fixed top-4 right-4 z-[9999] flex flex-col gap-2 w-[340px] max-w-[92vw] pointer-events-none";
-      document.body.appendChild(stack);
-    }
     if (!document.getElementById("v4-drawer-root")) {
       const dr = document.createElement("div");
       dr.id = "v4-drawer-root";
@@ -34,6 +28,50 @@
       .replace(/"/g, "&quot;");
   }
 
+  let dialogQueue = Promise.resolve();
+
+  function showDialog(message, { title, type = "info", confirmLabel } = {}) {
+    const open = () => new Promise((resolve) => {
+      const dialog = document.createElement("dialog");
+      dialog.className = "sa-dialog";
+      dialog.dataset.type = type;
+      dialog.setAttribute("aria-labelledby", "sa-dialog-title");
+      dialog.setAttribute("aria-describedby", "sa-dialog-message");
+      dialog.innerHTML = `
+        <form method="dialog">
+          <h2 id="sa-dialog-title"></h2>
+          <p id="sa-dialog-message"></p>
+          <div class="sa-dialog-actions">
+            <button class="sa-dialog-cancel" value="cancel" autofocus>Quay lại</button>
+            <button class="sa-dialog-confirm" value="confirm">Đóng</button>
+          </div>
+        </form>
+      `;
+      dialog.querySelector("h2").textContent = title || ({
+        success: "Thành công", error: "Thao tác thất bại", warning: "Cần kiểm tra"
+      }[type] || "Thông báo");
+      dialog.querySelector("p").textContent = message || "Không có thông tin chi tiết.";
+      const cancel = dialog.querySelector(".sa-dialog-cancel");
+      const confirm = dialog.querySelector(".sa-dialog-confirm");
+      if (confirmLabel) confirm.textContent = confirmLabel;
+      else {
+        cancel.hidden = true;
+        cancel.removeAttribute("autofocus");
+        confirm.autofocus = true;
+      }
+      dialog.addEventListener("close", () => {
+        const accepted = dialog.returnValue === "confirm";
+        dialog.remove();
+        resolve(accepted);
+      }, { once: true });
+      document.body.appendChild(dialog);
+      dialog.showModal();
+    });
+    const result = dialogQueue.then(open);
+    dialogQueue = result.catch(() => {});
+    return result;
+  }
+
   const UI = {
     escHtml,
 
@@ -43,24 +81,12 @@
       return user.vai_tro === "quan_ly" || user.vai_tro === "quan_tri_cong_ty";
     },
 
-    toast(message, type = "info") {
-      _ensureContainers();
-      const stack = document.getElementById("v4-toast-stack");
-      const palette = {
-        success: "border-emerald-500/40 bg-[#161f30] text-emerald-200",
-        error: "border-rose-500/50 bg-[#2a1219] text-rose-200",
-        warning: "border-amber-500/40 bg-[#271d0e] text-amber-200",
-        info: "border-sky-500/40 bg-[#161f30] text-sky-200",
-      }[type] || "border-sky-500/40 bg-[#161f30] text-sky-200";
+    notify(message, type = "info") {
+      return showDialog(message, { type });
+    },
 
-      const el = document.createElement("div");
-      el.className = `pointer-events-auto p-3.5 rounded-2xl border shadow-2xl text-xs font-medium leading-relaxed transition-all ${palette}`;
-      el.innerHTML = `<div class="flex items-start justify-between gap-2"><span>${escHtml(message)}</span><button class="opacity-60 hover:opacity-100" onclick="this.parentElement.parentElement.remove()">✕</button></div>`;
-      stack.appendChild(el);
-      setTimeout(() => {
-        el.style.opacity = "0";
-        setTimeout(() => el.remove(), 220);
-      }, 4500);
+    confirmDialog(message, { title, confirmLabel = "Xác nhận" } = {}) {
+      return showDialog(message, { title, type: "warning", confirmLabel });
     },
 
     openDrawer({ title = "", subtitle = "", html = "" }) {
@@ -136,7 +162,7 @@
         const reasonEl = document.getElementById("v4-confirm-reason");
         const reason = reasonEl ? reasonEl.value.trim() : "";
         if (requireReason && reason.length < 3) {
-          UI.toast("Vui lòng nhập lý do chi tiết trước khi xác nhận.", "warning");
+          UI.notify("Vui lòng nhập lý do chi tiết trước khi xác nhận.", "warning");
           return;
         }
         btn.disabled = true;
@@ -145,7 +171,7 @@
           await onConfirm(reason);
           UI.closeDrawer();
         } catch (err) {
-          UI.toast(err?.message || "Thao tác thất bại.", "error");
+          UI.notify(err?.message || "Thao tác thất bại.", "error");
           btn.disabled = false;
           btn.textContent = confirmLabel;
         }
@@ -171,7 +197,7 @@
   };
 
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") {
+    if (e.key === "Escape" && !document.querySelector(".sa-dialog[open]")) {
       UI.closeDrawer();
       const lb = document.getElementById("v4-lightbox-root");
       if (lb) lb.classList.add("hidden");

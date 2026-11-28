@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, render_template
+from flask import Blueprint, jsonify, render_template, request
 
 from backend.middleware.auth_guard import require_role, resolve_driver_id
 from database.mysql_service import (
@@ -15,19 +15,26 @@ driver_bp = Blueprint("driver_bp", __name__)
 @driver_bp.route("/driver/reports")
 @require_role("tai_xe", "quan_ly")
 def driver_reports_page():
-    return render_template("driver/reports.html")
+    return render_driver_page("reports")
 
 
 @driver_bp.route("/driver/violations")
 @require_role("tai_xe", "quan_ly")
 def driver_violations_page():
-    return render_template("driver/violations.html")
+    return render_driver_page("violations")
 
 
 @driver_bp.route("/driver/history")
 @require_role("tai_xe", "quan_ly")
 def driver_history_page():
-    return render_template("driver/history.html")
+    return render_driver_page("history")
+
+
+def render_driver_page(page):
+    tai_xe_id, allowed = resolve_driver_id(request.args.get("tai_xe_id"))
+    if not allowed:
+        return "Không có quyền truy cập hồ sơ tài xế này.", 403
+    return render_template(f"driver/{page}.html", tai_xe_id=tai_xe_id)
 
 
 @driver_bp.route("/api/driver/dashboard/<int:tai_xe_id>")

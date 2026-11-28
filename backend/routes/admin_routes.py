@@ -13,10 +13,16 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 from backend.middleware.auth_guard import require_role
 from core.ops_rules import (
     ADMIN_PANEL_ROLES,
+    AUDIT_VIEW_ROLES,
+    DISPATCH_ROLES,
     FLEET_MANAGE_ROLES,
     FLEET_VIEW_ROLES,
     MANAGER_CONTROL_ROLES,
     MONITOR_ROLES,
+    ROLE_DIEU_PHOI_VIEN,
+    ROLE_GIAM_SAT,
+    ROLE_LABELS,
+    co_quyen,
     mask_sensitive_id,
 )
 from database.mysql_service import (
@@ -41,10 +47,29 @@ from services.storage_service import resolve_snapshot_url
 admin_bp = Blueprint("admin_bp", __name__)
 
 
+@admin_bp.app_context_processor
+def admin_workspace_context():
+    role = (getattr(g, "current_user", None) or {}).get("vai_tro")
+    if role not in ADMIN_PANEL_ROLES:
+        return {}
+    return {
+        "can_dispatch": role in DISPATCH_ROLES,
+        "can_manage_fleet": role in FLEET_MANAGE_ROLES,
+        "can_resolve_reports": co_quyen(role, "reports:resolve"),
+        "workspace_role": ROLE_LABELS[role],
+    }
+
+
 @admin_bp.route("/admin/dashboard")
 @require_role(*ADMIN_PANEL_ROLES)
 def admin_dashboard_page():
-    return render_template("admin/dashboard.html")
+    role = g.current_user["vai_tro"]
+    return render_template(
+        "admin/dashboard.html",
+        can_monitor=role in MONITOR_ROLES,
+        can_update_alerts=role in MANAGER_CONTROL_ROLES,
+        staff_workspace=role in (ROLE_DIEU_PHOI_VIEN, ROLE_GIAM_SAT),
+    )
 
 
 @admin_bp.route("/admin/reports")
@@ -56,7 +81,20 @@ def admin_reports_page():
 @admin_bp.route("/admin/operations")
 @require_role(*ADMIN_PANEL_ROLES)
 def admin_operations_page():
-    return render_template("admin/operations.html")
+    role = g.current_user["vai_tro"]
+    tabs = []
+    if role in MONITOR_ROLES:
+        tabs.append(("ai", "Sự kiện AI"))
+    if role == ROLE_DIEU_PHOI_VIEN:
+        tabs.append(("requests", "Yêu cầu đổi lịch"))
+    tabs.append(("trips", "Chuyến đi"))
+    if role in MANAGER_CONTROL_ROLES:
+        tabs.append(("appeals", "Khiếu nại"))
+    if role in DISPATCH_ROLES and role != ROLE_DIEU_PHOI_VIEN:
+        tabs.append(("requests", "Yêu cầu đổi lịch"))
+    if role in AUDIT_VIEW_ROLES:
+        tabs.append(("org", "Tổ chức và nhật ký"))
+    return render_template("admin/operations.html", operation_tabs=tabs)
 
 
 @admin_bp.route("/api/admin/dashboard")

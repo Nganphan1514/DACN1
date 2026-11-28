@@ -2,42 +2,29 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
+    <meta name="theme-color" content="#14211B">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quản lý báo cáo sự cố</title>
+    <title>Quản lý báo cáo sự cố · Sleep Alert</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/design-system.css') }}">
+    <script src="{{ url_for('static', filename='js/sleep-alert-theme.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/ui-kit.js') }}"></script>
 </head>
 
-<body class="bg-slate-950 text-white min-h-screen">
+<body class="ds-body sa-workspace bg-slate-950 text-white min-h-screen">
 
-<nav class="sticky top-0 z-50 bg-slate-950/90 backdrop-blur border-b border-slate-800">
-    <div class="max-w-7xl mx-auto px-4 py-4">
-        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-                <h1 class="text-xl font-bold">DACN1 Admin</h1>
-                <p class="text-sm text-slate-400">Hệ thống giám sát tài xế bằng AI</p>
-            </div>
-
-            <div class="flex gap-2 overflow-x-auto pb-1">
-                <a href="/admin/dashboard" class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">Dashboard</a>
-                <a href="/admin/drivers" class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">Tài xế</a>
-                <a href="/admin/vehicles" class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">Xe</a>
-                <a href="/admin/scheduler" class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">Lịch chạy</a>
-                <a href="/admin/reports" class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">Báo cáo</a>
-                <a href="/admin/analytics" class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">Thống kê</a>
-                <a href="/logout" class="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-sm whitespace-nowrap">Đăng xuất</a>
-            </div>
-        </div>
-    </div>
-</nav>
+<div class="ds-shell">
+    {% include 'shared/admin_navigation.html' %}
+    <div class="sa-admin-content">
 
 <main class="max-w-7xl mx-auto p-6">
 
-    <div class="mb-6">
+    <div class="sa-page-heading mb-6">
         <h1 class="text-3xl font-black">Báo cáo sự cố</h1>
         <p class="text-slate-400 mt-1">Theo dõi và xử lý báo cáo do tài xế gửi lên hệ thống</p>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+    <div class="sa-metrics grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
             <p class="text-slate-400 text-sm">📋 Tổng báo cáo</p>
             <h2 id="totalReports" class="text-4xl font-black mt-2">0</h2>
@@ -84,12 +71,6 @@
 <script>
 const currentPath = window.location.pathname;
 
-document.querySelectorAll(".admin-link").forEach(link => {
-    if (link.getAttribute("href") === currentPath) {
-        link.classList.remove("bg-slate-800");
-        link.classList.add("bg-blue-600");
-    }
-});
 
 function statusBadge(status) {
     if (status === "CHO_XU_LY") return "bg-yellow-500/20 text-yellow-300 border border-yellow-500/30";
@@ -189,6 +170,7 @@ async function loadReports() {
                     </div>
                 ` : ""}
 
+                {% if can_resolve_reports %}
                 <div class="mb-4">
                     <label class="text-xs text-slate-400 uppercase font-bold">Phản hồi quản lý</label>
                     <textarea id="reply-${item.id}"
@@ -208,6 +190,12 @@ async function loadReports() {
                         Đã xử lý
                     </button>
                 </div>
+                {% else %}
+                ${item.phan_hoi_quan_ly ? `<div class="mb-4">
+                    <p class="text-xs text-slate-400 uppercase font-bold">Phản hồi quản lý</p>
+                    <p class="whitespace-pre-wrap">${UI.escHtml(item.phan_hoi_quan_ly)}</p>
+                </div>` : ""}
+                {% endif %}
             </div>
         `;
     });
@@ -234,11 +222,11 @@ async function updateReport(id, status) {
         });
 
         const data = await res.json();
-        alert(data.message);
+        UI.notify(data.message, data.success ? "success" : "error");
         loadReports();
 
     } catch (error) {
-        alert("Không thể cập nhật báo cáo.");
+        UI.notify("Không thể cập nhật báo cáo.", "error");
     } finally {
         btn.innerText = status === "DANG_XU_LY" ? "Đang xử lý" : "Đã xử lý";
         btn.disabled = false;
@@ -264,6 +252,8 @@ function filterReports() {
 loadReports();
 </script>
 
+    </div>
+</div>
 </body>
 </html>
 <!-- <!DOCTYPE html>

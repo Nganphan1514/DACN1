@@ -2,42 +2,29 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
+    <meta name="theme-color" content="#14211B">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quản lý lịch chạy</title>
+    <title>Quản lý lịch chạy · Sleep Alert</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/design-system.css') }}">
+    <script src="{{ url_for('static', filename='js/sleep-alert-theme.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/ui-kit.js') }}"></script>
 </head>
 
-<body class="bg-slate-950 text-white min-h-screen">
+<body class="ds-body sa-workspace bg-slate-950 text-white min-h-screen">
 
-<nav class="sticky top-0 z-50 bg-slate-950/90 backdrop-blur border-b border-slate-800">
-    <div class="max-w-7xl mx-auto px-4 py-4">
-        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-                <h1 class="text-xl font-bold">DACN1 Admin</h1>
-                <p class="text-sm text-slate-400">Hệ thống giám sát tài xế bằng AI</p>
-            </div>
-
-            <div class="flex gap-2 overflow-x-auto pb-1">
-                <a href="/admin/dashboard" class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">Dashboard</a>
-                <a href="/admin/drivers" class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">Tài xế</a>
-                <a href="/admin/vehicles" class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">Xe</a>
-                <a href="/admin/scheduler" class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">Lịch chạy</a>
-                <a href="/admin/reports" class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">Báo cáo</a>
-                <a href="/admin/analytics" class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">Thống kê</a>
-                <a href="/logout" class="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-sm whitespace-nowrap">Đăng xuất</a>
-            </div>
-        </div>
-    </div>
-</nav>
+<div class="ds-shell">
+    {% include 'shared/admin_navigation.html' %}
+    <div class="sa-admin-content">
 
 <main class="max-w-7xl mx-auto p-6">
 
-    <div class="mb-6">
+    <div class="sa-page-heading mb-6">
         <h1 class="text-3xl font-black">Quản lý lịch chạy</h1>
         <p class="text-slate-400 mt-1">Tạo, cập nhật và hủy lịch chạy cho tài xế</p>
     </div>
 
-<div class="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
+<div class="sa-metrics grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
 
     <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
         <p class="text-slate-400 text-sm">📅 Tổng lịch</p>
@@ -158,7 +145,7 @@
                     class="w-full p-4 rounded-2xl bg-slate-900 border border-slate-800 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
             </div>
 
-            <div id="schedules" class="space-y-4"></div>
+            <div id="schedules" class="sa-schedule-scroll space-y-4" role="region" aria-label="Danh sách lịch chạy" tabindex="0"></div>
         </section>
 
     </div>
@@ -174,14 +161,6 @@ let vehicles = [];
 /* ================================================= */
 /* ACTIVE MENU */
 /* ================================================= */
-document
-    .querySelectorAll(".admin-link")
-    .forEach(link => {
-        if (link.getAttribute("href") === currentPath) {
-            link.classList.remove("bg-slate-800");
-            link.classList.add("bg-blue-600");
-        }
-    });
 
 /* ================================================= */
 /* ESCAPE HTML */
@@ -326,10 +305,7 @@ async function loadOptions() {
     } catch (error) {
         console.error(error);
 
-        alert(
-            error.message ||
-            "Không thể tải danh sách tài xế và xe."
-        );
+        UI.notify(error.message || "Không thể tải danh sách tài xế và xe.", "error");
     }
 }
 
@@ -630,9 +606,7 @@ async function createSchedule() {
         !tuyenDuong ||
         !gioBatDau
     ) {
-        alert(
-            "Vui lòng chọn tài xế, xe, tuyến đường và giờ bắt đầu."
-        );
+        UI.notify("Vui lòng chọn tài xế, xe, tuyến đường và giờ bắt đầu.", "warning");
 
         return;
     }
@@ -682,10 +656,7 @@ async function createSchedule() {
             );
         }
 
-        alert(
-            json.message ||
-            "Đã tạo lịch chạy."
-        );
+        UI.notify(json.message || "Đã tạo lịch chạy.", "success");
 
         document
             .getElementById("tuyen_duong")
@@ -704,10 +675,7 @@ async function createSchedule() {
     } catch (error) {
         console.error(error);
 
-        alert(
-            error.message ||
-            "Không thể tạo lịch chạy."
-        );
+        UI.notify(error.message || "Không thể tạo lịch chạy.", "error");
 
     } finally {
         btn.innerText = "Tạo lịch chạy";
@@ -786,20 +754,14 @@ async function updateSchedule(
             );
         }
 
-        alert(
-            json.message ||
-            "Đã cập nhật lịch chạy."
-        );
+        UI.notify(json.message || "Đã cập nhật lịch chạy.", "success");
 
         await loadSchedules();
 
     } catch (error) {
         console.error(error);
 
-        alert(
-            error.message ||
-            "Không thể cập nhật lịch chạy."
-        );
+        UI.notify(error.message || "Không thể cập nhật lịch chạy.", "error");
 
     } finally {
         btn.innerText = "Cập nhật";
@@ -812,8 +774,9 @@ async function updateSchedule(
 /* HỦY LỊCH */
 /* ================================================= */
 async function cancelSchedule(id) {
-    const confirmed = confirm(
-        "Bạn chắc chắn muốn hủy lịch này? Lịch đã hủy sẽ không thể kích hoạt lại."
+    const confirmed = await UI.confirmDialog(
+        "Bạn chắc chắn muốn hủy lịch này? Lịch đã hủy sẽ không thể kích hoạt lại.",
+        { title: "Hủy lịch chạy", confirmLabel: "Hủy lịch" }
     );
 
     if (!confirmed) return;
@@ -843,20 +806,14 @@ async function cancelSchedule(id) {
             );
         }
 
-        alert(
-            json.message ||
-            "Đã hủy lịch chạy."
-        );
+        UI.notify(json.message || "Đã hủy lịch chạy.", "success");
 
         await loadSchedules();
 
     } catch (error) {
         console.error(error);
 
-        alert(
-            error.message ||
-            "Không thể hủy lịch chạy."
-        );
+        UI.notify(error.message || "Không thể hủy lịch chạy.", "error");
     }
 }
 
@@ -894,5 +851,7 @@ async function initScheduler() {
 initScheduler();
 </script>
 
+    </div>
+</div>
 </body>
 </html>

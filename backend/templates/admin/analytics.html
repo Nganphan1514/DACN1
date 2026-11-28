@@ -2,38 +2,25 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
+    <meta name="theme-color" content="#14211B">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Thống kê hệ thống</title>
+    <title>Thống kê hệ thống · Sleep Alert</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/design-system.css') }}">
+    <script src="{{ url_for('static', filename='js/sleep-alert-theme.js') }}"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="{{ url_for('static', filename='js/ui-kit.js') }}"></script>
 </head>
 
-<body class="bg-slate-950 text-white min-h-screen">
+<body class="ds-body sa-workspace bg-slate-950 text-white min-h-screen">
 
-<nav class="sticky top-0 z-50 bg-slate-950/90 backdrop-blur border-b border-slate-800">
-    <div class="max-w-7xl mx-auto px-4 py-4">
-        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-                <h1 class="text-xl font-bold">DACN1 Admin</h1>
-                <p class="text-sm text-slate-400">Hệ thống giám sát tài xế bằng AI</p>
-            </div>
-
-            <div class="flex gap-2 overflow-x-auto pb-1">
-                <a href="/admin/dashboard" class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">Dashboard</a>
-                <a href="/admin/drivers" class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">Tài xế</a>
-                <a href="/admin/vehicles" class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">Xe</a>
-                <a href="/admin/scheduler" class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">Lịch chạy</a>
-                <a href="/admin/reports" class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">Báo cáo</a>
-                <a href="/admin/analytics" class="admin-link px-4 py-2 rounded-xl bg-slate-800 hover:bg-blue-600 text-sm whitespace-nowrap">Thống kê</a>
-                <a href="/logout" class="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-sm whitespace-nowrap">Đăng xuất</a>
-            </div>
-        </div>
-    </div>
-</nav>
+<div class="ds-shell">
+    {% include 'shared/admin_navigation.html' %}
+    <div class="sa-admin-content">
 
 <main class="max-w-7xl mx-auto p-6">
 
-    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+    <div class="sa-page-heading flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
         <div>
             <h1 class="text-3xl font-black">Thống kê hệ thống</h1>
             <p class="text-slate-400 mt-1">Phân tích cảnh báo AI, mức độ rủi ro và báo cáo sự cố</p>
@@ -46,7 +33,7 @@
     </div>
 
     <!-- CARDS -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+    <div class="sa-metrics grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div class="bg-slate-900 rounded-3xl p-5 border border-slate-800 shadow-xl">
             <p class="text-slate-400 text-sm">🚨 Tổng cảnh báo</p>
             <h2 id="tong_canh_bao" class="text-4xl font-black mt-2 text-red-400">0</h2>
@@ -136,12 +123,6 @@
 <script>
 const currentPath = window.location.pathname;
 
-document.querySelectorAll(".admin-link").forEach(link => {
-    if (link.getAttribute("href") === currentPath) {
-        link.classList.remove("bg-slate-800");
-        link.classList.add("bg-blue-600");
-    }
-});
 
 let sleepChart = null;
 let reportChart = null;
@@ -177,7 +158,7 @@ async function loadAnalytics() {
 
     } catch (error) {
         console.error("Analytics error:", error);
-        alert("Không thể tải dữ liệu thống kê.");
+        UI.notify("Không thể tải dữ liệu thống kê.", "error");
     }
 }
 
@@ -353,5 +334,7 @@ function renderReportTypes(rows) {
 loadAnalytics();
 </script>
 
+    </div>
+</div>
 </body>
 </html>
